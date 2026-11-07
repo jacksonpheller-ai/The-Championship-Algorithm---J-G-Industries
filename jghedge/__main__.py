@@ -97,6 +97,11 @@ def cmd_replay(args):
     build_standalone()
 
 
+def cmd_ingest(args):
+    from . import shared
+    print("shared ledger:", shared.ingest(args.season))
+
+
 def cmd_site(args):
     from .site import build_standalone
     print(build_standalone())
@@ -112,7 +117,7 @@ def main():
     p.add_argument("--no-props", action="store_true")
     p.add_argument("--no-ledger", action="store_true")
     p.set_defaults(fn=cmd_run)
-    for name, fn in (("update", cmd_update), ("backtest", cmd_backtest), ("grade", cmd_grade)):
+    for name, fn in (("update", cmd_update), ("backtest", cmd_backtest), ("grade", cmd_grade), ("ingest", cmd_ingest)):
         q = sub.add_parser(name)
         q.add_argument("--season", type=int, default=CURRENT_SEASON)
         q.set_defaults(fn=fn)

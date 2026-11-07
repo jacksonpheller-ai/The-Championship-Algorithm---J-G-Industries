@@ -18,26 +18,47 @@ def leg_multiplier(payoff: np.ndarray, dec: float) -> np.ndarray:
 
 def build_parlays(legs: list[dict], payoffs: dict[str, np.ndarray], max_legs: int = 4,
                   pool: int = 14, min_leg_prob: float = 0.45) -> list[dict]:
+    """Enumerate cross-game parlays.
+
+    Legs from different games are independent, so the parlay's expected multiplier is the
+    product of each leg's expected multiplier,  E[M] = prod(p_win_i * dec_i + p_push_i),  and
+    EV = E[M] - 1. Using this closed form instead of the simulated hit rate removes the
+    winner's-curse bias of picking the combos the simulation happened to flatter. The joint
+    payoff vector is still built from the simulation for the Kelly optimiser.
+    """
     cand = [l for l in legs if l["ev"] > 0 and l["p_final"] >= min_leg_prob]
     cand.sort(key=lambda l: l["ev"] * np.sqrt(l["p_final"]), reverse=True)
     cand = cand[:pool]
+    stats = {}
+    for l in cand:
+        pay = payoffs[l["id"]]
+        stats[l["id"]] = (float(np.mean(pay > 0)), float(np.mean(pay == 0)))
     out = []
     for k in range(2, max_legs + 1):
         for combo in combinations(cand, k):
             games = {l["game_id"] for l in combo}
             if len(games) < k:
                 continue
-            mult = np.ones_like(payoffs[combo[0]["id"]], dtype=float)
-            dec = 1.0
+            e_mult, p_hit, dec = 1.0, 1.0, 1.0
             for l in combo:
-                mult *= leg_multiplier(payoffs[l["id"]], l["dec"])
+                pw, pp = stats[l["id"]]
+                e_mult *= pw * l["dec"] + pp
+                p_hit *= pw + pp
                 dec *= l["dec"]
-            pay = mult - 1
-            ev = float(pay.mean())
+            ev = e_mult - 1
             if ev <= 0:
                 continue
+            mult = np.ones_like(payoffs[combo[0]["id"]], dtype=float)
+            for l in combo:
+                mult *= leg_multiplier(payoffs[l["id"]], l["dec"])
+            pay = mult - 1
+            # scale the simulated payoff so its mean matches the closed-form EV
+            # (keeps the joint structure for sizing, removes the sampling bias from the level)
+            sim_ev = float(pay.mean())
+            if sim_ev > -1:
+                pay = pay * ((1 + ev) / (1 + sim_ev)) + ((1 + ev) / (1 + sim_ev) - 1)
             out.append({"legs": [l["id"] for l in combo], "n_legs": k, "dec": dec,
-                        "p_hit": float(np.mean(mult > 1.0)), "ev": ev, "payoff": pay})
+                        "p_hit": p_hit, "ev": ev, "payoff": pay, "p_hit_sim": float(np.mean(mult > 1.0))})
     return out
 
 

@@ -39,8 +39,20 @@ def collect(f: Fetcher, eng: Engine, season: int, min_day: int = 7, n: int = 400
     p = eng.params
     rng = np.random.default_rng(11)
 
+    providers = [provider] if isinstance(provider, str) else list(provider)
+
+    def fetch(gid):
+        for prov in providers:
+            try:
+                got = espn.props(f, gid, prov, ttl=None)
+            except Exception:  # noqa: BLE001
+                got = []
+            if got:
+                return got
+        return []
+
     with ThreadPoolExecutor(8) as ex:
-        lines = dict(zip(gdf["id"], ex.map(lambda gid: espn.props(f, gid, provider, ttl=None), gdf["id"])))
+        lines = dict(zip(gdf["id"], ex.map(fetch, gdf["id"])))
     rows = []
     for D, day in gdf.groupby("date"):
         st = eng.state(D, season)

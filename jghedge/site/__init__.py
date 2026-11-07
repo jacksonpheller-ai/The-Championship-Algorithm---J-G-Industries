@@ -16,9 +16,22 @@ def _load(name: str) -> dict:
     return json.loads(p.read_text()) if p.exists() else {}
 
 
+REPO_URL = "https://github.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries"
+PAGES_URL = "https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/"
+
+
+def _recent_results(n: int = 7) -> dict:
+    d = SITE_DATA / "results"
+    if not d.exists():
+        return {}
+    files = sorted(p for p in d.glob("*.json") if p.stem != "index")[-n:]
+    return {p.stem: json.loads(p.read_text()) for p in files}
+
+
 def render() -> str:
     data = {"slate": _load("latest.json"), "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
-            "replay": _load("replay_open.json")}
+            "replay": _load("replay_open.json"), "results": _recent_results(), "shared": _load("shared_ledger.json") or None,
+            "repo": REPO_URL, "pages_url": PAGES_URL}
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return TEMPLATE.read_text(encoding="utf-8").replace('"__JG_DATA__"', blob)
 

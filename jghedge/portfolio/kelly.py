@@ -16,6 +16,7 @@ PROFILES = {
     "conservative": {"kelly": 0.15, "max_bet": 0.03, "max_total": 0.12, "label": "Conservative (0.15× Kelly)"},
     "balanced": {"kelly": 0.25, "max_bet": 0.05, "max_total": 0.20, "label": "Balanced (¼ Kelly)"},
     "aggressive": {"kelly": 0.50, "max_bet": 0.08, "max_total": 0.35, "label": "Aggressive (½ Kelly)"},
+    "max_growth": {"kelly": 1.00, "max_bet": 0.15, "max_total": 0.50, "label": "Max growth (full Kelly)"},
 }
 
 

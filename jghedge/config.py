@@ -50,7 +50,7 @@ DEFAULT_PARAMS: dict = {
     "total_sd": 18.5,                  # (fit)
     "margin_total_corr": 0.0,
     # --- live line timing (fit on opening lines, model without injury look-ahead) ---
-    "w_margin_early": 0.25,            # model weight vs a morning line (>=6h to tip)
+    "w_margin_early": 0.10,            # model weight vs a morning line (>=6h to tip)
     "w_total_early": 0.30,
     # --- props -------------------------------------------------------------
     "w_model_vs_market_props": 0.15,

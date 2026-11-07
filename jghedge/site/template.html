@@ -164,6 +164,9 @@ select, .filters input[type="search"] { font: 14px var(--f-body); padding: 7px 1
 .chart .hit { fill: transparent; cursor: crosshair; }
 .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--paper); font: 12px var(--f-mono); padding: 6px 8px; border-radius: 4px; z-index: 20; white-space: nowrap; }
 .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 18px; }
+.share { display: grid; gap: 10px; }
+.sharerow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.sharerow span { overflow-wrap: anywhere; min-width: 0; flex: 1 1 260px; }
 .note { font-size: 13px; color: var(--ink-2); border-left: 2px solid var(--brass); padding: 2px 0 2px 12px; max-width: 75ch; }
 .prose { max-width: 72ch; display: grid; gap: 12px; }
 .prose ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
@@ -228,6 +231,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     <div>
       <h3>Tonight's calls</h3>
       <div class="calls" id="calls"></div>
+    </div>
+    <div class="panel share">
+      <h3>Share this desk</h3>
+      <p class="small muted">Both links show the latest committed slate from the public repository. Send either one to a friend.</p>
+      <div class="sharerow"><span class="mono small" id="link1">https://raw.githack.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/claude/wonderful-bell-w1m2r1/docs/index.html</span><button class="btn ghost" type="button" data-copy="link1">Copy</button></div>
+      <div class="sharerow"><span class="mono small" id="link2">https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/</span><button class="btn ghost" type="button" data-copy="link2">Copy</button></div>
+      <p class="small muted">The second link works once GitHub Pages is switched on for the repository (Settings → Pages → branch, /docs folder).</p>
     </div>
     <p class="note" id="lockNote">The highest-probability bet is rarely the best bet. Big favourites win often but the price usually pays less than the risk. Every call here has to clear a positive expected value first; the Lock is the most likely winner among those.</p>
   </section>
@@ -625,6 +635,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     });
   }
 
+  document.querySelectorAll("[data-copy]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var t = $(b.dataset.copy).textContent;
+      var done = function () { b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy"; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { fallbackCopy(t); done(); }); else { fallbackCopy(t); done(); }
+    });
+  });
   renderDesk(); renderGames(); renderProps(); renderRecord(); renderReplay();
 })();
 </script>

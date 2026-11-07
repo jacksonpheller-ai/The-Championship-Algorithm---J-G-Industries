@@ -96,6 +96,23 @@ def test_game_sim_centres_and_settles():
     assert abs(np.mean(ml > 0) - 0.66) < 0.01
 
 
+def test_discrete_allocator_small_bankroll():
+    from jghedge.portfolio import discrete
+    rng = np.random.default_rng(6)
+    n = 30000
+    R = np.column_stack([np.where(rng.random(n) < p, d - 1, -1.0) for p, d in ((0.58, 1.91), (0.52, 1.91), (0.40, 1.91))])
+    # $10 at quarter Kelly with $0.50 units: a 5% unit is too big for a small edge -> few or no bets
+    u = discrete.discrete_allocate(R, 10, 0.5, 0.25, 0.05, 0.20)
+    assert u.sum() <= 1 and u[2] == 0
+    # full Kelly on $100: best bet gets the most units, negative-EV bet gets none
+    u = discrete.discrete_allocate(R, 100, 0.5, 1.0, 0.15, 0.5)
+    assert u[0] > u[1] >= 0 and u[2] == 0
+    assert u.max() * 0.5 <= 0.15 * 100 + 1e-9
+    mu, cov = discrete.moments(R)
+    q = discrete.quadratic_allocate(mu, cov, 100, 0.5, 1.0, 0.15, 0.5)
+    assert abs(int(q.sum()) - int(u.sum())) <= 2          # quadratic greedy tracks the exact one
+
+
 def test_ledger_settlement():
     games = {"g": {"home_score": 110, "away_score": 104}}
     players = {("g", "7"): {"pts": 22, "reb": 5}}

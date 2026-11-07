@@ -65,6 +65,8 @@ def cmd_run(args):
         ledger.grade(CURRENT_SEASON)
     res["ledger"] = {k: v for k, v in ledger.summary().items() if k != "recent"}
     pipeline.write_outputs(res)
+    from . import results
+    results.publish(CURRENT_SEASON)
     if res["games"] and not args.no_ledger:
         n = ledger.record(res)
         print(f"Ledger: recorded {n} bets for {res['date']}")
@@ -80,6 +82,8 @@ def cmd_grade(args):
     history.update_season(Fetcher(), args.season)
     print("graded", ledger.grade(args.season))
     ledger.publish()
+    from . import results
+    results.publish(args.season)
 
 
 def cmd_replay(args):

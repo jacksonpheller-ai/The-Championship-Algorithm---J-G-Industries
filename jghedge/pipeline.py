@@ -20,7 +20,7 @@ from .model.props import COMBOS, PropModel
 from .backtest import p_home_win
 from .model.simulate import GameSim, win_prob
 from .model.situational import schedule_features
-from .portfolio import kelly
+from .portfolio import discrete, kelly
 from .portfolio.parlay import build_parlays, same_game_fair, select_parlays
 from .teams import TEAMS
 
@@ -327,7 +327,9 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     lock = max(kept, key=lambda b: (b["p_final"], b["ev"])) if kept else None
     if lock is not None and lock not in singles:
         singles.append(lock)
-    parlays_all = build_parlays(singles, payoffs)
+    parlays_all = build_parlays(singles, payoffs, max_legs=int(params.get("parlay_max_legs", 4)),
+                                pool=int(params.get("parlay_pool", 14)),
+                                min_leg_prob=float(params.get("parlay_min_leg_prob", 0.45)))
     parlays = select_parlays(parlays_all, int(params.get("max_parlays", 6)))
     for i, p in enumerate(parlays):
         p["id"] = f"parlay-{i + 1}"
@@ -345,6 +347,9 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         items = [{"ref": i, "frac": _r(x, 5)} for i, x in zip(ids, frac) if x >= 0.0005]
         allocations[name] = {**{k: v for k, v in prof.items()}, "items": items,
                              "risk": {k: _r(v, 4) for k, v in kelly.risk_summary(R, frac).items()}}
+    mu, cov = discrete.moments(R)
+    portfolio = {"ids": ids, "mu": [round(float(x), 5) for x in mu],
+                 "cov": [[round(float(x), 6) for x in row] for row in cov]}
     for b, fk in zip(singles, full[:len(singles)]):
         b["kelly_full"] = float(fk)
     for p, fk in zip(parlays, full[len(singles):]):
@@ -399,6 +404,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         "parlays": [{k: (_r(v, 4) if isinstance(v, float) else v) for k, v in p.items() if k != "payoff"}
                     for p in parlays],
         "same_game_fair": sgp, "allocations": allocations, "picks": picks, "teams": teams_tbl,
+        "portfolio": portfolio, "_R": R,
         "params": {k: params[k] for k in ("margin_sd", "total_sd", "w_ratings", "w_model_vs_market_margin",
                                           "w_model_vs_market_total", "w_model_vs_market_props", "hca_points",
                                           "min_ev", "max_edge_prob")},
@@ -411,6 +417,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
 def write_outputs(result: dict) -> None:
     SITE_DATA.mkdir(parents=True, exist_ok=True)
     (SITE_DATA / "slates").mkdir(exist_ok=True)
+    result = {k: v for k, v in result.items() if not k.startswith("_")}
     txt = json.dumps(result, separators=(",", ":"), default=_json_default)
     (SITE_DATA / "latest.json").write_text(txt)
     # dated snapshot without the full props board (keeps the repo small)

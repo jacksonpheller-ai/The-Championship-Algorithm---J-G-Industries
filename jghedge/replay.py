@@ -22,6 +22,7 @@ from .data.espn import PLAYER_COLS
 from .data.http import Fetcher
 from .ledger import _settle_leg
 from .loader import build_engine
+from .portfolio import discrete, kelly
 
 
 def _settle(item, bets, parlays, games, players):
@@ -48,7 +49,8 @@ def _settle(item, bets, parlays, games, players):
 
 def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll: float = 1000.0,
            n_sims: int = 6000, verbose: bool = True, engine=None, overrides: dict | None = None,
-           with_parlays: bool = True) -> dict:
+           with_parlays: bool = True, small_start: float = 10.0, small_unit: float = 0.5,
+           small_profiles: tuple = ("balanced", "aggressive", "max_growth")) -> dict:
     f = Fetcher()
     eng = engine or build_engine(f, [season - 2, season - 1, season])
     recs = history.load_season(season)
@@ -74,12 +76,16 @@ def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll
     peak = bankroll
     max_dd = 0.0
     nights, rows = [], []
+    # small-bankroll tracks: whole-unit stakes, no fractional positions
+    small = {k: {"bank": small_start, "peak": small_start, "max_dd": 0.0, "bets": 0, "wins": 0, "bust": None}
+             for k in small_profiles}
     for i, d in enumerate(sorted(by_day)):
         ov = dict(overrides or {})
+        seed_offset = int(ov.pop("_seed_offset", 0))
         if not with_parlays:
             ov["max_parlays"] = 0
         res = pipeline.run(day=d, n_sims=n_sims, update=False, with_props=False, verbose=False,
-                           engine=eng, slate=by_day[d], injuries={}, replay=True, season=season, seed=i,
+                           engine=eng, slate=by_day[d], injuries={}, replay=True, season=season, seed=i + seed_offset,
                            overrides=ov, hours_override=10.0 if lines == "open" else 0.5)
         bets = {b["id"]: b for b in res["bets"]}
         parlays = {p["id"]: p for p in res["parlays"]}
@@ -98,8 +104,32 @@ def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll
         bank *= 1 + ret
         peak = max(peak, bank)
         max_dd = max(max_dd, 1 - bank / peak)
-        nights.append({"date": str(d), "games": len(by_day[d]), "bets": len(items), "staked": round(staked, 4),
-                       "ret": round(ret, 5), "bank": round(bank, 2)})
+        night = {"date": str(d), "games": len(by_day[d]), "bets": len(items), "staked": round(staked, 4),
+                 "ret": round(ret, 5), "bank": round(bank, 2)}
+        R, ids = res.get("_R"), res.get("portfolio", {}).get("ids", [])
+        for k, trk in small.items():
+            prof = kelly.PROFILES[k]
+            if trk["bust"] is not None or R is None or not ids or trk["bank"] < small_unit:
+                if trk["bust"] is None and trk["bank"] < small_unit:
+                    trk["bust"] = str(d)
+                night[f"small_{k}"] = round(trk["bank"], 2)
+                continue
+            units = discrete.discrete_allocate(R, trk["bank"], small_unit, prof["kelly"], prof["max_bet"], prof["max_total"])
+            pnl = 0.0
+            for ref, u_n in zip(ids, units):
+                if u_n <= 0:
+                    continue
+                r, u = _settle({"ref": ref}, bets, parlays, games, players)
+                if r is None:
+                    continue
+                trk["bets"] += 1
+                trk["wins"] += r == "win"
+                pnl += u_n * small_unit * u
+            trk["bank"] = round(trk["bank"] + pnl, 2)
+            trk["peak"] = max(trk["peak"], trk["bank"])
+            trk["max_dd"] = max(trk["max_dd"], 1 - trk["bank"] / trk["peak"])
+            night[f"small_{k}"] = trk["bank"]
+        nights.append(night)
         if verbose and i % 20 == 0:
             print(f"  {d}: bankroll {bank:,.0f} ({len(nights)} nights)")
     df = pd.DataFrame(rows)
@@ -108,7 +138,9 @@ def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll
            "nights_bet": int(sum(1 for n in nights if n["bets"])),
            "winning_nights": int(sum(1 for n in nights if n["ret"] > 0)),
            "losing_nights": int(sum(1 for n in nights if n["ret"] < 0)),
-           "max_drawdown": round(max_dd, 4), "nightly": nights}
+           "max_drawdown": round(max_dd, 4), "nightly": nights,
+           "small": {k: {"start": small_start, "unit": small_unit, "end": v["bank"], "bets": v["bets"], "wins": v["wins"],
+                         "max_drawdown": round(v["max_dd"], 4), "bust_date": v["bust"]} for k, v in small.items()}}
     if len(df):
         settled = df[df["result"].isin(["win", "loss"])]
         out.update({

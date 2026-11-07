@@ -50,7 +50,7 @@ DEFAULT_PARAMS: dict = {
     "total_sd": 18.5,                  # (fit)
     "margin_total_corr": 0.0,
     # --- live line timing (fit on opening lines, model without injury look-ahead) ---
-    "w_margin_early": 0.10,            # model weight vs a morning line (>=6h to tip)
+    "w_margin_early": 0.0,             # spreads/ML: 0 = information only, never bet (fit)
     "w_total_early": 0.30,
     # --- props -------------------------------------------------------------
     "w_model_vs_market_props": 0.15,
@@ -61,6 +61,8 @@ DEFAULT_PARAMS: dict = {
     "prop_minutes_cv": 0.14,
     # --- portfolio -------------------------------------------------------
     "min_ev": 0.015,                   # min expected value per $ to consider a bet
+    "prop_min_ev": 0.02,               # props: held-out ROI is positive only in the 2-6% EV band
+    "prop_max_ev": 0.06,               # larger prop edges were stale lines / overfit tails out of sample
     "max_edge_prob": 0.12,             # edges above this are treated as stale data
     "n_sims": 20000,
 }

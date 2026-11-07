@@ -297,13 +297,19 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     # ------------------------------------------------------- portfolio
     min_ev, max_edge = params["min_ev"], params["max_edge_prob"]
 
+    no_margin = params.get("w_margin_early", 0) <= 0 and params.get("w_model_vs_market_margin", 0) <= 0
+
     def eligible(b):
         if b["ev"] < min_ev or b["p_final"] < 0.25:
             return False
+        if no_margin and b["kind"] in ("spread", "moneyline"):
+            return False   # spreads/moneylines are shown for information only (see backtest)
         if b["edge"] is not None and abs(b["edge"]) > max_edge:
             return False   # gap this large usually means stale line or late news
         if b["kind"] == "prop":
             if b.get("play_prob", 1) < 0.85:
+                return False
+            if not (params.get("prop_min_ev", 0.02) <= b["ev"] <= params.get("prop_max_ev", 0.06)):
                 return False
             # signal agreement: the raw projection must also favour this side
             raw = b.get("p_model_raw")

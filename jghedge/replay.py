@@ -50,7 +50,7 @@ def _settle(item, bets, parlays, games, players):
 def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll: float = 1000.0,
            n_sims: int = 6000, verbose: bool = True, engine=None, overrides: dict | None = None,
            with_parlays: bool = True, small_start: float = 10.0, small_unit: float = 0.5,
-           small_profiles: tuple = ("balanced", "aggressive", "max_growth")) -> dict:
+           small_profiles: tuple = ("balanced", "aggressive", "max_growth"), small_units: tuple = (0.5, 0.1)) -> dict:
     f = Fetcher()
     eng = engine or build_engine(f, [season - 2, season - 1, season])
     recs = history.load_season(season)
@@ -77,8 +77,9 @@ def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll
     max_dd = 0.0
     nights, rows = [], []
     # small-bankroll tracks: whole-unit stakes, no fractional positions
-    small = {k: {"bank": small_start, "peak": small_start, "max_dd": 0.0, "bets": 0, "wins": 0, "bust": None}
-             for k in small_profiles}
+    small = {(f"{k}@{u:g}" if u != small_units[0] else k): {"bank": small_start, "peak": small_start, "max_dd": 0.0,
+             "bets": 0, "wins": 0, "bust": None, "profile": k, "unit": u}
+             for u in small_units for k in small_profiles}
     for i, d in enumerate(sorted(by_day)):
         ov = dict(overrides or {})
         seed_offset = int(ov.pop("_seed_offset", 0))
@@ -108,13 +109,14 @@ def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll
                  "ret": round(ret, 5), "bank": round(bank, 2)}
         R, ids = res.get("_R"), res.get("portfolio", {}).get("ids", [])
         for k, trk in small.items():
-            prof = kelly.PROFILES[k]
-            if trk["bust"] is not None or R is None or not ids or trk["bank"] < small_unit:
-                if trk["bust"] is None and trk["bank"] < small_unit:
+            prof = kelly.PROFILES[trk["profile"]]
+            su = trk["unit"]
+            if trk["bust"] is not None or R is None or not ids or trk["bank"] < su:
+                if trk["bust"] is None and trk["bank"] < su:
                     trk["bust"] = str(d)
                 night[f"small_{k}"] = round(trk["bank"], 2)
                 continue
-            units = discrete.discrete_allocate(R, trk["bank"], small_unit, prof["kelly"], prof["max_bet"], prof["max_total"])
+            units = discrete.discrete_allocate(R, trk["bank"], su, prof["kelly"], prof["max_bet"], prof["max_total"])
             pnl = 0.0
             for ref, u_n in zip(ids, units):
                 if u_n <= 0:
@@ -124,7 +126,7 @@ def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll
                     continue
                 trk["bets"] += 1
                 trk["wins"] += r == "win"
-                pnl += u_n * small_unit * u
+                pnl += u_n * su * u
             trk["bank"] = round(trk["bank"] + pnl, 2)
             trk["peak"] = max(trk["peak"], trk["bank"])
             trk["max_dd"] = max(trk["max_dd"], 1 - trk["bank"] / trk["peak"])
@@ -139,8 +141,8 @@ def replay(season: int, lines: str = "open", profile: str = "balanced", bankroll
            "winning_nights": int(sum(1 for n in nights if n["ret"] > 0)),
            "losing_nights": int(sum(1 for n in nights if n["ret"] < 0)),
            "max_drawdown": round(max_dd, 4), "nightly": nights,
-           "small": {k: {"start": small_start, "unit": small_unit, "end": v["bank"], "bets": v["bets"], "wins": v["wins"],
-                         "max_drawdown": round(v["max_dd"], 4), "bust_date": v["bust"]} for k, v in small.items()}}
+           "small": {k: {"start": small_start, "unit": v["unit"], "profile": v["profile"], "end": v["bank"], "bets": v["bets"],
+                         "wins": v["wins"], "max_drawdown": round(v["max_dd"], 4), "bust_date": v["bust"]} for k, v in small.items()}}
     if len(df):
         settled = df[df["result"].isin(["win", "loss"])]
         out.update({

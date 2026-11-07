@@ -25,25 +25,25 @@
     "margin_sd": 13.804,
     "total_sd": 17.791,
     "margin_total_corr": -0.001,
-    "w_margin_early": 0.1,
+    "w_margin_early": 0.0,
     "w_total_early": 0.3,
     "w_model_vs_market_props": 0.45,
     "prop_stack": [
-      0.0428,
-      0.9114,
-      -0.1486
+      0.2231,
+      0.7697,
+      -0.0935
     ],
     "prop_bias": {
-      "ast": 0.9904,
-      "blk": 0.9141,
-      "fg3m": 0.9764,
-      "pa": 0.9732,
-      "pr": 0.9108,
-      "pra": 0.9588,
-      "pts": 0.9482,
-      "ra": 1.0052,
-      "reb": 0.9602,
-      "stl": 0.9214
+      "ast": 0.904,
+      "blk": 0.9756,
+      "fg3m": 0.9277,
+      "pa": 0.9145,
+      "pr": 0.9066,
+      "pra": 0.9009,
+      "pts": 0.9403,
+      "ra": 0.931,
+      "reb": 0.9387,
+      "stl": 0.9965
     },
     "margin_resid_q": [
       -52.589,
@@ -454,6 +454,8 @@
     "prop_minutes_cv": 0.14,
     "min_ev": 0.015,
     "max_edge_prob": 0.12,
-    "n_sims": 20000
+    "n_sims": 20000,
+    "prop_min_ev": 0.02,
+    "prop_max_ev": 0.06
   }
 }

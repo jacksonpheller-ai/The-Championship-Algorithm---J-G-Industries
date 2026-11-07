@@ -60,7 +60,7 @@ DEFAULT_PARAMS: dict = {
     "total_resid_q": None,
     "prop_minutes_cv": 0.14,
     # --- portfolio -------------------------------------------------------
-    "min_ev": 0.015,                   # min expected value per $ to consider a bet
+    "min_ev": 0.03,                    # game totals / parlay legs: min EV per $ (fit: 3% beat 1.5% and 4.5%)
     "prop_min_ev": 0.02,               # props: held-out ROI is positive only in the 2-6% EV band
     "prop_max_ev": 0.06,               # larger prop edges were stale lines / overfit tails out of sample
     "max_edge_prob": 0.12,             # edges above this are treated as stale data

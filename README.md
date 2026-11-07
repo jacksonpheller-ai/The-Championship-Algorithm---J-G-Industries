@@ -20,7 +20,7 @@ GitHub runs scheduled jobs only on the default branch (this branch is the defaul
 ## Using it
 
 1. **Bankroll and smallest bet.** Type the bankroll ($10 works) and the smallest stake your book allows ($0.50 by default).
-2. **Risk profile.** Conservative, Balanced, Aggressive or Max growth. A profile is a fraction of the Kelly stake; Max growth is full Kelly and is the only setting that will usually bet a $10 bankroll, because every $0.50 unit is 5% of it.
+2. **Risk profile.** Conservative, Balanced, Aggressive or Max growth. A profile is a fraction of the Kelly stake. With $10 and $0.50 units each unit is 5% of the bankroll, so Balanced rarely bets; choose $0.10 units if your book allows them. Max growth is full Kelly: fastest compounding and the most likely to lose most of the money.
 3. **Ticket.** The optimiser fills in whole-unit stakes across singles and cross-game parlays at once. Untick a bet or type your own stake and the rest re-balances. Qualifying props can be added from the Props tab.
 4. **Parlays.** Three cards: the safest, the best expected value, and a longshot. All legs come from different games.
 5. **After you bet,** press *I placed these bets*. They are stored in your browser and graded automatically when the results files are published. *Log to shared record* opens a pre-filled GitHub issue; the nightly job grades it and closes it with the result, so both of us see one shared record.
@@ -44,11 +44,16 @@ Game model vs the closing line, final-margin RMSE: 2024-25 14.01 vs 13.73, 2025-
 
 Full nightly pipeline replayed at the morning lines, props excluded, balanced profile from $1,000, closed-form parlays, averaged over two random seeds (see `data/replay_open.json` for the published run):
 
-RESULTS_TABLE
+| Season | Nights | Bets | ROI on money staked | $1,000 became | Worst drawdown | $10 at ¼ Kelly, $0.50 units | $10 full Kelly, $0.50 | $10 full Kelly, $0.10 |
+|---|---|---|---|---|---|---|---|---|
+| 2023-24 | 162 | 322 | +5.0% | $1,157 | 27% | $9.50 | $3.24 | $10.06 |
+| 2024-25 | 167 | 227 | +16.8% | $1,518 | 17% | $13.65 | $44.31 | $43.14 |
+| 2025-26 | 168 | 272 | +0.0% | $958 | 41% | $9.23 | $3.09 | $4.45 |
+| 2026-27 (to date) | 17 | 60 | +3.8% | $1,018 | 7% | $9.95 | $8.18 | $9.73 |
 
 Player props: on 1,754 pre-tip DraftKings lines this season, overs hit 44.9% against a 49.0% implied rate; the calibrated blend returned +5.2% on 97 held-out bets. Small sample.
 
-What this means: the repeatable edges are the props market's lean to overs, morning lines that have not absorbed the ratings, and injury news. They are small, and single seasons swing by hundreds of dollars on a $1,000 bankroll from luck alone. A $10 bankroll compounds the same percentages with far lumpier stakes.
+What this means: the repeatable edges are game totals and parlays of the strongest totals against morning lines, and the props market's lean to overs. Spreads and moneylines lost in two of three replayed seasons and are no longer bet. Edges are small, and single seasons swing by hundreds of dollars on a $1,000 bankroll from luck alone (re-running a season with different random draws moves the result by $50–150). A $10 bankroll compounds the same percentages with far lumpier stakes: in the replays, $10 at Balanced with $0.10 units ended most seasons between $9 and $16, and full Kelly with $0.50 units anywhere from $3 to $44.
 
 Reports: `data/backtest_report.json`, `data/prop_backtest.json`, `data/replay_open.json`.
 

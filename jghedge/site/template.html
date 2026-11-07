@@ -395,7 +395,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     ].map(function (t) { return '<div class="tile"><div class="k">' + t[0] + '</div><div class="v">' + t[1] + '</div><div class="s">' + t[2] + "</div></div>"; }).join("");
     var small = B <= 50;
     $("smallNote").hidden = !small;
-    if (small) $("smallNote").textContent = "At " + usd(B) + " each " + usd(u) + " unit is " + pct(u / B, 0) + " of the bankroll, so the optimiser concentrates into a few positions and skips small edges. Money you can afford to lose entirely can use Max growth; it is the fastest-compounding setting and also the one most likely to bust.";
+    if (small) $("smallNote").textContent = "At " + usd(B) + " each " + usd(u) + " unit is " + pct(u / B, 0) + " of the bankroll, so the optimiser concentrates into a few positions and skips small edges. If your book takes $0.10 bets, choose that: it is the only way a bankroll this size can bet at sensible sizes (in the replays, $10 at Balanced with $0.10 units ended most seasons between $9 and $16; Max growth with $0.50 units ended between $3 and $44). Money you can afford to lose entirely can use Max growth.";
     if (!rows.length) {
       $("ticket").innerHTML = "<tbody><tr><td class='muted'>Nothing clears the bar at this bankroll and profile" + (IDS.length ? ". Try a smaller unit, pass tonight, or " : ".") + (IDS.length && state.profile !== "max_growth" ? "<button class='btn ghost sm' type='button' id='goMax'>see the Max growth ticket</button>" : "") + "</td></tr></tbody>";
       if ($("goMax")) $("goMax").addEventListener("click", function () { var b = document.querySelector("#profiles button[data-p=max_growth]"); if (b) b.click(); });

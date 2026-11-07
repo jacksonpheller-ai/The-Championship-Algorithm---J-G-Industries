@@ -452,7 +452,7 @@
       63.637
     ],
     "prop_minutes_cv": 0.14,
-    "min_ev": 0.015,
+    "min_ev": 0.03,
     "max_edge_prob": 0.12,
     "n_sims": 20000,
     "prop_min_ev": 0.02,

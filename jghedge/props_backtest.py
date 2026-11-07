@@ -232,3 +232,28 @@ def analyse(df: pd.DataFrame) -> dict:
 def save(report: dict) -> None:
     PROPS_FILE.parent.mkdir(parents=True, exist_ok=True)
     PROPS_FILE.write_text(json.dumps(report, indent=1))
+
+
+def fit_and_save(f: Fetcher, eng: Engine, seasons: list[int], params_file) -> dict:
+    """Collect pre-tip prop lines for `seasons` (ESPN providers DraftKings then ESPN BET), fit the
+    stacking model and projection bias on the pooled sample, write them into the params file."""
+    frames = []
+    for s in seasons:
+        df = collect(f, eng, s, provider=["100", "58"], verbose=False)
+        if len(df):
+            df["season"] = s
+            frames.append(df)
+    if not frames:
+        return {}
+    pooled = pd.concat(frames, ignore_index=True)
+    rep = analyse(pooled)
+    rep["seasons"] = seasons
+    rep["rows_by_season"] = {str(s): int((pooled["season"] == s).sum()) for s in seasons}
+    ou = rep["by_kind"].get("ou", {})
+    params = json.loads(params_file.read_text()) if params_file.exists() else {"params": {}}
+    if ou.get("stack_coef_all"):
+        params["params"]["prop_stack"] = ou["stack_coef_all"]
+    params["params"]["prop_bias"] = rep.get("prop_bias", {})
+    params_file.write_text(json.dumps(params, indent=2))
+    save(rep)
+    return rep

@@ -36,7 +36,9 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .mono, td.n, th.n, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
-td.mono { white-space: nowrap; }
+td.mono, td:first-child.season { white-space: nowrap; }
+#replayTbl td:first-child, #folds td:first-child, #openStudy td:first-child { white-space: nowrap; }
+#ledgerTiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 header.mast { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--rule); }
 .mast .row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; padding-block: 12px 4px; }
 .brand { font-family: var(--f-display); font-weight: 700; font-size: 26px; line-height: 1.1; }

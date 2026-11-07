@@ -28,23 +28,15 @@ def cmd_backtest(args):
     from .data.http import Fetcher
     from .loader import build_engine
     f = Fetcher()
-    seasons = [args.season - 2, args.season - 1, args.season]
+    seasons = [int(x) for x in args.seasons.split(",")] if getattr(args, "seasons", None) else \
+        [args.season - 2, args.season - 1, args.season]
     eng = build_engine(f, seasons)
     print("Walk-forward game backtest ...")
     rep, preds = backtest.run(eng, seasons, verbose=True)
     rep = backtest._clean(rep)
-    print("Prop backtest (pre-tip closing prop lines) ...")
+    print("Prop backtest (pre-tip prop lines, last two seasons) ...")
     eng.params.update(rep["final_params"])
-    pdf = pb.collect(f, eng, args.season, verbose=False)
-    prep = pb.analyse(pdf) if len(pdf) else {}
-    if prep:
-        ou = prep["by_kind"].get("ou", {})
-        params = json.loads(PARAMS_FILE.read_text())
-        if ou.get("stack_coef_all"):
-            params["params"]["prop_stack"] = ou["stack_coef_all"]
-        params["params"]["prop_bias"] = prep.get("prop_bias", {})
-        PARAMS_FILE.write_text(json.dumps(params, indent=2))
-        pb.save(backtest._clean(prep))
+    prep = pb.fit_and_save(f, eng, [args.season - 1, args.season], PARAMS_FILE)
     rep["props"] = backtest._clean(prep)
     # open-line (bet-early) diagnostics without lineup look-ahead
     rep["open_line_study"] = backtest.open_line_study(preds, rep["final_params"])
@@ -97,6 +89,18 @@ def cmd_replay(args):
     build_standalone()
 
 
+def cmd_props(args):
+    from . import props_backtest as pb
+    from .data.http import Fetcher
+    from .loader import build_engine
+    f = Fetcher()
+    eng = build_engine(f, [args.season - 2, args.season - 1, args.season])
+    rep = pb.fit_and_save(f, eng, [args.season - 1, args.season], PARAMS_FILE)
+    ou = rep.get("by_kind", {}).get("ou", {})
+    print("rows", rep.get("rows_by_season"), "stack", ou.get("stack_coef_all"), "bias", rep.get("prop_bias"))
+    print("held-out", ou.get("oos_betting"))
+
+
 def cmd_ingest(args):
     from . import shared
     print("shared ledger:", shared.ingest(args.season))
@@ -117,9 +121,12 @@ def main():
     p.add_argument("--no-props", action="store_true")
     p.add_argument("--no-ledger", action="store_true")
     p.set_defaults(fn=cmd_run)
-    for name, fn in (("update", cmd_update), ("backtest", cmd_backtest), ("grade", cmd_grade), ("ingest", cmd_ingest)):
+    for name, fn in (("update", cmd_update), ("backtest", cmd_backtest), ("grade", cmd_grade), ("ingest", cmd_ingest),
+                     ("props", cmd_props)):
         q = sub.add_parser(name)
         q.add_argument("--season", type=int, default=CURRENT_SEASON)
+        if name == "backtest":
+            q.add_argument("--seasons", default=f"{CURRENT_SEASON - 3},{CURRENT_SEASON - 2},{CURRENT_SEASON - 1},{CURRENT_SEASON}")
         q.set_defaults(fn=fn)
     sub.add_parser("site").set_defaults(fn=cmd_site)
     q = sub.add_parser("replay")

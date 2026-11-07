@@ -113,6 +113,16 @@ def test_discrete_allocator_small_bankroll():
     assert abs(int(q.sum()) - int(u.sum())) <= 2          # quadratic greedy tracks the exact one
 
 
+def test_shared_issue_parse():
+    from jghedge.shared import _parse_issue
+    body = ("J&G ticket\n\n```json\n" + '{"date":"2026-11-07","bets":[{"ref":"x-sp-h","stake":2.5,"dec":1.91,"price":-110,'
+            '"label":"Warriors -5.5","legs":[{"game_id":"g","kind":"spread","side":"home","line":-5.5,"dec":1.91}]},'
+            '{"ref":"bad","stake":0,"legs":[]}]}' + "\n```")
+    rows = _parse_issue({"number": 12, "title": "Bets 2026-11-07", "body": body, "user": {"login": "jackson"}})
+    assert len(rows) == 1 and rows[0]["stake"] == 2.5 and rows[0]["type"] == "single" and rows[0]["by"] == "jackson"
+    assert _parse_issue({"number": 1, "title": "Something else", "body": body}) == []
+
+
 def test_ledger_settlement():
     games = {"g": {"home_score": 110, "away_score": 104}}
     players = {("g", "7"): {"pts": 22, "reb": 5}}

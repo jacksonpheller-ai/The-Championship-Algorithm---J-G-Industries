@@ -50,6 +50,7 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 a { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .num, td.n, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+td.mono { white-space: nowrap; }
 
 /* masthead */
 header.mast { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--panel); border-bottom: 1px solid var(--rule); }
@@ -596,6 +597,12 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var f0 = (BT.folds || [])[0], f1 = (BT.folds || [])[1];
     if (f0 && f1) {
       $("methodEvidence").textContent = "Over " + (f0.metrics.games + f1.metrics.games).toLocaleString() + " held-out games, the model alone missed the final margin by " + f0.metrics.margin_rmse.model_only + " and " + f1.metrics.margin_rmse.model_only + " points (RMSE) against " + f0.metrics.margin_rmse.market_close + " and " + f1.metrics.margin_rmse.market_close + " for the closing line. Closing lines are sharper than any public-data model, which is why the desk anchors to the market and bets only where it disagrees for a reason: early lines that have not absorbed the ratings yet, injury news, and the props market's lean toward overs. Expect small edges, real variance and losing nights.";
+    }
+    var R = JG.replay || {}, rs = Object.keys(R).sort();
+    if (rs.length) {
+      $("methodEvidence").textContent += " Replaying the full nightly pipeline on past nights at the morning lines (balanced profile, starting from $1,000): " +
+        rs.map(function (k) { var r = R[k], y = Number(k); return (y - 1) + "–" + String(y).slice(2) + " ended at " + usd(r.end_bankroll) + " (" + sgn((r.stake_weighted_roi || 0) * 100) + "% ROI on money staked, worst drawdown " + pct(r.max_drawdown, 0) + ")"; }).join("; ") +
+        ". The model's settings were fit on these same seasons, so treat the replay as optimistic.";
     }
   }
   function renderReplay() {

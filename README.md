@@ -26,6 +26,7 @@ A quantitative NBA betting engine and dashboard. Every day it prices the slate (
 |---|---|
 | Final-margin error, model alone vs closing line | 14.01 vs 13.73 pts (2024-25), 14.33 vs 14.06 (2025-26). The closing line is sharper. |
 | Model vs **opening** line (no injury look-ahead), bet when ≥3 pts apart | 2024-25: 57.9% ATS, +10.6% ROI at -110, line moved our way 59% of the time. 2025-26: 51.8% ATS, -1.1% ROI. 2026-27 to date: 59.3% ATS on 59 bets. |
+| **Full nightly pipeline replayed on past nights** (morning lines, no injury report, balanced profile, $1,000 start) | 2024-25: $2,351 (+11.7% ROI on staked, worst drawdown 30%). 2025-26: $730 (-2.6%, worst drawdown 44%). 2026-27 to date: $1,028 (+2.7%). Totals were profitable in both full seasons; spreads were roughly flat. The model's settings were fit on these seasons, so the replay is optimistic. |
 | Moneylines at the close | No bet clears 2% EV once anchored to the moneyline market. |
 | Player props, pre-game DraftKings lines (1,754 scored) | Overs hit 44.9% vs 49.0% implied. The raw projection loses to the market (log loss 0.710 vs 0.684). The calibrated blend gained +5.2% ROI on 97 held-out bets, a small sample. |
 
@@ -34,15 +35,17 @@ What this means in practice:
 - The repeatable edges are betting **early** before lines absorb the ratings, **injury news**, and the props market's **lean toward overs**.
 - Expect small edges and real variance.
 
-Full reports: `data/backtest_report.json`, `data/prop_backtest.json`.
+Full reports: `data/backtest_report.json`, `data/prop_backtest.json`, `data/replay_open.json`. Rerun the replay with `python -m jghedge replay`.
 
 One data finding: ESPN's stored "closing" prop prices for past games were mostly updated *during* the game (77% after tip), and the historical milestone ladders were corrupt. The prop backtest therefore uses only lines last updated before tip, and milestone ("N+") props are excluded from recommendations.
 
 ## Sharing with a friend
 
-- **Easiest:** send `dist/jg-hedging-co.html`. It opens in any browser with tonight's data embedded.
-- **Always-current link:** turn on GitHub Pages (Settings → Pages → Deploy from a branch → this repo's default branch, folder `/docs`). The scheduled workflow commits fresh data several times a day, so the page stays current. GitHub Pages on a private repo needs a paid GitHub plan; otherwise make the repo public or keep sending the HTML file.
-- **Run it yourself:** see below.
+The repository is public, so any of these work:
+
+- **Permanent link (recommended).** Settings → Pages → *Deploy from a branch* → `claude/wonderful-bell-w1m2r1`, folder `/docs` → Save. The site appears at `https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/`. The scheduled workflow refreshes it several times a day.
+- **No-setup link.** `https://raw.githack.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/claude/wonderful-bell-w1m2r1/docs/index.html` renders the latest committed page through a third-party service. This hasn't been tested from this environment.
+- **A file.** Send `dist/jg-hedging-co.html`. It opens in any browser with that day's data built in.
 
 ## Running it
 

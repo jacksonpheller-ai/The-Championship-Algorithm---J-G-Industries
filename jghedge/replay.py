@@ -138,7 +138,7 @@ def run_and_save(seasons: list[int], lines: str = "open") -> dict:
     for s in seasons:
         eng = build_engine(f, [s - 2, s - 1, s])
         print(f"Replaying {s} with {lines} lines ...")
-        allres[str(s)] = replay(s, lines=lines, engine=eng)
+        allres[str(s)] = replay(s, lines=lines, engine=eng, n_sims=4000, verbose=False)
     (DATA_DIR / f"replay_{lines}.json").write_text(json.dumps(allres, indent=1))
     SITE_DATA.mkdir(parents=True, exist_ok=True)
     (SITE_DATA / f"replay_{lines}.json").write_text(json.dumps(allres, separators=(",", ":")))

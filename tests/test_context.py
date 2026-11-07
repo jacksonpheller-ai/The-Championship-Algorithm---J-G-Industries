@@ -17,11 +17,11 @@ from jghedge.model import context  # noqa: E402
 
 def test_total_context_adjust_rules():
     assert context.total_context_adjust(30, 35, 2, -3.0, 0.5, 0.5) == 0.0
-    assert context.total_context_adjust(70, 72, 2, -3.0, 0.5, 0.5) == 1.8
+    assert context.total_context_adjust(70, 72, 2, -3.0, 0.5, 0.5) == 1.2
     assert context.total_context_adjust(80, 79, 2, -3.0, 0.5, 0.5) == 2.5
     assert context.total_context_adjust(72, 73, 2, 9.0, 0.2, 0.6) == 2.5   # home dog at +9 with .200 record: tanker
     assert context.total_context_adjust(72, 73, 2, -9.0, 0.6, 0.2) == 2.5  # away dog
-    assert context.total_context_adjust(72, 73, 2, -9.0, 0.6, 0.5) == 1.8  # dog is decent: no tank bump
+    assert context.total_context_adjust(72, 73, 2, -9.0, 0.6, 0.5) == 1.2  # dog is decent: no tank bump
     assert context.total_context_adjust(75, 75, 3, -3.0, 0.5, 0.5) == 0.0  # playoffs
 
 

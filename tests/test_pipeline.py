@@ -51,7 +51,9 @@ def test_blend_adds_context_after_market_blend():
     assert abs(base["t_final"] - 225.0) < 0.5 and base["t_context"] == 0.0   # weight 0: t_model discarded
     late = eng.blend_with_market(proj, odds, {"home_gp": 72, "away_gp": 71, "season_type": 2,
                                                "home_winpct": 0.5, "away_winpct": 0.5})
-    assert abs(late["t_final"] - base["t_final"] - 1.8) < 1e-9 and late["t_context"] == 1.8
+    from jghedge.model.context import CONTEXT_PARAMS
+    adj = CONTEXT_PARAMS["late_adj"]
+    assert abs(late["t_final"] - base["t_final"] - adj) < 1e-9 and late["t_context"] == adj
     killed = eng.blend_with_market(proj, odds, {"home_gp": 72, "away_gp": 71, "season_type": 2, "kill": True})
     assert killed["t_context"] == 0.0
     playoff = eng.blend_with_market(proj, odds, {"home_gp": 82, "away_gp": 82, "season_type": 3})
@@ -69,8 +71,10 @@ def test_backtest_mirror_adds_same_term():
     preds = pd.DataFrame([{**row, "games_h": 10, "games_a": 12}, {**row, "games_h": 75, "games_a": 71},
                           {**row, "games_h": 80, "games_a": 80}])
     d = backtest.with_params(preds, p)
-    assert list(d["t_context"]) == [0.0, 1.8, 2.5]
-    assert abs((d["t_final"].iloc[1] - d["t_final"].iloc[0]) - 1.8) < 1e-9
+    from jghedge.model.context import CONTEXT_PARAMS
+    late, very = CONTEXT_PARAMS["late_adj"], CONTEXT_PARAMS["very_late_adj"]
+    assert list(d["t_context"]) == [0.0, late, very]
+    assert abs((d["t_final"].iloc[1] - d["t_final"].iloc[0]) - late) < 1e-9
 
 
 def test_context_kill_switch_counts_late_games():

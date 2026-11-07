@@ -41,11 +41,13 @@ def _dk(pid, stat, line, over, under):
 def test_payout_breakevens():
     be2 = pickem.breakeven_probability("power2")
     assert abs(be2 - 3 ** -0.5) < 1e-6                    # 0.5774
-    assert abs(pickem.breakeven_probability("power3") - 0.2 ** (1 / 3)) < 1e-6
+    assert abs(pickem.breakeven_probability("power3") - 6 ** (-1 / 3)) < 1e-6   # official 6x (help centre, 2026-11-07)
     assert abs(pickem.breakeven_probability("power4") - 0.1 ** 0.25) < 1e-6
+    assert abs(pickem.breakeven_probability("power6") - 37.5 ** (-1 / 6)) < 1e-6
     be = pickem.breakevens()
     assert set(be) == set(pickem.SLIP_TYPES)
-    assert be["flex6"] < be["flex5"] < be["flex4"] < be["power2"] < be["flex3"]   # 6-pick flex is the cheapest leg
+    assert be["flex6"] < be["flex5"] < be["flex4"] < be["power2"]   # 6-pick flex is the cheapest leg
+    assert abs(be["flex3"] - be["power2"]) < 1e-3                    # flex3 3x/1x has the same break-even as power2
     for t in pickem.SLIP_TYPES:
         assert abs(pickem.slip_ev_at(be[t], t)) < 1e-6
     # custom table: 2-pick at 4x needs p = 0.5
@@ -158,8 +160,8 @@ def test_flex_partial_payouts():
     flex = next(x for x in slips if x["type"] == "flex3" and len(x["legs"]) == 3)
     power = next(x for x in slips if x["type"] == "power3")
     assert np.allclose(flex["p_dist"], p_dist)
-    assert abs(flex["ev_mult"] - (p_dist[3] * 2.25 + p_dist[2] * 1.25)) < 1e-12
-    assert abs(power["ev_mult"] - p_dist[3] * 5.0) < 1e-12
+    assert abs(flex["ev_mult"] - (p_dist[3] * 3.0 + p_dist[2] * 1.0)) < 1e-12
+    assert abs(power["ev_mult"] - p_dist[3] * 6.0) < 1e-12
     # five-leg flex: payout vector indexes misses from the top
     pay = pickem.payout_vector("flex5")
     assert pay[5] == 10 and pay[4] == 2 and pay[3] == 0.4 and pay[2] == 0

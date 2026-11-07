@@ -36,20 +36,21 @@ from .model.props import COMBOS
 # 25x/2x/0.4x was consistent everywhere). The long-standing table below is the default; it is a
 # parameter of every function, and the dashboard must label it as unverified.
 PAYOUTS: dict = {
-    "power": {2: 3.0, 3: 5.0, 4: 10.0},                                   # all picks must hit
-    "flex": {3: [2.25, 1.25], 4: [5.0, 1.5], 5: [10.0, 2.0, 0.4], 6: [25.0, 2.0, 0.4]},  # [all, 1 miss, 2 misses]
+    "power": {2: 3.0, 3: 6.0, 4: 10.0, 5: 20.0, 6: 37.5},          # all picks must hit
+    "flex": {3: [3.0, 1.0], 4: [6.0, 1.5], 5: [10.0, 2.0, 0.4], 6: [25.0, 2.0, 0.4]},  # [all, 1 miss, 2 misses]
 }
-MIN_ENTRY = 5.0    # ASSUMPTION: $5 standard minimum (official help centre via web search, 2026-11-07)
+MIN_ENTRY = 5.0    # ASSUMPTION: $5 standard minimum (official help centre, via web search 2026-11-07)
 PAYOUT_NOTES = [
-    "Payout table is an assumption (official pages unreachable from the build host on 2026-11-07; "
-    "search summaries disagreed: Power 3-pick 5x vs 6x, Flex 3/4-pick 2.25x/5x vs 3x/6x). "
-    "Check the multiplier the app shows before entering; the engine re-prices if the table is changed.",
+    "Payout table (partly an assumption): Power 2/3/4/5/6 picks pay 3x/6x/10x/20x/37.5x and Flex 3/4/5/6 picks pay 3x/6x/10x/25x when all hit, "
+    "per PrizePicks' help centre as summarised by web search on 2026-11-07 (the site itself is blocked from the build host). "
+    "Flex partial tiers (3-pick 1x with one miss, 4-pick 1.5x, 5-pick 2x/0.4x, 6-pick 2x/0.4x) are from secondary sources. "
+    "PrizePicks notes some lineups (e.g. several players from one game) pay differently: check the multiplier the app shows.",
     "Minimum entry assumed $5 (official help centre, via web search 2026-11-07); Happy Hour promos can be lower.",
     "Standard (non-Demon/Goblin) projections only; a voided leg (DNP, tie on a whole-number line) is "
     "counted as a loss here, which understates slip value slightly.",
 ]
 
-SLIP_TYPES = ("power2", "power3", "power4", "flex3", "flex4", "flex5", "flex6")
+SLIP_TYPES = ("power2", "power3", "power4", "power5", "power6", "flex3", "flex4", "flex5", "flex6")
 STAT_LABEL = {"pts": "Pts", "reb": "Reb", "ast": "Ast", "fg3m": "3PM", "stl": "Stl", "blk": "Blk",
               "tov": "TO", "pra": "Pts+Reb+Ast", "pr": "Pts+Reb", "pa": "Pts+Ast", "ra": "Reb+Ast"}
 

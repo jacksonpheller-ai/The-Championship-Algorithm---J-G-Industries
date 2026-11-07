@@ -125,6 +125,9 @@ tr.off td { color: var(--ink-3); }
 .pill.q, .pill.marginal, .pill.moved { color: var(--warn); border-color: var(--warn); }
 .pill.lock { color: var(--brass); border-color: var(--brass); }
 .pill.skip { color: var(--ink-3); }
+details.fold { border: 0; margin-top: 8px; }
+details.fold > summary { padding: 6px 0; font-size: 12px; }
+details.fold ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
 .pill.check_lines { color: var(--brass); border-color: var(--brass); }
 .take { font-family: var(--f-mono); font-size: 12px; white-space: nowrap; }
 .btn { font: 500 14px var(--f-body); padding: 8px 14px; border-radius: var(--r); border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
@@ -489,9 +492,9 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     el.innerHTML = "<div class='head'><span class='state'>" + esc(v) + "</span><span class='headline'>" + esc(NIGHT.headline || "") + "</span></div>" +
       "<div class='chips'>" + chips.join("") + "</div>" +
       "<div><div class='small muted'>Night score against the thresholds (shrunk expected profit of the reference ticket, $100 at $0.50 units, after the growth gate)</div><div class='meter'><i style='width:" + w(score || 0).toFixed(1) + "%'></i><b style='left:" + w(th.light).toFixed(1) + "%'></b><b style='left:" + w(th.bet).toFixed(1) + "%'></b></div></div>" +
-      "<div class='cols'>" + ((NIGHT.reasons || []).length ? "<div><h3>Why</h3><ul>" + li(NIGHT.reasons) + "</ul></div>" : "") +
-      ((NIGHT.would_change || []).length ? "<div><h3>What would change it</h3><ul>" + li(NIGHT.would_change) + "</ul></div>" : "") +
-      (movedList ? "<div><h3>Moved past our number</h3><ul>" + movedList + "</ul></div>" : "") + "</div>";
+      "<div class='cols'>" + ((NIGHT.would_change || []).length ? "<div><h3>What would change it</h3><ul>" + li(NIGHT.would_change.slice(0, 3)) + "</ul></div>" : "") +
+      (movedList ? "<div><h3>Moved past our number</h3><ul>" + movedList + "</ul></div>" : "") + "</div>" +
+      ((NIGHT.reasons || []).length ? "<details class='fold'><summary>Why this verdict (" + NIGHT.reasons.length + " reasons)</summary><ul>" + li(NIGHT.reasons) + "</ul></details>" : "");
   }
 
   // ---------------------------------------------------------------- Fliff ticket
@@ -522,7 +525,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     ].map(tile).join("");
     var small = t.label !== "standard";
     $("smallNote").hidden = !small;
-    if (small) $("smallNote").textContent = "At " + usd(B) + " each " + usd(u) + " unit is " + pct(u / B, 1) + " of the bankroll. In the bootstrap a $10 bankroll with $0.50 units is effectively frozen (one loss and nothing qualifies); $0.10 units are needed below about $47, and $50 with $0.50 units has a median of about $58–60 after 160 nights with a tenth percentile near $42. Nothing here turns $10 into $100; it compounds slowly or not at all.";
+    if (small) $("smallNote").textContent = "At " + usd(B) + " one " + usd(u) + " unit is " + pct(u / B, 1) + " of the bankroll" + (u / B > 0.02 ? ": too big to size small edges, so the desk often passes. Use $0.10 units if Fliff allows them." : ".");
     $("fliffSrc").textContent = FL ? ("smallest bet " + usd(FL.min_bet) + " assumed" + ((FL.notes || []).length ? " · " + FL.notes[0] : "")) : "no Fliff block in this build; max lines computed from the ticket";
     if (!rows.length) {
       $("ticket").innerHTML = "<tbody><tr><td class='muted'>" + (IDS.length ? "No total or parlay grows a " + usd(B) + " bankroll at " + usd(u) + " units tonight. That is a PASS at this size; a smaller unit may change it." : "No totals or cross-game parlays were priced on this slate.") + "</td></tr></tbody>";
@@ -669,7 +672,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   // ---------------------------------------------------------------- PrizePicks slip builder
   var STATS = { pts: "Points", reb: "Rebounds", ast: "Assists", fg3m: "3PM", stl: "Steals", blk: "Blocks", tov: "Turnovers", pra: "PRA", pr: "Pts+Reb", pa: "Pts+Ast", ra: "Reb+Ast" };
   var PKLEGS = (PK && PK.legs) || [], PKBY = {}; PKLEGS.forEach(function (l) { PKBY[l.id] = l; });
-  var PAY = (PK && PK.payouts) || { power: { "2": 3, "3": 5, "4": 10 }, flex: { "3": [2.25, 1.25], "4": [5, 1.5], "5": [10, 2, 0.4], "6": [25, 2, 0.4] } };
+  var PAY = (PK && PK.payouts) || { power: { "2": 3, "3": 6, "4": 10, "5": 20, "6": 37.5 }, flex: { "3": [3, 1], "4": [6, 1.5], "5": [10, 2, 0.4], "6": [25, 2, 0.4] } };
   var SIMS = null;   // { n, rows: {legId -> row index}, bytes }
   (function () {
     var s = PK && PK.sims; if (!s || !s.bits || !s.n || !(s.legs || []).length) return;
@@ -715,11 +718,12 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     if (!PK) { $("pkSrc").textContent = ""; $("pkNotes").innerHTML = ""; $("pkLegs").innerHTML = "<tbody><tr><td class='muted'>No PrizePicks block in this build yet. The nightly job adds player legs anchored to the market once the pick-em module is live.</td></tr></tbody>"; $("pkLegNote").textContent = ""; $("pkCustomCtl").hidden = true; return; }
     $("pkSrc").textContent = (PK.source === "prizepicks" ? "PrizePicks lines" + (PK.fetched_at ? " fetched " + new Date(PK.fetched_at).toLocaleString([], { hour: "numeric", minute: "2-digit" }) : "") : "DraftKings lines as a proxy (PrizePicks feed not fetched)") + " · min entry " + usd(PK.min_entry) + " assumed";
     var be = PK.breakeven || {};
-    $("pkNotes").innerHTML = "Break-even leg probability: " + Object.keys(be).map(function (k) { return "<span class='mono'>" + esc(k) + " " + pct(be[k]) + "</span>"; }).join(" · ") + ((PK.notes || []).length ? "<br>" + PK.notes.map(esc).join(" ") : "");
+    $("pkNotes").innerHTML = (PK.mode === "check_lines" ? "<div class='banner' style='margin-bottom:8px'>PrizePicks' board could not be read tonight. These are DraftKings lines as stand-ins: open the app, compare each leg with its <b>take it if</b> number, or type the app's line into the table to re-price it.</div>" : "") +
+      "<details class='fold'><summary>Break-evens, payouts and assumptions</summary><p>Break-even leg probability: " + Object.keys(be).map(function (k) { return "<span class='mono'>" + esc(k) + " " + pct(be[k]) + "</span>"; }).join(" · ") + "</p>" + ((PK.notes || []).length ? "<ul>" + PK.notes.map(function (n) { return "<li>" + esc(n) + "</li>"; }).join("") + "</ul>" : "") + "</details>";
     if (!PKLEGS.length) { $("pkLegs").innerHTML = "<tbody><tr><td class='muted'>No player leg qualifies tonight (needs a playing probability of 90%+, 12+ projected minutes and a market anchor).</td></tr></tbody>"; $("pkLegNote").textContent = ""; return; }
     var tickedPlayers = {}; pk.ticked.forEach(function (id) { var l = PKBY[id]; if (l) tickedPlayers[l.player_id] = id; });
     $("pkLegs").innerHTML = "<thead><tr><th></th><th>Player</th><th>Stat</th><th class='n'>Line</th><th class='n'>Our median</th><th class='n'>P(more)</th><th class='n'>P(less)</th><th>Side</th><th class='n'>Shrunk p</th><th>Take it if</th><th class='n'>Plays</th></tr></thead><tbody>" +
-      PKLEGS.slice().sort(function (a, b) { return (b.p_side_shrunk || 0) - (a.p_side_shrunk || 0); }).map(function (l) {
+      PKLEGS.slice().sort(function (a, b) { return (b.p_side_shrunk || 0) - (a.p_side_shrunk || 0); }).filter(function (l, i) { return pk.showAll || i < 12 || pk.ticked.indexOf(l.id) >= 0 || pk.edited[l.id] != null; }).map(function (l) {
         var pa = pAt(l), on = pk.ticked.indexOf(l.id) >= 0, blocked = !on && tickedPlayers[l.player_id] != null, line = pk.edited[l.id] != null ? pk.edited[l.id] : l.line;
         var pside = pa.ok ? (legSide(l) === "more" ? pa.p_more : pa.p_less) : null, beRef = be.power2 || 0.5774, pshr = pside == null ? null : beRef + (SHR.pickem != null ? SHR.pickem : 0.5) * (pside - beRef);
         var edited = pk.edited[l.id] != null && pk.edited[l.id] !== l.line;
@@ -729,13 +733,18 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
           "<td class='n'>" + num(l.market_median, 1) + "<span class='sub'>proj " + num(l.proj, 1) + "</span></td><td class='n'>" + pct(pa.p_more) + "</td><td class='n'>" + pct(pa.p_less) + "</td>" +
           "<td><span class='pill " + (legSide(l) === "more" ? "prop" : "") + "'>" + esc(legSide(l)) + "</span></td><td class='n'>" + pct(pshr) + "<span class='sub'>raw " + pct(pside) + "</span></td><td><span class='take'>" + takeText(l) + "</span></td><td class='n'>" + pct(l.play_prob, 0) + "<span class='sub'>" + num(l.exp_min, 0) + " min</span></td></tr>";
       }).join("") + "</tbody>";
+    if (PKLEGS.length > 12) { var mb = document.getElementById("pkMore"); if (!mb) { mb = document.createElement("button"); mb.id = "pkMore"; mb.type = "button"; mb.className = "btn ghost sm"; mb.style.marginTop = "8px"; $("pkLegs").parentNode.insertAdjacentElement("afterend", mb); mb.addEventListener("click", function () { pk.showAll = !pk.showAll; renderPickemLegs(); }); } mb.textContent = pk.showAll ? "Show top 12 legs" : "Show all " + PKLEGS.length + " legs"; }
     $("pkLegNote").textContent = "Type the line PrizePicks shows and the leg is re-priced from its table; the side flips if the new line favours the other one. Take it if = the worst line at which the side still hits 60% or more (validated: legs priced this way at 60–65% hit 66% on 589 historical line moves). Shrunk p pulls the raw probability halfway to the power-2 break-even. One leg per player.";
     $("pkLegs").querySelectorAll("input[data-pk]").forEach(function (c) { c.addEventListener("change", function () { var id = c.dataset.pk, l = PKBY[id]; if (c.checked) { var dup = pk.ticked.some(function (x) { return PKBY[x] && PKBY[x].player_id === l.player_id; }); if (dup) { c.checked = false; return; } pk.ticked.push(id); } else pk.ticked = pk.ticked.filter(function (x) { return x !== id; }); renderPickemLegs(); renderPickemCustom(); }); });
     $("pkLegs").querySelectorAll("input[data-pkline]").forEach(function (inp) { inp.addEventListener("change", function () { var v = Number(inp.value); if (!isNaN(v)) pk.edited[inp.dataset.pkline] = v; if (!pAt(PKBY[inp.dataset.pkline]).ok) pk.ticked = pk.ticked.filter(function (x) { return x !== inp.dataset.pkline; }); renderPickemLegs(); renderPickemCustom(); }); });
   }
   function renderPickemSlips() {
     if (!PK) { $("pkSlips").innerHTML = "<div class='empty'>No suggested slips in this build.</div>"; return; }
-    var slips = (PK.slips || []).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); }).slice(0, 6);
+    var ranked = (PK.slips || []).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); });
+    var slips = [], seenType = {};
+    var overlap = function (a, b) { var n = a.legs.filter(function (x) { return b.legs.indexOf(x) >= 0; }).length; return n / Math.min(a.legs.length, b.legs.length); };
+    ranked.forEach(function (x) { if (slips.length < 3 && !seenType[x.type] && slips.every(function (y) { return overlap(x, y) < 0.5; })) { slips.push(x); seenType[x.type] = 1; } });
+    ranked.forEach(function (x) { if (slips.length < 3 && slips.indexOf(x) < 0 && slips.every(function (y) { return overlap(x, y) < 0.5; })) slips.push(x); });
     if (!slips.length) { $("pkSlips").innerHTML = "<div class='empty'>No slip clears the break-even tonight. Skipping costs nothing.</div>"; return; }
     $("pkSlips").innerHTML = slips.map(function (s) {
       var legs = s.legs.map(function (id) { return PKBY[id]; }).filter(Boolean), n = s.legs.length, kind = s.type.replace(/\d+$/, ""), pay = payVec(kind, n) || new Array(n + 1).fill(0);

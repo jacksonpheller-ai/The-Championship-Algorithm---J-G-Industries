@@ -15,9 +15,11 @@ import pandas as pd
 
 CONTEXT_PARAMS: dict = {
     "late_gp": 70,          # mean games played by the two teams at which the effect switches on
-    "late_adj": 1.8,        # points added to the blended total (shrunk from +2.56)
+    "late_adj": 1.2,        # points added to the blended total. In-sample (2024-26) +2.56; held out on
+                            # 2021-22 / 2022-23 closing totals the excess over other games was +1.97 / +0.57,
+                            # and betting every late over at the close lost 1.7% / 1.3%: so a tilt, not a bet
     "very_late_gp": 79,     # games 79-82
-    "very_late_adj": 2.5,
+    "very_late_adj": 2.5,   # held out: games 79-82 or tankers ran +3.25 / +3.94 over the close (n=63 / 73)
     "tank_spread": 8.0,     # |closing spread| at which a bad underdog is treated as a tanker
     "tank_winpct": 0.35,
     "regular_season_type": 2,

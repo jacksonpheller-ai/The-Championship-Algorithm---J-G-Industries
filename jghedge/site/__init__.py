@@ -18,7 +18,7 @@ def _load(name: str) -> dict:
 
 REPO_URL = "https://github.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries"
 PAGES_URL = "https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/"
-RAW_URL = "https://raw.githack.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/claude/wonderful-bell-w1m2r1/docs/index.html"
+RAW_URL = "https://raw.githack.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/main/docs/index.html"
 
 
 def _recent_results(n: int = 7) -> dict:
@@ -29,10 +29,24 @@ def _recent_results(n: int = 7) -> dict:
     return {p.stem: json.loads(p.read_text()) for p in files}
 
 
+def _lines_for(slate: dict) -> list:
+    """Today's line snapshots (data/lines/<date>.json) so the page can show the opener, the
+    number we priced at and the latest line per game."""
+    d = (slate or {}).get("date")
+    if not d:
+        return []
+    p = ROOT / "data" / "lines" / f"{d}.json"
+    try:
+        return json.loads(p.read_text()) if p.exists() else []
+    except ValueError:
+        return []
+
+
 def render() -> str:
-    data = {"slate": _load("latest.json"), "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
+    slate = _load("latest.json")
+    data = {"slate": slate, "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
             "replay": _load("replay_open.json"), "results": _recent_results(), "shared": _load("shared_ledger.json") or None,
-            "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL}
+            "lines": _lines_for(slate), "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL}
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return TEMPLATE.read_text(encoding="utf-8").replace('"__JG_DATA__"', blob)
 

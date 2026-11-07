@@ -212,10 +212,43 @@ def game_record(f: Fetcher, event_id: str, refresh: bool = False) -> dict | None
 
 # ------------------------------------------------------------------ injuries
 STATUS_PLAY_PROB = {"out": 0.0, "suspension": 0.0, "doubtful": 0.15, "questionable": 0.5,
-                    "day-to-day": 0.65, "probable": 0.9, "game time decision": 0.5}
+                    "day-to-day": 0.5, "game time decision": 0.5, "probable": 0.9}
+FANTASY_PLAY_PROB = {"OUT": 0.0, "O": 0.0, "OFS": 0.0, "IR": 0.0, "SUSP": 0.0, "D": 0.15, "DTD": 0.5,
+                     "GTD": 0.5, "Q": 0.5, "P": 0.9}
 
 
-def injuries(f: Fetcher) -> dict[str, list[dict]]:
+def play_probability(item: dict, game_date: str | None = None) -> tuple[float, str, str | None]:
+    """P(plays tonight) from an ESPN injury item.
+
+    ESPN's top-level status is only 'Out' or 'Day-To-Day'; the useful detail is in
+    details.fantasyStatus (OUT / GTD / OFS ...), details.returnDate and the comment wording.
+    Returns (play_prob, fantasy_status, return_date). Rules (research memo B5): a player
+    listed Out but fantasy GTD, or whose return date is today's game, is a 50/50; comment
+    words 'probable'/'expected to play' -> 0.9, 'doubtful' -> 0.15, 'questionable' -> 0.5,
+    'out for <this> game' -> 0.0.
+    """
+    status = (item.get("status") or "").strip().lower()
+    det = item.get("details") or {}
+    fs = ((det.get("fantasyStatus") or {}).get("abbreviation") or "").upper() or None
+    ret = det.get("returnDate")
+    comment = ((item.get("shortComment") or "") + " " + (item.get("longComment") or "")).lower()
+    p = STATUS_PLAY_PROB.get(status, 0.5)
+    if fs in FANTASY_PLAY_PROB:
+        p = FANTASY_PLAY_PROB[fs]
+    if ret and game_date and str(ret)[:10] == str(game_date)[:10] and fs not in ("OFS", "IR", "SUSP"):
+        p = max(p, 0.5)
+    if "expected to play" in comment or "will play" in comment or "is probable" in comment or "(probable)" in comment:
+        p = max(p, 0.9)
+    elif "doubtful" in comment:
+        p = min(p, 0.15) if fs not in ("GTD",) else 0.15
+    elif "questionable" in comment or "game-time decision" in comment or "game time decision" in comment:
+        p = 0.5 if p > 0 else p
+    if re.search(r"\b(is|are|remains?) out\b", comment) and "game-time" not in comment and fs != "GTD":
+        p = 0.0
+    return float(p), fs, ret
+
+
+def injuries(f: Fetcher, game_date: str | None = None) -> dict[str, list[dict]]:
     data = f.get(f"{SITE}/injuries", ttl=900)
     out: dict[str, list[dict]] = defaultdict(list)
     for t in data.get("injuries", []):
@@ -224,7 +257,6 @@ def injuries(f: Fetcher) -> dict[str, list[dict]]:
             team = a.get("team", {}) or {}
             ab = ESPN_ID_TO_ABBR.get(str(team.get("id")), None) if team else None
             if ab is None:
-                # Team block id is on the outer object.
                 ab = ESPN_ID_TO_ABBR.get(str(t.get("id")), canon(t.get("abbreviation", "")) if t.get("abbreviation") else None)
             if ab is None:
                 continue
@@ -235,8 +267,9 @@ def injuries(f: Fetcher) -> dict[str, list[dict]]:
                 if m:
                     pid = m.group(1)
                     break
-            out[ab].append({"id": pid, "name": a.get("displayName"), "status": status,
-                            "play_prob": STATUS_PLAY_PROB.get(status.lower(), 0.6),
+            pp, fs, ret = play_probability(i, game_date)
+            out[ab].append({"id": pid, "name": a.get("displayName"), "status": status, "play_prob": pp,
+                            "fantasy_status": fs, "return_date": ret,
                             "detail": i.get("shortComment") or "", "date": i.get("date")})
     return dict(out)
 

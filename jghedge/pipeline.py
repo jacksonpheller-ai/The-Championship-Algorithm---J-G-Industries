@@ -1,18 +1,33 @@
-"""Nightly run: data -> projections -> simulation -> pricing -> parlays -> Kelly -> JSON."""
+"""Nightly run: data -> projections -> simulation -> pricing -> parlays -> policy -> JSON.
+
+Growth rebuild (research memo, 2026-11-07): the desk is sized on SHRUNK payoffs (s = 0.5 on
+totals and parlays, s = 0 on props), with a per-bet growth gate, an adaptive Kelly tier by
+bankroll in units and a nightly verdict (PASS / LIGHT / BET) evaluated on a reference ticket
+of $100 at $0.50 units. Game bets are for Fliff, player pick'em slips for PrizePicks. Every
+run records the lines it saw (data/lines/<date>.json) for closing-line value.
+"""
 from __future__ import annotations
 
+import hashlib
 import json
 import math
+import os
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
 
 from . import BRAND, __version__
-from .config import CURRENT_SEASON, DATA_DIR, SITE_DATA, load_params
-from .data import espn, history
+from . import growth as growth_mod
+from . import pickem
+from .config import (CURRENT_SEASON, DATA_DIR, FLIFF_MIN_BET, PICKEM_MIN_ENTRY, PICKEM_PAYOUTS, PROPS_REGIME,
+                     REF_BANKROLL, REF_UNIT, RUN_LABEL_HOURS_ET, SITE_DATA, load_params)
+from .data import espn, history, oddsapi, prizepicks
+from .data import lines as lines_mod
 from .data.http import Fetcher
 from .loader import bbref_table, build_engine
+from .model import context as ctx
 from .model import players as pl
 from .model.odds import (american_to_decimal, decimal_to_american, inv_logit, logit,
                          novig_multiplicative, novig_power)
@@ -20,17 +35,51 @@ from .model.props import COMBOS, PropModel
 from .backtest import p_home_win
 from .model.simulate import GameSim, win_prob
 from .model.situational import schedule_features
-from .portfolio import discrete, kelly
+from .portfolio import discrete, kelly, policy
 from .portfolio.parlay import build_parlays, same_game_fair, select_parlays
 from .teams import TEAMS
 
 STAT_LABEL = {"pts": "Points", "reb": "Rebounds", "ast": "Assists", "fg3m": "3-Pointers Made",
               "stl": "Steals", "blk": "Blocks", "tov": "Turnovers", "pra": "Pts+Reb+Ast",
               "pr": "Pts+Reb", "pa": "Pts+Ast", "ra": "Reb+Ast"}
+ET = ZoneInfo("America/New_York")
+PROPS_LOG_DIR = DATA_DIR / "props_log"
+GROWTH_CACHE = DATA_DIR / "growth_grid.json"
+MAX_PROPS_SHOWN = 300
+MAX_PICKEM_LEGS = 40
+MAX_PICKEM_DRAWS = 20000
+GTD_STARTER_MIN = 24.0          # a 'starter' for the lineup-uncertainty flag: >= 24 typical minutes
 
 
 def us_today() -> date:
     return (datetime.now(timezone.utc) - timedelta(hours=6)).date()
+
+
+def run_label(now: datetime | None = None) -> str:
+    """Snapshot label: JG_RUN_LABEL if set, else by Eastern hour (opener before 06:00 ET,
+    morning, pretip for the early-tip run, afternoon)."""
+    env = os.environ.get("JG_RUN_LABEL", "").strip().lower()
+    if env:
+        return env
+    now = now or datetime.now(timezone.utc)
+    h = now.astimezone(ET).hour + now.astimezone(ET).minute / 60.0
+    if h < RUN_LABEL_HOURS_ET["opener"] or h >= RUN_LABEL_HOURS_ET["evening"]:
+        return "opener"          # the 02:31 UTC job (21:31 ET) prices the next day's openers
+    if h < RUN_LABEL_HOURS_ET["morning"]:
+        return "morning"
+    if h < RUN_LABEL_HOURS_ET["pretip"]:
+        return "pretip"
+    return "afternoon"
+
+
+def slate_day(label: str, now: datetime | None = None) -> date:
+    """The slate an unlabelled run prices: today (US), or tomorrow for an evening 'opener' run
+    (the 02:31 UTC job prices the next day's openers)."""
+    now = now or datetime.now(timezone.utc)
+    d = (now - timedelta(hours=6)).date()
+    if label == "opener" and now.astimezone(ET).hour >= 18:
+        d = d + timedelta(days=1)
+    return d
 
 
 def _w_time(hours_to_tip: float, early: float, late: float) -> float:
@@ -49,17 +98,178 @@ def _r(x, n=3):
         return None
 
 
+def _r4(obj):
+    """Round every float in a JSON-like structure to 4 dp (the contract's precision)."""
+    if isinstance(obj, float):
+        return None if (math.isnan(obj) or math.isinf(obj)) else round(obj, 4)
+    if isinstance(obj, (np.floating,)):
+        return _r4(float(obj))
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    if isinstance(obj, dict):
+        return {k: _r4(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_r4(v) for v in obj]
+    return obj
+
+
+# ------------------------------------------------------------------ context helpers
+def context_kill_switch(gdf: pd.DataFrame, season: int, asof, params: dict | None = None) -> dict:
+    """Rolling over rate of this season's completed late-season games (mean games played >=
+    late_gp) against the closing total; the adjustment is switched off below the floor."""
+    p = {**ctx.CONTEXT_PARAMS, **(params or {})}
+    if gdf is None or len(gdf) == 0:
+        return {"kill": False, "n": 0, "over_rate": None}
+    g = gdf[(gdf["season"] == season) & (gdf["date"] < pd.Timestamp(asof)) & (gdf["season_type"] == 2)]
+    g = g.dropna(subset=["total", "total_pts"]).sort_values(["date", "id"])
+    if g.empty:
+        return {"kill": False, "n": 0, "over_rate": None}
+    counts: dict[str, int] = {}
+    results: list[bool] = []
+    for r in g.itertuples(index=False):
+        gh, ga = counts.get(r.home, 0), counts.get(r.away, 0)
+        if (gh + ga) / 2 >= p["late_gp"] and r.total_pts != r.total:
+            results.append(bool(r.total_pts > r.total))
+        counts[r.home], counts[r.away] = gh + 1, ga + 1
+    tail = results[-int(p["kill_switch_window"]):]
+    return {"kill": ctx.kill_switch(results, p), "n": len(results),
+            "over_rate": round(sum(tail) / len(tail), 4) if tail else None}
+
+
+def game_context(eng, home: str, away: str, day, season: int, season_type, kill: bool) -> dict:
+    return {"home_gp": ctx.games_played(eng.tg, home, day, season), "away_gp": ctx.games_played(eng.tg, away, day, season),
+            "season_type": season_type, "home_winpct": ctx.team_winpct(eng.tg, home, day, season),
+            "away_winpct": ctx.team_winpct(eng.tg, away, day, season), "kill": kill}
+
+
+# ------------------------------------------------------------------ props regime
+def log_props(day, rows: list[dict]) -> None:
+    """Keep the pre-tip DraftKings 'ou' board (main lines) so the under lean can be measured."""
+    if not rows:
+        return
+    PROPS_LOG_DIR.mkdir(parents=True, exist_ok=True)
+    (PROPS_LOG_DIR / f"{day}.json").write_text(json.dumps(rows, separators=(",", ":")))
+
+
+def props_regime(day, params: dict | None = None, log_dir=None, results_dir=None) -> dict:
+    """Rolling under lean of the logged DK board against final box scores (memo B6):
+    lean = under hit rate - implied under rate over the last `window_nights` logged nights.
+    'lean_under' when the lean clears the threshold, 'stand_down' when overs are beating their
+    price, 'neutral' otherwise or when fewer than `min_lines` lines are available."""
+    p = {**PROPS_REGIME, **(params or {})}
+    log_dir = log_dir or PROPS_LOG_DIR
+    results_dir = results_dir or (SITE_DATA / "results")
+    out = {"regime": "neutral", "n": 0, "under_rate": None, "implied_under": None, "lean": None, "nights": 0}
+    if not log_dir.exists():
+        return out
+    days = sorted(p_.stem for p_ in log_dir.glob("*.json") if p_.stem < str(day))[-int(p["window_nights"]):]
+    hits, implied = [], []
+    for d in days:
+        rp = results_dir / f"{d}.json"
+        if not rp.exists():
+            continue
+        try:
+            res = json.loads(rp.read_text())
+            rows = json.loads((log_dir / f"{d}.json").read_text())
+        except ValueError:
+            continue
+        players = res.get("players") or {}
+        for r in rows:
+            prow = (players.get(str(r.get("game_id"))) or {}).get(str(r.get("player_id")))
+            if prow is None or r.get("over") is None or r.get("under") is None:
+                continue
+            val = prow.get(r.get("stat"))
+            if val is None or val == r["line"]:
+                continue
+            hits.append(float(val < r["line"]))
+            implied.append(1.0 - novig_multiplicative(r["over"], r["under"])[0])
+        out["nights"] += 1
+    out["n"] = len(hits)
+    if len(hits) < int(p["min_lines"]):
+        return out
+    ur, iu = float(np.mean(hits)), float(np.mean(implied))
+    lean = ur - iu
+    out.update({"under_rate": round(ur, 4), "implied_under": round(iu, 4), "lean": round(lean, 4)})
+    if lean >= p["lean_under_at"]:
+        out["regime"] = "lean_under"
+    elif lean <= p["stand_down_at"]:
+        out["regime"] = "stand_down"
+    return out
+
+
+# ------------------------------------------------------------------ growth cache
+def growth_block_cached(replay_file=None, cache_file=None) -> dict:
+    """growth.growth_block on data/replay_open.json, cached in data/growth_grid.json and
+    recomputed only when the replay file changes (size + sha1 of its first 64 KB + mtime)."""
+    replay_file = replay_file or growth_mod.REPLAY_FILE
+    cache_file = cache_file or GROWTH_CACHE
+    if not replay_file.exists():
+        return growth_mod.growth_block(replay_file)
+    st = replay_file.stat()
+    with open(replay_file, "rb") as fh:
+        head = hashlib.sha1(fh.read(65536)).hexdigest()
+    key = f"{st.st_size}:{int(st.st_mtime)}:{head}"
+    if cache_file.exists():
+        try:
+            c = json.loads(cache_file.read_text())
+            if c.get("key") == key and c.get("block"):
+                return c["block"]
+        except ValueError:
+            pass
+    block = growth_mod.growth_block(replay_file)
+    block["grid"] = [{k: v for k, v in row.items() if k not in ("p_loss", "skip_share")} for row in block["grid"]]
+    try:
+        cache_file.write_text(json.dumps({"key": key, "block": block}, separators=(",", ":")))
+    except OSError:
+        pass
+    return block
+
+
+# ------------------------------------------------------------------ fliff
+def fliff_instruction(b: dict) -> str:
+    """'Over 228.5 at -110 or better; skip above 229.5' from the bet's max_line."""
+    side, line, mx = b.get("side"), b.get("line"), b.get("max_line")
+    price = b.get("american") if b.get("american") is not None else b.get("price")
+    ptxt = f"{int(price):+d}" if price is not None else "-110"
+    if b.get("kind") == "total" and side in ("over", "under") and line is not None:
+        txt = f"{side.capitalize()} {line:g} at {ptxt} or better"
+        if mx is not None:
+            txt += f"; skip {'above' if side == 'over' else 'below'} {mx:g}"
+        return txt
+    if b.get("kind") == "parlay":
+        return f"{b.get('label')} at {ptxt} or better; skip if any leg moved past its max line"
+    return f"{b.get('label')} at {ptxt} or better"
+
+
+def fliff_block(ticket_bets: list[dict], ticket_parlays: list[dict], best_prices: bool) -> dict:
+    notes = [f"Fliff minimum wager assumed ${FLIFF_MIN_BET:.2f} (ASSUMPTION, unverified; configurable in jghedge.config).",
+             "Game totals and cross-game parlays only; spreads and moneylines are informational (lost in two of three replayed seasons).",
+             "Lines are DraftKings via ESPN unless an Odds API key supplies Fliff's own number; bet the number shown or better."]
+    if best_prices:
+        notes.append("Odds API prices attached: fliff_line/fliff_price on each total are Fliff's own numbers at run time.")
+    ins = [{"bet_id": b["id"], "text": fliff_instruction(b)} for b in ticket_bets]
+    ins += [{"bet_id": p["id"], "text": fliff_instruction({"kind": "parlay", "label": " + ".join(p.get("leg_labels", p["legs"])),
+                                                           "american": p.get("american")})} for p in ticket_parlays]
+    return {"platform": "Fliff", "min_bet": FLIFF_MIN_BET, "notes": notes, "instructions": ins}
+
+
+# ------------------------------------------------------------------ the run
 def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         with_props: bool = True, verbose: bool = True, seed: int = 7, engine=None,
         slate: list[dict] | None = None, injuries: dict | None = None, replay: bool = False,
-        season: int | None = None, overrides: dict | None = None, hours_override: float | None = None) -> dict:
+        season: int | None = None, overrides: dict | None = None, hours_override: float | None = None,
+        label: str | None = None) -> dict:
     """Price one night. With `replay=True` (used by jghedge.replay) the caller supplies the
     engine, the slate with the morning lines and an empty injury report, and every input is
-    restricted to information available before that night (pre-game Elo, prior-season BPM)."""
+    restricted to information available before that night (pre-game Elo, prior-season BPM).
+    Replay runs never write snapshots, logs or caches."""
     params = load_params()
     params.update(overrides or {})
     n = n_sims or int(params["n_sims"])
-    day = day or us_today()
+    label = label or run_label()
+    day = day or slate_day(label)
     season = season or CURRENT_SEASON
     f = Fetcher()
     log = print if verbose else (lambda *a, **k: None)
@@ -73,12 +283,13 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     pg_s = eng.pg[eng.pg["season"] == season]
     live_vals = eng.injury_values(season, live=not replay)
 
-    log(f"Slate for {day} ...")
+    log(f"Slate for {day} ({label}) ...")
     if slate is None:
         slate = [g for g in espn.scoreboard(f, day) if g["state"] == "pre"
                  and g["home"] in TEAMS and g["away"] in TEAMS]
-    inj = injuries if injuries is not None else espn.injuries(f)
+    inj = injuries if injuries is not None else espn.injuries(f, str(day))
     team_tbl = None if replay else bbref_table(f, "team", season)
+    kill = context_kill_switch(eng.gdf, season, asof, params.get("context_params"))
 
     # situational features need the schedule including tonight
     sched = eng.gdf[["id", "date", "tip", "home", "away", "neutral", "venue_city"]].copy()
@@ -92,13 +303,34 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     rng = np.random.default_rng(seed)
     now = datetime.now(timezone.utc)
 
+    # optional outside feeds (never in replay)
+    pp_rows, pp_err, pp_fetched = [], None, None
+    odds_events, odds_map, odds_budget = {}, {}, None
+    if not replay and with_props:
+        pp_rows, pp_err = prizepicks.fetch_projections(f)
+        pp_fetched = now.isoformat(timespec="seconds") if pp_rows else None
+        log(f"PrizePicks board: {len(pp_rows)} rows" + (f" ({pp_err})" if pp_err else ""))
+    if not replay and oddsapi.available():
+        try:
+            odds_budget = oddsapi.Budget()
+            odds_events = oddsapi.fetch_slate_odds(f, budget=odds_budget)
+            odds_map = oddsapi.map_to_espn(odds_events, slate)
+        except Exception as e:  # noqa: BLE001  (optional feed; never fail the night)
+            log(f"Odds API unavailable: {e}")
+            odds_events, odds_map = {}, {}
+    espn_to_event = {v: k for k, v in odds_map.items()}
+
     games_out, bets, payoffs, sims_by_game = [], [], {}, {}
+    pk_inputs: dict[str, tuple] = {}
+    gtd_games: list[str] = []
+    props_log_rows: list[dict] = []
     for g in slate:
         h, a = g["home"], g["away"]
         tip = datetime.fromisoformat(g["date"].replace("Z", "+00:00"))
         hours = hours_override if hours_override is not None else (
             10.0 if replay else (tip - now).total_seconds() / 3600)
         team_pp, team_inj, rots, adj = {}, {}, {}, {}
+        gtd = False
         for side, team in (("h", h), ("a", a)):
             rows = inj.get(team, [])
             pp = {r["id"]: r["play_prob"] for r in rows if r.get("id")}
@@ -111,11 +343,15 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
             team_inj[team] = [{**d, "status": listed.get(d["id"], {}).get("status", "Not listed (missed last 3)"),
                                "note": listed.get(d["id"], {}).get("detail", "")}
                               for d in detail if d["play_prob"] < 1.0]
+            gtd = gtd or any(0.05 < d["play_prob"] < 0.95 and (d.get("typ_min") or 0) >= GTD_STARTER_MIN
+                             for d in detail)
             for r in rows:   # listed players with no recent minutes (still show them)
                 if r.get("id") and not any(x["id"] == r["id"] for x in team_inj[team]):
                     team_inj[team].append({"id": r["id"], "name": r["name"], "status": r["status"],
                                            "play_prob": r["play_prob"], "net_impact": 0.0,
                                            "note": r.get("detail", ""), "typ_min": 0.0, "bpm": None})
+        if gtd:
+            gtd_games.append(g["id"])
         sf = sit.loc[g["id"]].to_dict() if sit is not None else None
         proj = eng.project(st, h, a, g["neutral"], sf, adj,
                            elo_pair=eng.elo_pre.get(g["id"]) if replay else None)
@@ -125,7 +361,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         p_live["w_model_vs_market_total"] = _w_time(hours, params.get("w_total_early", 0.30),
                                                     params["w_model_vs_market_total"])
         eng.params = p_live
-        bl = eng.blend_with_market(proj, g["odds"])
+        gctx = game_context(eng, h, a, day, season, g.get("season_type"), kill["kill"])
+        bl = eng.blend_with_market(proj, g["odds"], gctx)
         eng.params = params
         sim = GameSim(bl["m_final"], bl["t_final"], params, n, rng)
         sims_by_game[g["id"]] = sim
@@ -133,12 +370,12 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         op = (g["odds"] or {}).get("open") or {}
         gbets = []
 
-        def add(bid, kind, label, side, line, price, pay, p_mkt, extra=None):
+        def add(bid, kind, label_, side, line, price, pay, p_mkt, extra=None):
             if price is None:
                 return
             dec = american_to_decimal(price)
             pf = win_prob(pay)
-            b = {"id": bid, "game_id": g["id"], "kind": kind, "label": label, "side": side, "line": line,
+            b = {"id": bid, "game_id": g["id"], "kind": kind, "label": label_, "side": side, "line": line,
                  "price": price, "dec": dec, "p_final": pf, "p_market": p_mkt, "ev": float(pay.mean()),
                  "edge": (pf - p_mkt) if p_mkt is not None else None,
                  "matchup": f"{a} @ {h}", "tip": g["date"], **(extra or {})}
@@ -149,8 +386,6 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         gid = g["id"]
         if o.get("ml_home") is not None and o.get("ml_away") is not None:
             ph, pa = novig_power(o["ml_home"], o["ml_away"])
-            # moneyline: de-vigged price plus the model's tilt (spread->win conversion is
-            # less accurate than the moneyline market itself; see backtest)
             tilt = 0.0
             if bl["m_market"] is not None:
                 tilt = p_home_win(np.array([bl["m_final"]]), params)[0] - p_home_win(np.array([bl["m_market"]]), params)[0]
@@ -169,10 +404,20 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         if o.get("total") is not None and o.get("over_price") is not None:
             t = o["total"]
             po, pu = novig_multiplicative(o["over_price"], o["under_price"] or -110)
+            books = (odds_events.get(espn_to_event.get(gid), {}) or {}).get("books") or {}
+            extra_o = extra_u = None
+            if books:
+                fl = oddsapi.fliff_lines(books) or {}
+                bo = oddsapi.best_price(books, "total", "over")
+                bu = oddsapi.best_price(books, "total", "under")
+                extra_o = {"best_book": bo[0], "best_price": bo[1], "best_book_line": bo[2],
+                           "fliff_line": fl.get("total"), "fliff_price": fl.get("over_price")}
+                extra_u = {"best_book": bu[0], "best_price": bu[1], "best_book_line": bu[2],
+                           "fliff_line": fl.get("total"), "fliff_price": fl.get("under_price")}
             add(f"{gid}-to-o", "total", f"{a}/{h} Over {t:g}", "over", t, o["over_price"],
-                sim.total_bet("over", t, american_to_decimal(o["over_price"])), po)
+                sim.total_bet("over", t, american_to_decimal(o["over_price"])), po, extra_o)
             add(f"{gid}-to-u", "total", f"{a}/{h} Under {t:g}", "under", t, o["under_price"],
-                sim.total_bet("under", t, american_to_decimal(o["under_price"] or -110)), pu)
+                sim.total_bet("under", t, american_to_decimal(o["under_price"] or -110)), pu, extra_u)
 
         # ------------------------------------------------------------ props
         n_props = 0
@@ -183,7 +428,6 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                 pace_factor = proj["pace"] / max(st["mu_pace"] + tp["P"], 80)
                 players = pm.project_team(rots[team], team, opp, team_pp[team], pace_factor,
                                           st["teams"][opp]["D"], st["mu"])
-                # scale expected team points to the blended game projection
                 scale = (bl["t_final"] + msign * bl["m_final"]) / 2
                 psims = pm.simulate(players, pts_draw, scale, msign * sim.margin, rng)
                 for p in players:
@@ -192,6 +436,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                 plines = espn.props(f, gid)
             except Exception:  # noqa: BLE001
                 plines = []
+            pk_inputs[gid] = (team_players, plines, {"id": gid, "matchup": f"{a} @ {h}", "tip": g["date"]})
             a_s, c_s, b_s = params.get("prop_stack") or [0.15, 0.85, -0.1]
             for pr in plines:
                 if pr["kind"] != "ou" or pr["under"] is None:
@@ -203,6 +448,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                 stat = pr["stat"]
                 if stat not in ps:
                     continue
+                props_log_rows.append({"game_id": gid, "player_id": p["id"], "stat": stat, "line": pr["line"],
+                                       "over": pr["over"], "under": pr["under"]})
                 x = ps[stat].astype(float)
                 plays = ps["_plays"]
                 line = pr["line"]
@@ -211,7 +458,6 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                 sides = (("over", pr["over"], p_over_mkt), ("under", pr["under"], 1 - p_over_mkt))
                 p_mkt_over = sides[0][2]
                 p_fin_over = float(inv_logit(a_s * logit(p_model) + c_s * logit(p_mkt_over) + b_s))
-                # rank-preserving threshold so simulated outcomes match the blended probability
                 jit = x + rng.random(len(x)) - 0.5
                 act = jit[plays] if plays.any() else jit
                 thr = float(np.quantile(act, 1 - p_fin_over)) if 0 < p_fin_over < 1 else line
@@ -269,12 +515,14 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                     "altitude": bool((sf or {}).get(f"{s}_alt")),
                     "avail_dO": _r(adj[f"dO_{s}"], 2), "avail_dD": _r(adj[f"dD_{s}"], 2),
                     "injuries": team_inj[team], "season_stats": tstats(team), "rotation": rotation_rows(team),
-                    "proj_pts": _r(bl["pts_h"] if s == "h" else bl["pts_a"], 1)}
+                    "proj_pts": _r(bl["pts_h"] if s == "h" else bl["pts_a"], 1),
+                    "games_played": gctx["home_gp" if s == "h" else "away_gp"],
+                    "winpct": _r(gctx["home_winpct" if s == "h" else "away_winpct"], 3)}
 
         hw = win_prob(payoffs[f"{gid}-ml-h"]) if f"{gid}-ml-h" in payoffs else float(np.mean(sim.margin > 0))
         games_out.append({
             "id": gid, "tip": g["date"], "hours_to_tip": _r(hours, 1), "neutral": g["neutral"],
-            "venue_city": g["venue_city"], "notes": g.get("notes"),
+            "venue_city": g["venue_city"], "notes": g.get("notes"), "lineup_uncertain": gid in gtd_games,
             "home": side_info(h, "h"), "away": side_info(a, "a"),
             "market": {"provider": (g["odds"] or {}).get("provider"), **{k: _r(v, 1) for k, v in o.items()},
                        "open_spread_home": _r(op.get("spread_home"), 1), "open_total": _r(op.get("total"), 1)},
@@ -282,6 +530,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                       "margin_model": _r(bl["m_model"], 2), "margin_market": _r(bl["m_market"], 2),
                       "margin_final": _r(bl["m_final"], 2), "total_model": _r(bl["t_model"], 1),
                       "total_market": _r(bl["t_market"], 1), "total_final": _r(bl["t_final"], 1),
+                      "total_context": _r(bl.get("t_context"), 2), "fair_total": _r(policy.fair_line(sim.total), 1),
                       "pace": _r(bl["pace"], 1), "sit_margin": _r(bl["sit_margin"], 2),
                       "avail_margin": _r(bl["avail_margin"], 2), "p_home_win": _r(hw, 4),
                       "w_model_margin": _r(p_live["w_model_vs_market_margin"], 3),
@@ -291,108 +540,229 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
             "n_props": n_props,
         })
         log(f"  {a} @ {h}: final margin {bl['m_final']:+.1f} (model {bl['m_model']:+.1f}, market "
-            f"{(bl['m_market'] if bl['m_market'] is not None else float('nan')):+.1f}), total {bl['t_final']:.1f}, "
-            f"{n_props} props priced")
+            f"{(bl['m_market'] if bl['m_market'] is not None else float('nan')):+.1f}), total {bl['t_final']:.1f}"
+            f"{(' (ctx %+.1f)' % bl['t_context']) if bl.get('t_context') else ''}, {n_props} props priced")
 
-    # ------------------------------------------------------- portfolio
+    # ------------------------------------------------------- candidates (totals only)
     min_ev, max_edge = params["min_ev"], params["max_edge_prob"]
 
-    no_margin = params.get("w_margin_early", 0) <= 0 and params.get("w_model_vs_market_margin", 0) <= 0
-
     def eligible(b):
+        if b["kind"] != "total":
+            return False   # spreads/moneylines informational (backtest); props informational (s = 0, memo)
         if b["ev"] < min_ev or b["p_final"] < 0.25:
             return False
-        if no_margin and b["kind"] in ("spread", "moneyline"):
-            return False   # spreads/moneylines are shown for information only (see backtest)
         if b["edge"] is not None and abs(b["edge"]) > max_edge:
             return False   # gap this large usually means stale line or late news
-        if b["kind"] == "prop":
-            if b.get("play_prob", 1) < 0.85:
-                return False
-            if not (params.get("prop_min_ev", 0.02) <= b["ev"] <= params.get("prop_max_ev", 0.06)):
-                return False
-            # signal agreement: the raw projection must also favour this side
-            raw = b.get("p_model_raw")
-            if raw is not None:
-                raw_side = raw if b["side"] == "over" else 1 - raw
-                if raw_side < (b["p_market"] or 0.5):
-                    return False
         return True
 
-    cands = sorted([b for b in bets if eligible(b)], key=lambda b: b["ev"], reverse=True)
-    # cap props per player and per game to keep the book diversified
-    seen_pp, kept = {}, []
-    for b in cands:
-        k = (b["game_id"], b.get("player_id"))
-        if b["kind"] == "prop":
-            if seen_pp.get(k, 0) >= 2:
-                continue
-            seen_pp[k] = seen_pp.get(k, 0) + 1
-        kept.append(b)
+    kept = sorted([b for b in bets if eligible(b)], key=lambda b: b["ev"], reverse=True)
     singles = kept[:30]
-    lock = max(kept, key=lambda b: (b["p_final"], b["ev"])) if kept else None
-    if lock is not None and lock not in singles:
-        singles.append(lock)
     parlays_all = build_parlays(singles, payoffs, max_legs=int(params.get("parlay_max_legs", 4)),
                                 pool=int(params.get("parlay_pool", 14)),
                                 min_leg_prob=float(params.get("parlay_min_leg_prob", 0.45)))
     parlays = select_parlays(parlays_all, int(params.get("max_parlays", 6)))
+    label_of = {b["id"]: b["label"] for b in bets}
     for i, p in enumerate(parlays):
         p["id"] = f"parlay-{i + 1}"
         p["american"] = decimal_to_american(p["dec"])
+        p["leg_labels"] = [label_of.get(l, l) for l in p["legs"]]
         payoffs[p["id"]] = p["payoff"]
 
+    # ------------------------------------------------------- shrunk joint distribution + policy
     ids = [b["id"] for b in singles] + [p["id"] for p in parlays]
+    kinds = ["total"] * len(singles) + ["parlay"] * len(parlays)
+    decs = [b["dec"] for b in singles] + [p["dec"] for p in parlays]
     R = np.column_stack([payoffs[i] for i in ids]) if ids else np.zeros((n, 0))
-    full = kelly.optimal_kelly(R) if ids else np.zeros(0)
-    allocations = {}
-    for name, prof in kelly.PROFILES.items():
-        frac = np.minimum(full * prof["kelly"], prof["max_bet"])
-        if frac.sum() > prof["max_total"]:
-            frac *= prof["max_total"] / frac.sum()
-        items = [{"ref": i, "frac": _r(x, 5)} for i, x in zip(ids, frac) if x >= 0.0005]
-        allocations[name] = {**{k: v for k, v in prof.items()}, "items": items,
-                             "risk": {k: _r(v, 4) for k, v in kelly.risk_summary(R, frac).items()}}
-    mu, cov = discrete.moments(R)
-    portfolio = {"ids": ids, "mu": [round(float(x), 5) for x in mu],
-                 "cov": [[round(float(x), 6) for x in row] for row in cov]}
+    R_s = policy.shrink_matrix(R, kinds, decs, seed=seed, p_win=[None] * len(singles) + [p["p_hit"] for p in parlays]) \
+        if ids else R
+    u_common = np.random.default_rng(seed).random(n)
+    col_of = {i: j for j, i in enumerate(ids)}
+
+    for b in bets:
+        if b["kind"] == "total":
+            sim = sims_by_game[b["game_id"]]
+            col = R_s[:, col_of[b["id"]]] if b["id"] in col_of else policy.shrink_payoff(
+                payoffs[b["id"]], kind="total", dec=b["dec"], u=u_common)
+            b.update(policy.bet_metrics(col, b["dec"], unit=REF_UNIT))
+            b["fair_line"] = policy.fair_line(sim.total)
+            b["max_line"] = policy.max_line(sim.total, b["side"], b["line"], b["dec"])
+            b["info_only"] = False
+        else:
+            b["info_only"] = True
+            if b["kind"] == "prop":
+                b["shrunk_ev"] = 0.0   # s = 0: no measured out-of-sample edge (memo s.1 point 3)
+    for p, j in zip(parlays, range(len(singles), len(ids))):
+        p.update(policy.bet_metrics(R_s[:, j], p["dec"], unit=REF_UNIT))
+
+    meta = []
+    for b in singles:
+        meta.append({"id": b["id"], "kind": "total", "label": b["label"], "game_id": b["game_id"], "dec": b["dec"],
+                     "side": b["side"], "line": b["line"], "max_line": b.get("max_line"), "fair_line": b.get("fair_line")})
+    for p in parlays:
+        meta.append({"id": p["id"], "kind": "parlay", "label": " + ".join(p["leg_labels"]),
+                     "game_id": None, "dec": p["dec"]})
+    regime = props_regime(day) if not replay else {"regime": "neutral", "n": 0}
+    hours_first = min((gm["hours_to_tip"] for gm in games_out if gm.get("hours_to_tip") is not None), default=None)
+    flags = {"props_regime": regime["regime"], "lineup_uncertainty": gtd_games, "hours_to_first_tip": hours_first}
+    # ineligible totals are offered to would_change as 'misses' (what line would clear the floor)
+    night = policy.night_block(R_s, meta, REF_BANKROLL, REF_UNIT, flags)
+    misses = [b for b in bets if b["kind"] == "total" and b["id"] not in col_of and (b.get("shrunk_ev") or 0) > 0]
+    if misses and night["verdict"] in ("PASS", "LIGHT"):
+        extra = policy.would_change(night["verdict"], [{**b, "frac_ref": 0.0} for b in misses], night["score"], {})
+        night["would_change"] = night["would_change"] + [t for t in extra if "would clear it" in t][:2]
+
+    ref_units = policy.reference_units(R_s) if ids else np.zeros(0, dtype=int)
+    opt_units = policy.allocate(R_s, REF_BANKROLL, REF_UNIT, policy.OPT_IN_K) if ids else np.zeros(0, dtype=int)
+
+    def alloc_block(units, k):
+        frac = units * REF_UNIT / REF_BANKROLL
+        items = [{"ref": i, "units": int(u), "stake": _r(u * REF_UNIT, 2), "frac": _r(fr, 5)}
+                 for i, u, fr in zip(ids, units, frac) if u > 0]
+        return {"kelly": k, "max_bet": policy.PER_BET_CAP, "max_total": policy.NIGHT_CAP,
+                "bankroll": REF_BANKROLL, "unit": REF_UNIT, "shrunk": True, "items": items,
+                "risk": {k_: _r(v, 4) for k_, v in kelly.risk_summary(R_s, frac).items()}}
+
+    ref_alloc = alloc_block(ref_units, policy.REF_K)
+    opt_alloc = alloc_block(opt_units, policy.OPT_IN_K)
+    # 'balanced'/'conservative' alias the reference ticket and 'aggressive'/'max_growth' the opt-in
+    # ceiling so older dashboard builds keep rendering; the dashboard sizes the user's own ticket.
+    allocations = {"reference": ref_alloc, "opt_in": opt_alloc, "balanced": ref_alloc, "conservative": ref_alloc,
+                   "aggressive": opt_alloc, "max_growth": opt_alloc}
+    mu, cov = discrete.moments(R_s) if ids else (np.zeros(0), np.zeros((0, 0)))
+    portfolio = {"ids": ids, "kinds": kinds, "decs": [_r(d, 4) for d in decs], "shrunk": True,
+                 "mu": [round(float(x), 5) for x in mu],
+                 "cov": [[round(float(x), 6) for x in row] for row in cov],
+                 "units_ref": [int(u) for u in ref_units], "growth_1u_per_100": [
+                     _r(x, 6) for x in policy.growth_gate_matrix(R_s, REF_BANKROLL, REF_UNIT)] if ids else []}
+    full = kelly.optimal_kelly(R_s) if ids else np.zeros(0)
     for b, fk in zip(singles, full[:len(singles)]):
         b["kelly_full"] = float(fk)
     for p, fk in zip(parlays, full[len(singles):]):
         p["kelly_full"] = float(fk)
 
-    # ----------------------------------------------------------- picks
+    # ----------------------------------------------------------- picks (ranked by growth, not EV)
     picks = {}
+    ticket_bets = [b for b, u in zip(singles, ref_units[:len(singles)]) if u > 0]
+    ticket_parlays = [p for p, u in zip(parlays, ref_units[len(singles):]) if u > 0]
     if singles:
-        picks["lock"] = lock["id"]
-        picks["value"] = max(singles, key=lambda b: b.get("kelly_full", 0) * (1 + b["ev"]))["id"]
-        game_singles = [b for b in singles if b["kind"] != "prop"]
-        if game_singles:
-            picks["best_game_bet"] = max(game_singles, key=lambda b: b["ev"])["id"]
-        prop_singles = [b for b in singles if b["kind"] == "prop"]
-        if prop_singles:
-            picks["best_prop"] = max(prop_singles, key=lambda b: b["ev"])["id"]
+        picks["lock"] = max(singles, key=lambda b: (b["p_shrunk"], b["shrunk_ev"]))["id"]
+        picks["value"] = max(singles, key=lambda b: (b.get("growth_1u_per_100") or -1))["id"]
+        picks["best_game_bet"] = picks["value"]
     if parlays:
-        live = [p for p in parlays if p["p_hit"] >= 0.20] or parlays
-        picks["parlay"] = max(live, key=lambda p: p["ev"])["id"]
+        picks["parlay"] = max(parlays, key=lambda p: (p.get("growth_1u_per_100") or -1))["id"]
         picks["safe_parlay"] = max(parlays, key=lambda p: p["p_hit"])["id"]
+    best_prop = max([b for b in bets if b["kind"] == "prop"], key=lambda b: b["ev"], default=None)
+    if best_prop:
+        picks["best_prop"] = best_prop["id"]   # informational
 
-    # same-game parlay fair odds for the top legs of each game (informational)
     sgp = []
-    for g in games_out:
-        gl = [b for b in kept if b["game_id"] == g["id"]][:3]
+    for gm in games_out:
+        gl = [b for b in kept if b["game_id"] == gm["id"]][:3]
         if len(gl) >= 2:
             fair = same_game_fair(gl, payoffs)
-            sgp.append({"game_id": g["id"], "legs": [b["id"] for b in gl], "p_hit": _r(fair["p_hit"], 4),
+            sgp.append({"game_id": gm["id"], "legs": [b["id"] for b in gl], "p_hit": _r(fair["p_hit"], 4),
                         "fair_american": _r(decimal_to_american(fair["fair_dec"]), 0) if fair["fair_dec"] else None})
 
+    # ----------------------------------------------------------- pick'em (PrizePicks)
+    pickem_block = pickem.empty_block(notes=["Props disabled for this run."])
+    pk_source, pk_notes = "dk_proxy", []
+    if pp_err:
+        pk_notes.append(f"PrizePicks board unavailable: {pp_err}; DraftKings lines used as the proxy.")
+    if pm is not None and pk_inputs:
+        pp_source_rows = pp_rows
+        if pp_rows:
+            pk_source = "prizepicks"
+        elif odds_events and odds_budget is not None:
+            # Odds API fallback: PrizePicks lines (region us_dfs) for at most 3 games with the most DK candidates
+            ranked = sorted(pk_inputs.items(), key=lambda kv: -sum(1 for r in kv[1][1] if r.get("kind") == "ou"))[:3]
+            rows = []
+            for gid, (tp, _pl, _gm) in ranked:
+                eid = espn_to_event.get(gid)
+                if not eid:
+                    continue
+                try:
+                    props_ev = oddsapi.fetch_event_props(f, eid, budget=odds_budget)
+                except Exception:  # noqa: BLE001
+                    props_ev = {}
+                for (pname, stat), books in props_ev.items():
+                    for bk in oddsapi.PICKEM_KEYS:
+                        if bk in books and books[bk].get("line") is not None:
+                            rows.append({"name": pname, "team": None, "stat": stat, "line": books[bk]["line"],
+                                         "odds_type": "standard", "status": "pre_game", "supported": True,
+                                         "projection_id": None})
+                            break
+            if rows:
+                pp_source_rows, pk_source = rows, "oddsapi_prizepicks"
+                pk_notes.append("PrizePicks lines via the Odds API (us_dfs) for the top 3 games; the rest use the DK proxy.")
+        legs_all: list[dict] = []
+        sims_all: dict[str, dict] = {}
+        for gid, (team_players, plines, gmeta) in pk_inputs.items():
+            id_to_name = {pid: t[0]["name"] for pid, t in team_players.items()}
+            pp_game = []
+            if pp_source_rows:
+                pp_game, _ = prizepicks.match_players(pp_source_rows, id_to_name,
+                                                      team_of={pid: t[2] for pid, t in team_players.items()})
+                pp_game = [r for r in pp_game if r.get("player_id")]
+            legs = pickem.build_legs([t[0] for t in team_players.values()], {pid: t[1] for pid, t in team_players.items()},
+                                     plines, pp_game, {"s": policy.shrink_factor("pickem"), "payouts": PICKEM_PAYOUTS},
+                                     game=gmeta)
+            if pk_source == "oddsapi_prizepicks":
+                for l in legs:
+                    if l.get("line_source") == "prizepicks":
+                        l["line_source"] = "oddsapi_prizepicks"
+            legs_all += legs
+            for pid in {l["player_id"] for l in legs}:
+                sims_all[pid] = team_players[pid][1]
+        legs_all.sort(key=lambda l: (-l["p_side_shrunk"], l["id"]))
+        legs_all = legs_all[:MAX_PICKEM_LEGS]
+        keep_pids = {l["player_id"] for l in legs_all}
+        sims_all = {pid: s for pid, s in sims_all.items() if pid in keep_pids}
+        if n > MAX_PICKEM_DRAWS:
+            sims_all = {pid: {k: v[:MAX_PICKEM_DRAWS] for k, v in s.items()} for pid, s in sims_all.items()}
+        pk_notes.append(f"The reference ledger records at most {int(policy.NIGHT_CAP * REF_BANKROLL // PICKEM_MIN_ENTRY)} "
+                        f"${PICKEM_MIN_ENTRY:g} entries per night (the 10% night cap on $100); slips are ranked.")
+        pk_notes.append("Pick'em edges are PROVISIONAL: no historical PrizePicks line archive exists, so the leg "
+                        "probabilities are market-anchored (DraftKings) and shrunk at s = 0.5 until the live ledger "
+                        "grades enough slips.")
+        pickem_block = pickem.build_pickem_block(legs_all, sims_all, source=pk_source, fetched_at=pp_fetched,
+                                                 payouts=PICKEM_PAYOUTS, min_entry=PICKEM_MIN_ENTRY,
+                                                 s=policy.shrink_factor("pickem"), notes=pk_notes,
+                                                 max_sim_legs=MAX_PICKEM_LEGS, bankroll_ref=REF_BANKROLL)
+    pickem_block["props_regime"] = regime["regime"]
+    # pick'em status joins the nightly verdict as a reason (it never raises the Fliff score)
+    pk_legs = pickem_block.get("legs", [])
+    if pickem_block.get("mode") == "check_lines" and pk_legs:
+        pk_take = [l for l in pk_legs if l.get("more_if_at_most") is not None or l.get("less_if_at_least") is not None]
+        night.setdefault("reasons", []).append(
+            f"PrizePicks: the board could not be read from the server, so {len(pk_take)} player legs come with take-it "
+            "thresholds instead of picks. Check them in the app; a slip is worth playing only where its lines meet the thresholds.")
+        night["pickem_status"] = "check_lines"
+    elif pk_legs:
+        n_play = sum(1 for x in pickem_block.get("slips", []) if x.get("verdict") == "play")
+        night.setdefault("reasons", []).append(
+            f"PrizePicks: {n_play} slip(s) grow a $100 bankroll at the ${PICKEM_MIN_ENTRY:g} entry on live lines." if n_play
+            else "PrizePicks: no slip grows a $100 bankroll at the minimum entry tonight.")
+        night["pickem_status"] = "play" if n_play else "pass"
+    else:
+        night["pickem_status"] = "none"
+
+    # ----------------------------------------------------------- lines snapshot + movement
+    lines_block = {"snapshots_file": f"data/lines/{day}.json", "label": label, "moved": []}
+    if not replay and slate:
+        models = {gm["id"]: {"margin": gm["model"]["margin_final"], "total": gm["model"]["total_final"]} for gm in games_out}
+        lines_mod.record(day, label, slate, models, at=now.isoformat(timespec="seconds"))
+        for b in kept:
+            mv = lines_mod.movement(day, b)
+            if mv:
+                ok = mv["still_ok"] and policy.still_ok(b["side"], mv["line_now"], b.get("max_line"))
+                lines_block["moved"].append({"bet_id": b["id"], "priced_at": mv["priced_at"], "line_then": mv["line_then"],
+                                             "line_now": mv["line_now"], "moved_by": mv["moved_by"], "still_ok": bool(ok)})
+        log_props(day, props_log_rows)
+
+    # ----------------------------------------------------------- output
     eligible_ids = {b["id"] for b in kept}
     shown = [b for b in bets if b["kind"] != "prop"] + sorted(
-        [b for b in bets if b["kind"] == "prop"], key=lambda b: b["ev"], reverse=True)[:400]
-    shown_ids = {b["id"] for b in shown}
-    for b in singles:
-        if b["id"] not in shown_ids:
-            shown.append(b)
+        [b for b in bets if b["kind"] == "prop"], key=lambda b: b["ev"], reverse=True)[:MAX_PROPS_SHOWN]
     out_bets = []
     for b in shown:
         out_bets.append({k: (_r(v, 4) if isinstance(v, float) else v) for k, v in b.items()} |
@@ -403,19 +773,28 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                          "adj_pace": _r(st["mu_pace"] + v["P"], 1), "games": v["games"],
                          "elo": _r(eng.elo_now.get(t), 0)} for t, v in st["teams"].items()),
                        key=lambda r: -r["adj_net"])
+    growth_block = growth_block_cached() if not replay else {"basis": "not computed in replay", "nights": 0, "grid": []}
     result = {
         "brand": BRAND, "version": __version__,
-        "generated": now.isoformat(timespec="seconds"), "date": str(day), "season": season,
+        "generated": now.isoformat(timespec="seconds"), "date": str(day), "season": season, "run_label": label,
         "n_sims": n, "games": games_out, "bets": out_bets,
         "parlays": [{k: (_r(v, 4) if isinstance(v, float) else v) for k, v in p.items() if k != "payoff"}
                     for p in parlays],
         "same_game_fair": sgp, "allocations": allocations, "picks": picks, "teams": teams_tbl,
-        "portfolio": portfolio, "_R": R,
+        "portfolio": portfolio, "_R": R, "_R_shrunk": R_s, "_meta": meta,
+        "policy": policy.POLICY, "night": night,
+        "pickem": pickem_block,
+        "fliff": fliff_block(ticket_bets, ticket_parlays, bool(odds_events)),
+        "growth": growth_block, "lines": lines_block,
+        "props_regime": regime, "context": {"kill_switch": kill, "params": ctx.CONTEXT_PARAMS},
         "params": {k: params[k] for k in ("margin_sd", "total_sd", "w_ratings", "w_model_vs_market_margin",
                                           "w_model_vs_market_total", "w_model_vs_market_props", "hca_points",
                                           "min_ev", "max_edge_prob")},
         "counts": {"games": len(games_out), "bets_priced": len(bets), "eligible": len(kept),
-                   "props_priced": sum(1 for b in bets if b["kind"] == "prop")},
+                   "placeable_ref": int((ref_units > 0).sum()) if ids else 0,
+                   "props_priced": sum(1 for b in bets if b["kind"] == "prop"),
+                   "pickem_legs": len(pickem_block.get("legs", [])),
+                   "pickem_slips_play": sum(1 for s_ in pickem_block.get("slips", []) if s_.get("verdict") == "play")},
     }
     return result
 
@@ -426,10 +805,11 @@ def write_outputs(result: dict) -> None:
     result = {k: v for k, v in result.items() if not k.startswith("_")}
     txt = json.dumps(result, separators=(",", ":"), default=_json_default)
     (SITE_DATA / "latest.json").write_text(txt)
-    # dated snapshot without the full props board (keeps the repo small)
+    # dated snapshot without the full props board or the packed pick'em sims (keeps the repo small)
     keep = {i["ref"] for a in result["allocations"].values() for i in a["items"]}
     keep |= {l for p in result["parlays"] for l in p["legs"]} | set(result["picks"].values())
-    slim = {**result, "bets": [b for b in result["bets"] if b["id"] in keep or b["kind"] != "prop"]}
+    slim = {**result, "bets": [b for b in result["bets"] if b["id"] in keep or b["kind"] != "prop"],
+            "pickem": {**result.get("pickem", {}), "sims": {"n": 0, "legs": [], "bits": ""}}}
     (SITE_DATA / "slates" / f"{result['date']}.json").write_text(
         json.dumps(slim, separators=(",", ":"), default=_json_default))
 

@@ -21,6 +21,7 @@ from ..teams import TEAMS
 from . import elo as elo_mod
 from . import players as pl
 from . import ratings as rt
+from .context import total_context_adjust
 from .odds import market_margin, market_total
 from .situational import situational_margin
 
@@ -113,7 +114,11 @@ class Engine:
             "ortg_h": ortg_h, "ortg_a": ortg_a,
         }
 
-    def blend_with_market(self, proj: dict, odds: dict | None) -> dict:
+    def blend_with_market(self, proj: dict, odds: dict | None, context: dict | None = None) -> dict:
+        """Blend the model with the closing market. ``context`` (optional) is
+        {home_gp, away_gp, season_type, home_winpct, away_winpct[, kill]} and adds the
+        late-season total adjustment AFTER the blend (memo B4: the fitted total weight is
+        near zero, so anything added to t_model would be discarded). ``kill`` True zeroes it."""
         p = self.params
         o = (odds or {}).get("close") or {}
         mm = market_margin(o.get("spread_home"), o.get("spread_home_price"), o.get("spread_away_price"),
@@ -122,7 +127,13 @@ class Engine:
         wm, wt = p["w_model_vs_market_margin"], p["w_model_vs_market_total"]
         m = proj["m_model"] if mm is None else wm * proj["m_model"] + (1 - wm) * mm
         t = proj["t_model"] if mt is None else wt * proj["t_model"] + (1 - wt) * mt
-        return {**proj, "m_market": mm, "t_market": mt, "m_final": m, "t_final": t}
+        t_ctx = 0.0
+        if context and not context.get("kill"):
+            t_ctx = total_context_adjust(context.get("home_gp", 0), context.get("away_gp", 0),
+                                         context.get("season_type"), o.get("spread_home"),
+                                         context.get("home_winpct"), context.get("away_winpct"),
+                                         p.get("context_params"))
+        return {**proj, "m_market": mm, "t_market": mt, "m_final": m, "t_final": t + t_ctx, "t_context": t_ctx}
 
 
 def availability_from_box(engine: Engine, st_season_pg: pd.DataFrame, game_id: str, team: str,

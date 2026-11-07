@@ -2,15 +2,20 @@ name: J&G nightly slate
 
 on:
   schedule:
-    - cron: "41 15 * * *"   # ~10:41 ET: price the slate against morning lines
-    - cron: "17 22 * * *"   # ~5:17 ET: refresh for injury news before tip-off
-    - cron: "23 9 * * *"    # ~4:23 ET: grade last night's ledger
-    - cron: "7 11 * * 1"    # Mondays: refit the model on the latest results
+    - cron: "31 2 * * *"    # 02:31 UTC (~9:31 pm ET): price tomorrow's slate at the OPENERS
+    - cron: "41 15 * * *"   # 15:41 UTC (~10:41 am ET): morning lines + injury report
+    - cron: "41 20 * * *"   # 20:41 UTC (~3:41 pm ET): pre-tip run for the 4-5 pm ET tips
+    - cron: "17 22 * * *"   # 22:17 UTC (~5:17 pm ET): afternoon injury news before the main slate
+    - cron: "23 9 * * *"    # 09:23 UTC (~4:23 am ET): grade last night's ledger
+    - cron: "7 11 * * 1"    # Mondays: refit the model and refresh the replay (both seeds)
   workflow_dispatch:
     inputs:
       task:
         description: "run | grade | backtest"
         default: run
+      label:
+        description: "snapshot label for run: opener | morning | pretip | afternoon"
+        default: ""
 
 permissions:
   contents: write
@@ -23,9 +28,10 @@ concurrency:
 jobs:
   desk:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,11 +40,12 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Run tests
-        run: python tests/test_core.py
+        run: python tests/run_all.py
       - name: Pick task
         id: task
         run: |
           T="${{ github.event.inputs.task }}"
+          L="${{ github.event.inputs.label }}"
           if [ -z "$T" ]; then
             case "${{ github.event.schedule }}" in
               "23 9 * * *") T=grade ;;
@@ -46,20 +53,35 @@ jobs:
               *) T=run ;;
             esac
           fi
+          if [ -z "$L" ]; then
+            case "${{ github.event.schedule }}" in
+              "31 2 * * *") L=opener ;;
+              "41 15 * * *") L=morning ;;
+              "41 20 * * *") L=pretip ;;
+              "17 22 * * *") L=afternoon ;;
+              *) L=manual ;;
+            esac
+          fi
           echo "task=$T" >> "$GITHUB_OUTPUT"
+          echo "label=$L" >> "$GITHUB_OUTPUT"
       - name: Refit model
         if: steps.task.outputs.task == 'backtest'
-        run: python -m jghedge backtest && python -m jghedge replay && python -m jghedge run --no-ledger
+        env:
+          JG_RUN_LABEL: refit
+        run: python -m jghedge backtest && python -m jghedge replay --seasons 2024,2025,2026,2027 && python -m jghedge run --no-ledger
       - name: Grade ledger
         if: steps.task.outputs.task == 'grade'
         run: python -m jghedge grade && python -m jghedge ingest && python -m jghedge site
-      - name: Price tonight's slate
+      - name: Price the slate
         if: steps.task.outputs.task == 'run'
+        env:
+          JG_RUN_LABEL: ${{ steps.task.outputs.label }}
         run: python -m jghedge run && python -m jghedge ingest && python -m jghedge site
       - name: Commit results
         run: |
           git config user.name "jg-desk-bot"
           git config user.email "jg-desk-bot@users.noreply.github.com"
           git add data docs dist
-          git diff --cached --quiet || git commit -m "Desk update: ${{ steps.task.outputs.task }} $(date -u +%Y-%m-%dT%H:%MZ)"
+          git diff --cached --quiet || git commit -m "Desk update: ${{ steps.task.outputs.task }} ${{ steps.task.outputs.label }} $(date -u +%Y-%m-%dT%H:%MZ)"
           git push
+          git push origin HEAD:refs/heads/main || echo "main has diverged; mirror skipped"

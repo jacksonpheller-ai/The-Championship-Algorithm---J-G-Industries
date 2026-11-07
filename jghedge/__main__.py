@@ -6,6 +6,7 @@
     python -m jghedge update         # pull newly completed games into data/history
     python -m jghedge grade          # grade the ledger from final box scores
     python -m jghedge site           # build standalone dashboard HTML (dist/)
+    python -m jghedge replay --seasons 2024,2025,2026,2027   # both seeds under the growth policy
 """
 from __future__ import annotations
 
@@ -52,7 +53,8 @@ def cmd_run(args):
     from . import ledger, pipeline
     from .site import build_standalone
     d = date.fromisoformat(args.date) if args.date else None
-    res = pipeline.run(day=d, n_sims=args.sims, update=not args.no_update, with_props=not args.no_props)
+    res = pipeline.run(day=d, n_sims=args.sims, update=not args.no_update, with_props=not args.no_props,
+                       label=args.label)
     if not args.no_update:
         ledger.grade(CURRENT_SEASON)
     res["ledger"] = {k: v for k, v in ledger.summary().items() if k != "recent"}
@@ -61,9 +63,17 @@ def cmd_run(args):
     results.publish(CURRENT_SEASON)
     if res["games"] and not args.no_ledger:
         n = ledger.record(res)
-        print(f"Ledger: recorded {n} bets for {res['date']}")
+        print(f"Ledger: recorded {n} reference-ticket entries for {res['date']}")
     ledger.publish()
     out = build_standalone()
+    nt = res["night"]
+    pk = res["pickem"]
+    top = pk["slips"][0] if pk["slips"] else None
+    print(f"Night {res['date']} ({res['run_label']}): {nt['verdict']} score {nt['score']:.6f} | "
+          f"{res['counts']['placeable_ref']} placeable at $100/$0.50 | pick'em {pk['source']}: {len(pk['legs'])} legs, "
+          f"top slip {top['label'] if top else 'none'}" + (f" ({top['type']}, {top['verdict']})" if top else "")
+          + (" [stand-in lines: check the app]" if pk.get("mode") == "check_lines" else ""))
+    print(nt["headline"])
     print("Dashboard data:", SITE_DATA / "latest.json", "| standalone:", out)
 
 
@@ -82,10 +92,14 @@ def cmd_replay(args):
     from .replay import run_and_save
     from .site import build_standalone
     seasons = [int(x) for x in args.seasons.split(",")]
-    res = run_and_save(seasons, lines=args.lines)
+    seeds = tuple(int(x) for x in args.seeds.split(","))
+    res = run_and_save(seasons, lines=args.lines, seeds=seeds)
     for k, r in res.items():
-        print(k, f"${r['start_bankroll']:,.0f} -> ${r['end_bankroll']:,.0f}", "ROI", r.get("stake_weighted_roi"),
-              "bets", r.get("bets"), "max DD", r.get("max_drawdown"))
+        print(k, f"${r['start_bankroll']:,.0f} -> ${r['end_bankroll']:,.0f} (seeds {r.get('per_seed_end')})",
+              "ROI", r.get("stake_weighted_roi"), "bets", r.get("bets"), "max DD", r.get("max_drawdown"),
+              "verdicts", r.get("verdicts"), "small", {k_: v["end"] for k_, v in r["small"].items()})
+    for line in res[next(iter(res))]["not_replayed"]:
+        print("note:", line)
     build_standalone()
 
 
@@ -120,6 +134,7 @@ def main():
     p.add_argument("--no-update", action="store_true")
     p.add_argument("--no-props", action="store_true")
     p.add_argument("--no-ledger", action="store_true")
+    p.add_argument("--label", help="snapshot label: opener | morning | pretip | afternoon (default: JG_RUN_LABEL or by hour)")
     p.set_defaults(fn=cmd_run)
     for name, fn in (("update", cmd_update), ("backtest", cmd_backtest), ("grade", cmd_grade), ("ingest", cmd_ingest),
                      ("props", cmd_props)):
@@ -132,6 +147,7 @@ def main():
     q = sub.add_parser("replay")
     q.add_argument("--seasons", default=f"{CURRENT_SEASON - 1},{CURRENT_SEASON}")
     q.add_argument("--lines", default="open", choices=["open", "close"])
+    q.add_argument("--seeds", default="0,1000", help="seed offsets to run and average")
     q.set_defaults(fn=cmd_replay)
     args = ap.parse_args()
     args.fn(args)

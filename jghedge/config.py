@@ -68,6 +68,35 @@ DEFAULT_PARAMS: dict = {
 }
 
 
+# --- growth-policy defaults (research memo s.4-5). The modules own the live values
+# (jghedge.portfolio.policy, jghedge.model.context, jghedge.pickem); these are the documented
+# defaults so a reader of this file sees every knob in one place. ------------------------
+CONTEXT_PARAMS: dict = {            # late-season total adjustment, applied AFTER the market blend
+    "late_gp": 70, "late_adj": 1.8, "very_late_gp": 79, "very_late_adj": 2.5,
+    "tank_spread": 8.0, "tank_winpct": 0.35, "regular_season_type": 2,
+    "kill_switch_window": 100, "kill_switch_floor": 0.50,
+}
+SHRINK: dict = {"total": 0.5, "parlay": 0.5, "prop": 0.0, "pickem": 0.5}   # realised edge ~ s x claimed
+TIERS: tuple = (                    # Kelly multiple by bankroll in units (max_units exclusive)
+    {"max_units": 25, "k": 0.5, "label": "tiny"},
+    {"max_units": 100, "k": 0.35, "label": "small"},
+    {"max_units": None, "k": 0.25, "label": "standard"},
+)
+PER_BET_CAP, NIGHT_CAP, OPT_IN_K = 0.05, 0.10, 0.5
+SCORE_THRESHOLDS: dict = {"light": 0.0005, "bet": 0.0015}
+REF_BANKROLL, REF_UNIT = 100.0, 0.5   # the ledger's reference ticket and the night score basis
+# PrizePicks payout table and minimum entry: ASSUMPTIONS (the site could not be reached from the
+# build sandbox and web summaries disagreed); override via data/model_params.json "pickem".
+PICKEM_PAYOUTS: dict = {"power": {2: 3.0, 3: 5.0, 4: 10.0},
+                        "flex": {3: [2.25, 1.25], 4: [5.0, 1.5], 5: [10.0, 2.0, 0.4], 6: [25.0, 2.0, 0.4]}}
+PICKEM_MIN_ENTRY = 5.0
+FLIFF_MIN_BET = 0.25                # ASSUMPTION: Fliff Cash minimum wager, unverified
+PROPS_REGIME: dict = {              # rolling under-lean regime flag (memo B6); assumptions, not fits
+    "window_nights": 30, "min_lines": 300, "lean_under_at": 0.035, "stand_down_at": -0.02,
+}
+RUN_LABEL_HOURS_ET: dict = {"opener": 6, "morning": 14, "pretip": 17, "evening": 20}   # ET-hour label fallback
+
+
 def load_params() -> dict:
     params = dict(DEFAULT_PARAMS)
     if PARAMS_FILE.exists():

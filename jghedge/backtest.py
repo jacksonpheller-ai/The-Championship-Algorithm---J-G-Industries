@@ -17,6 +17,7 @@ import pandas as pd
 from .config import PARAMS_FILE, load_params
 from .model import players as pl
 from .model.engine import Engine
+from .model.context import total_context_adjust
 from .model.odds import american_to_decimal, market_margin, market_total, norm_cdf, novig_power
 from .model.situational import SIT_FEATURES, feature_vector, schedule_features
 
@@ -93,6 +94,12 @@ def with_params(preds: pd.DataFrame, p: dict) -> pd.DataFrame:
     wm, wt = p["w_model_vs_market_margin"], p["w_model_vs_market_total"]
     d["m_final"] = np.where(d["m_market"].notna(), wm * d["m_model"] + (1 - wm) * d["m_market"], d["m_model"])
     d["t_final"] = np.where(d["t_market"].notna(), wt * d["t_model2"] + (1 - wt) * d["t_market"], d["t_model2"])
+    # late-season total adjustment AFTER the blend, mirroring Engine.blend_with_market (memo B4);
+    # games_h/games_a are pre-game counts from the ratings state, the spread is the closing spread.
+    # Regular season only: the walk-forward frame holds regular-season games (season_type 2).
+    d["t_context"] = [total_context_adjust(gh, ga, 2, (None if pd.isna(sh) else sh), None, None, p.get("context_params"))
+                      for gh, ga, sh in zip(d["games_h"], d["games_a"], d["spread_home"])]
+    d["t_final"] = d["t_final"] + np.asarray(d["t_context"], dtype=float)
     return d
 
 

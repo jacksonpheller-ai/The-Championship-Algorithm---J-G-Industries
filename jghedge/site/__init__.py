@@ -1,0 +1,36 @@
+"""Build the dashboard: docs/index.html (GitHub Pages) and dist/jg-hedging-co.html
+(a single self-contained file you can send to anyone or open offline)."""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from ..config import ROOT, SITE_DATA, SITE_DIR
+
+TEMPLATE = Path(__file__).with_name("template.html")
+DIST = ROOT / "dist"
+
+
+def _load(name: str) -> dict:
+    p = SITE_DATA / name
+    return json.loads(p.read_text()) if p.exists() else {}
+
+
+def render() -> str:
+    data = {"slate": _load("latest.json"), "ledger": _load("ledger.json"), "backtest": _load("backtest.json")}
+    blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+    return TEMPLATE.read_text(encoding="utf-8").replace('"__JG_DATA__"', blob)
+
+
+def build_standalone() -> Path:
+    body = render()
+    SITE_DIR.mkdir(parents=True, exist_ok=True)
+    page = ("<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n"
+            "<meta name=\"robots\" content=\"noindex\">\n</head>\n<body>\n" + body + "\n</body>\n</html>\n")
+    (SITE_DIR / "index.html").write_text(page, encoding="utf-8")
+    (SITE_DIR / ".nojekyll").write_text("")
+    DIST.mkdir(exist_ok=True)
+    out = DIST / "jg-hedging-co.html"
+    out.write_text(body, encoding="utf-8")
+    return out

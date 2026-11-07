@@ -1,0 +1,150 @@
+{
+ "rows": 1754,
+ "milestone_gamma_median": 1.08,
+ "by_kind": {
+  "ou": {
+   "n": 1754,
+   "hit_rate_over": 0.4487,
+   "mean_market_p_over": 0.4901,
+   "mean_model_p_over": 0.4852,
+   "proj_bias_vs_actual": -0.833,
+   "proj_mae": 2.92,
+   "line_mae": 2.672,
+   "logloss_market": 0.6843,
+   "logloss_model": 0.7097,
+   "logloss_stack_oos": 0.6871,
+   "logloss_market_oos": 0.69,
+   "stack_coef_all": [
+    0.0216,
+    0.9179,
+    -0.1555
+   ],
+   "stack_coef_train": [
+    0.0608,
+    0.9494,
+    -0.1467
+   ],
+   "oos_betting": {
+    "ev>=2%": {
+     "bets": 97,
+     "wins": 49,
+     "roi": 0.0517
+    },
+    "ev>=5%": {
+     "bets": 0,
+     "wins": 0,
+     "roi": 0.0
+    },
+    "ev>=10%": {
+     "bets": 0,
+     "wins": 0,
+     "roi": 0.0
+    }
+   },
+   "calibration": [
+    {
+     "bin": "0.3-0.4",
+     "pred": 0.364,
+     "actual": 0.332,
+     "n": 226
+    },
+    {
+     "bin": "0.4-0.5",
+     "pred": 0.454,
+     "actual": 0.448,
+     "n": 1290
+    },
+    {
+     "bin": "0.5-0.6",
+     "pred": 0.531,
+     "actual": 0.563,
+     "n": 215
+    }
+   ],
+   "by_stat": {
+    "ast": {
+     "n": 242,
+     "proj_bias": -0.093,
+     "hit_over": 0.463,
+     "mkt_p_over": 0.496,
+     "model_p_over": 0.479
+    },
+    "blk": {
+     "n": 54,
+     "proj_bias": -0.188,
+     "hit_over": 0.426,
+     "mkt_p_over": 0.442,
+     "model_p_over": 0.408
+    },
+    "fg3m": {
+     "n": 314,
+     "proj_bias": -0.11,
+     "hit_over": 0.449,
+     "mkt_p_over": 0.48,
+     "model_p_over": 0.455
+    },
+    "pa": {
+     "n": 110,
+     "proj_bias": -1.619,
+     "hit_over": 0.445,
+     "mkt_p_over": 0.498,
+     "model_p_over": 0.493
+    },
+    "pr": {
+     "n": 142,
+     "proj_bias": -3.103,
+     "hit_over": 0.408,
+     "mkt_p_over": 0.5,
+     "model_p_over": 0.515
+    },
+    "pra": {
+     "n": 99,
+     "proj_bias": -2.424,
+     "hit_over": 0.404,
+     "mkt_p_over": 0.498,
+     "model_p_over": 0.505
+    },
+    "pts": {
+     "n": 174,
+     "proj_bias": -1.696,
+     "hit_over": 0.431,
+     "mkt_p_over": 0.5,
+     "model_p_over": 0.525
+    },
+    "ra": {
+     "n": 210,
+     "proj_bias": -0.322,
+     "hit_over": 0.5,
+     "mkt_p_over": 0.497,
+     "model_p_over": 0.485
+    },
+    "reb": {
+     "n": 295,
+     "proj_bias": -0.498,
+     "hit_over": 0.451,
+     "mkt_p_over": 0.489,
+     "model_p_over": 0.497
+    },
+    "stl": {
+     "n": 114,
+     "proj_bias": -0.225,
+     "hit_over": 0.447,
+     "mkt_p_over": 0.478,
+     "model_p_over": 0.463
+    }
+   }
+  }
+ },
+ "prop_bias": {
+  "ast": 0.9767,
+  "blk": 0.809,
+  "fg3m": 0.9428,
+  "pa": 0.9143,
+  "pr": 0.8491,
+  "pra": 0.9016,
+  "pts": 0.8801,
+  "ra": 0.9664,
+  "reb": 0.9062,
+  "stl": 0.825
+ }
+}

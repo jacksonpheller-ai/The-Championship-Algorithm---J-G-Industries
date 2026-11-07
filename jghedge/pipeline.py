@@ -50,31 +50,39 @@ def _r(x, n=3):
 
 
 def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
-        with_props: bool = True, verbose: bool = True, seed: int = 7) -> dict:
+        with_props: bool = True, verbose: bool = True, seed: int = 7, engine=None,
+        slate: list[dict] | None = None, injuries: dict | None = None, replay: bool = False,
+        season: int | None = None, overrides: dict | None = None, hours_override: float | None = None) -> dict:
+    """Price one night. With `replay=True` (used by jghedge.replay) the caller supplies the
+    engine, the slate with the morning lines and an empty injury report, and every input is
+    restricted to information available before that night (pre-game Elo, prior-season BPM)."""
     params = load_params()
+    params.update(overrides or {})
     n = n_sims or int(params["n_sims"])
     day = day or us_today()
-    season = CURRENT_SEASON
+    season = season or CURRENT_SEASON
     f = Fetcher()
     log = print if verbose else (lambda *a, **k: None)
 
     if update:
         log("Updating game history ...")
         history.update_season(f, season, verbose=verbose)
-    eng = build_engine(f, [season - 2, season - 1, season], params)
+    eng = engine or build_engine(f, [season - 2, season - 1, season], params)
     asof = pd.Timestamp(day)
     st = eng.state(asof, season)
     pg_s = eng.pg[eng.pg["season"] == season]
-    live_vals = eng.injury_values(season, live=True)
+    live_vals = eng.injury_values(season, live=not replay)
 
     log(f"Slate for {day} ...")
-    slate = [g for g in espn.scoreboard(f, day) if g["state"] == "pre"
-             and g["home"] in TEAMS and g["away"] in TEAMS]
-    inj = espn.injuries(f)
-    team_tbl = bbref_table(f, "team", season)
+    if slate is None:
+        slate = [g for g in espn.scoreboard(f, day) if g["state"] == "pre"
+                 and g["home"] in TEAMS and g["away"] in TEAMS]
+    inj = injuries if injuries is not None else espn.injuries(f)
+    team_tbl = None if replay else bbref_table(f, "team", season)
 
     # situational features need the schedule including tonight
     sched = eng.gdf[["id", "date", "tip", "home", "away", "neutral", "venue_city"]].copy()
+    sched = sched[~sched["id"].isin({g["id"] for g in slate})]
     tonight = pd.DataFrame([{"id": g["id"], "date": pd.Timestamp(history.game_day(g["date"])), "tip": g["date"],
                              "home": g["home"], "away": g["away"], "neutral": g["neutral"],
                              "venue_city": g["venue_city"]} for g in slate])
@@ -88,7 +96,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     for g in slate:
         h, a = g["home"], g["away"]
         tip = datetime.fromisoformat(g["date"].replace("Z", "+00:00"))
-        hours = (tip - now).total_seconds() / 3600
+        hours = hours_override if hours_override is not None else (
+            10.0 if replay else (tip - now).total_seconds() / 3600)
         team_pp, team_inj, rots, adj = {}, {}, {}, {}
         for side, team in (("h", h), ("a", a)):
             rows = inj.get(team, [])
@@ -108,7 +117,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                                            "play_prob": r["play_prob"], "net_impact": 0.0,
                                            "note": r.get("detail", ""), "typ_min": 0.0, "bpm": None})
         sf = sit.loc[g["id"]].to_dict() if sit is not None else None
-        proj = eng.project(st, h, a, g["neutral"], sf, adj)
+        proj = eng.project(st, h, a, g["neutral"], sf, adj,
+                           elo_pair=eng.elo_pre.get(g["id"]) if replay else None)
         p_live = dict(params)
         p_live["w_model_vs_market_margin"] = _w_time(hours, params.get("w_margin_early", 0.25),
                                                      params["w_model_vs_market_margin"])
@@ -232,6 +242,21 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                     "wins", "losses", "mov", "sos"]
             return {k: _r(r.get(k)) for k in keys if k in r}
 
+        def rotation_rows(team):
+            rot = rots.get(team)
+            if rot is None or rot.empty:
+                return []
+            out = []
+            for r in rot.head(9).itertuples(index=False):
+                v = live_vals.get(str(r.id), {})
+                pp = team_pp[team].get(str(r.id), 1.0 if r.last3 > 0 else 0.35)
+                out.append({"name": r.name, "min": _r(r.typ_min, 1), "play_prob": _r(pp, 2),
+                            "bpm": _r(v.get("bpm_cur", v.get("bpm")), 1), "obpm": _r(v.get("obpm_cur"), 1),
+                            "dbpm": _r(v.get("dbpm_cur"), 1), "value": _r(v.get("bpm"), 1),
+                            "ortg": _r(v.get("ortg"), 0), "drtg": _r(v.get("drtg"), 0), "per": _r(v.get("per"), 1),
+                            "ts": _r(v.get("ts_pct"), 3), "usg": _r(v.get("usg_pct"), 1), "vorp": _r(v.get("vorp"), 1)})
+            return out
+
         def side_info(team, s):
             tr = st["teams"][team]
             return {"abbr": team, "name": TEAMS[team].name, "adj_o": _r(st["mu"] + tr["O"], 1),
@@ -243,7 +268,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                     "travel_miles": _r((sf or {}).get(f"{s}_travel"), 0), "tz_shift": (sf or {}).get(f"{s}_tz"),
                     "altitude": bool((sf or {}).get(f"{s}_alt")),
                     "avail_dO": _r(adj[f"dO_{s}"], 2), "avail_dD": _r(adj[f"dD_{s}"], 2),
-                    "injuries": team_inj[team], "season_stats": tstats(team),
+                    "injuries": team_inj[team], "season_stats": tstats(team), "rotation": rotation_rows(team),
                     "proj_pts": _r(bl["pts_h"] if s == "h" else bl["pts_a"], 1)}
 
         hw = win_prob(payoffs[f"{gid}-ml-h"]) if f"{gid}-ml-h" in payoffs else float(np.mean(sim.margin > 0))
@@ -303,7 +328,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     if lock is not None and lock not in singles:
         singles.append(lock)
     parlays_all = build_parlays(singles, payoffs)
-    parlays = select_parlays(parlays_all, 6)
+    parlays = select_parlays(parlays_all, int(params.get("max_parlays", 6)))
     for i, p in enumerate(parlays):
         p["id"] = f"parlay-{i + 1}"
         p["american"] = decimal_to_american(p["dec"])

@@ -8,6 +8,7 @@ from .config import CURRENT_SEASON, DATA_DIR, load_params
 from .data import bbref, history
 from .data.http import Fetcher
 from .model.engine import Engine
+from .model.players import enrich_with_ratings
 
 BBREF_DIR = DATA_DIR / "bbref"
 
@@ -18,7 +19,8 @@ def bbref_table(f: Fetcher, kind: str, season: int, current: int = CURRENT_SEASO
         df = pd.read_csv(path, dtype={"bbref_id": str})
         return df.set_index("espn") if kind == "team" else df
     try:
-        df = bbref.team_advanced(f, season) if kind == "team" else bbref.player_advanced(f, season)
+        df = (bbref.team_advanced(f, season) if kind == "team" else
+              bbref.player_per_poss(f, season) if kind == "per_poss" else bbref.player_advanced(f, season))
         if df is not None and not df.empty:
             BBREF_DIR.mkdir(parents=True, exist_ok=True)
             (df.reset_index() if kind == "team" else df).to_csv(path, index=False)
@@ -35,6 +37,7 @@ def build_engine(f: Fetcher, seasons: list[int], params: dict | None = None) -> 
     params = params or load_params()
     gdf, tg, pg = history.load_all(seasons)
     first = min(seasons)
-    adv = {s: bbref_table(f, "player", s) for s in range(first - 2, max(seasons) + 1)}
+    adv = {s: enrich_with_ratings(bbref_table(f, "player", s), bbref_table(f, "per_poss", s))
+           for s in range(first - 2, max(seasons) + 1)}
     team_base = {first - 1: bbref_table(f, "team", first - 1)}
     return Engine(gdf, tg, pg, adv, team_base, params)

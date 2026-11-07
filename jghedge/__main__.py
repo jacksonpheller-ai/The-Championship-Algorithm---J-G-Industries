@@ -82,6 +82,17 @@ def cmd_grade(args):
     ledger.publish()
 
 
+def cmd_replay(args):
+    from .replay import run_and_save
+    from .site import build_standalone
+    seasons = [int(x) for x in args.seasons.split(",")]
+    res = run_and_save(seasons, lines=args.lines)
+    for k, r in res.items():
+        print(k, f"${r['start_bankroll']:,.0f} -> ${r['end_bankroll']:,.0f}", "ROI", r.get("stake_weighted_roi"),
+              "bets", r.get("bets"), "max DD", r.get("max_drawdown"))
+    build_standalone()
+
+
 def cmd_site(args):
     from .site import build_standalone
     print(build_standalone())
@@ -102,6 +113,10 @@ def main():
         q.add_argument("--season", type=int, default=CURRENT_SEASON)
         q.set_defaults(fn=fn)
     sub.add_parser("site").set_defaults(fn=cmd_site)
+    q = sub.add_parser("replay")
+    q.add_argument("--seasons", default=f"{CURRENT_SEASON - 1},{CURRENT_SEASON}")
+    q.add_argument("--lines", default="open", choices=["open", "close"])
+    q.set_defaults(fn=cmd_replay)
     args = ap.parse_args()
     args.fn(args)
 

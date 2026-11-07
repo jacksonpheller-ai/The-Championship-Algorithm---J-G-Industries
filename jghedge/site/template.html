@@ -135,6 +135,12 @@ td .sub { display: block; font-size: 12px; color: var(--ink-3); }
 .kv { display: grid; grid-template-columns: auto auto auto; gap: 4px 14px; font-size: 14px; align-items: baseline; }
 .kv .h { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-3); }
 .kv .n { font-family: var(--f-mono); text-align: right; font-variant-numeric: tabular-nums; }
+.rotwrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 14px; padding: 0 18px 16px; }
+.rotwrap > * { min-width: 0; }
+.tbl.rot table { font-size: 13px; }
+.tbl.rot td, .tbl.rot th { padding: 6px 9px; }
+caption { text-align: left; padding: 8px 9px 4px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+tr.dim td { color: var(--ink-3); }
 .inj { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13px; }
 .inj li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .bar { height: 6px; background: var(--panel-2); border-radius: 3px; position: relative; overflow: hidden; }
@@ -253,6 +259,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <div class="panel"><h3>Live bankroll return, balanced profile</h3><div id="ledgerChart"></div></div>
       <div class="panel"><h3>Win-probability calibration (out of sample)</h3><div id="calChart"></div><p class="small muted" id="calNote"></p></div>
     </div>
+    <div class="panel"><h3>Full-season replay: the nightly pipeline, run on past nights</h3><p class="small muted" style="margin-bottom:10px">Each past night is priced with that morning's opening lines and only information available before tip-off, sized with the balanced profile, settled from final scores and compounded from $1,000. Props excluded (no clean historical prop lines).</p><div class="grid2"><div id="replayChart"></div><div class="tbl" style="border:0"><table id="replayTbl"></table></div></div></div>
     <div class="panel"><h3>Game model vs. the market, by test season</h3><div class="tbl" style="border:0"><table id="folds"></table></div></div>
     <div class="panel"><h3>Betting the opening line: does the line move toward the model?</h3><p class="small muted" style="margin-bottom:10px">Model without lineup look-ahead, bet at the opening number when it disagrees by the threshold. CLV = points the line moved our way by close.</p><div class="tbl" style="border:0"><table id="openStudy"></table></div></div>
     <div class="panel"><h3>Player props vs. pre-game DraftKings lines</h3><div class="tbl" style="border:0"><table id="propStudy"></table></div></div>
@@ -268,7 +275,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <ul>
         <li><b>Team efficiency</b>: offensive and defensive rating per 100 possessions from every box score this season, adjusted for opponent and home court by weighted ridge regression, with recent games weighted more (45-day half-life). Pace modelled the same way.</li>
         <li><b>Four factors</b> (eFG%, turnover rate, offensive rebound rate, free-throw rate, on both ends), SRS, strength of schedule and true shooting from Basketball-Reference.</li>
-        <li><b>Player value</b>: Box Plus/Minus split into offensive and defensive BPM, blended between this season and last by minutes, alongside PER, TS%, usage, WS/48 and VORP.</li>
+        <li><b>Player value</b>: Box Plus/Minus split into offensive and defensive BPM, blended with each player's individual Offensive Rating (points produced per 100 possessions, weighted by usage) and individual Defensive Rating (points allowed per 100 while on court). Values blend this season and last by minutes; PER, TS%, usage, WS/48 and VORP are shown on every rotation.</li>
         <li><b>Roster-talent prior</b>: each team starts the season from last year's ratings regressed to the mean, blended with the minutes-weighted BPM of the players it is actually using now.</li>
         <li><b>Injuries</b>: ESPN injury statuses become play probabilities (Out 0%, Doubtful 15%, Questionable 50%, Probable 90%); the change in expected minutes times each player's BPM above replacement moves the team's offensive and defensive ratings.</li>
         <li><b>Schedule</b>: rest days, back-to-backs, three games in four nights, travel miles between arenas, time-zone shifts and altitude (Denver, Utah, Mexico City). Coefficients fit from three seasons of results.</li>
@@ -478,10 +485,21 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
           "<div><h3>Matchup</h3>" + kv + "</div>" +
           "<div><h3>Availability</h3><div style='display:grid;gap:10px'><div><div class='small muted'>" + esc(a.name) + "</div><ul class='inj'>" + injList(a) + "</ul></div><div><div class='small muted'>" + esc(h.name) + "</div><ul class='inj'>" + injList(h) + "</ul></div></div></div>" +
         "</div>" +
+        "<div class='rotwrap'>" + rotTable(a) + rotTable(h) + "</div>" +
         "<div class='tbl' style='border-width:1px 0 0;border-radius:0 0 6px 6px'><table><thead><tr><th>Market</th><th class='n'>Odds</th><th class='n'>J&amp;G prob</th><th class='n'>No-vig</th><th class='n'>EV</th></tr></thead><tbody>" +
           gbets.map(function (b) { return "<tr><td>" + esc(b.label) + (b.eligible ? " <span class='pill prop'>Qualifies</span>" : "") + "</td><td class='n'>" + am(b.price) + "</td><td class='n'>" + pct(b.p_final) + "</td><td class='n'>" + pct(b.p_market) + "</td><td class='n " + (b.ev >= 0 ? "pos" : "neg") + "'>" + sgn(b.ev * 100) + "%</td></tr>"; }).join("") +
         "</tbody></table></div></article>";
     }).join("");
+  }
+
+  function rotTable(t) {
+    var r = t.rotation || [];
+    if (!r.length) return "";
+    var f1 = function (x) { return x == null ? "—" : Number(x).toFixed(1); };
+    return "<div class='tbl rot'><table><caption>" + esc(t.name) + " rotation</caption><thead><tr><th>Player</th><th class='n'>Min</th><th class='n'>BPM</th><th class='n'>O / D</th><th class='n'>ORtg</th><th class='n'>DRtg</th><th class='n'>PER</th><th class='n'>TS%</th><th class='n'>USG%</th><th class='n'>VORP</th></tr></thead><tbody>" +
+      r.map(function (p) { var out = p.play_prob != null && p.play_prob < 1;
+        return "<tr" + (out ? " class='dim'" : "") + "><td>" + esc(p.name) + (out ? " <span class='pill " + (p.play_prob === 0 ? "out" : "q") + "'>" + Math.round(p.play_prob * 100) + "%</span>" : "") + "</td><td class='n'>" + f1(p.min) + "</td><td class='n'>" + sgn(p.bpm) + "</td><td class='n'>" + sgn(p.obpm) + " / " + sgn(p.dbpm) + "</td><td class='n'>" + (p.ortg == null ? "—" : p.ortg) + "</td><td class='n'>" + (p.drtg == null ? "—" : p.drtg) + "</td><td class='n'>" + f1(p.per) + "</td><td class='n'>" + (p.ts == null ? "—" : (p.ts * 100).toFixed(1)) + "</td><td class='n'>" + f1(p.usg) + "</td><td class='n'>" + f1(p.vorp) + "</td></tr>"; }).join("") +
+      "</tbody></table></div>";
   }
 
   // ---------------------------------------------------------------- props
@@ -580,6 +598,19 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       $("methodEvidence").textContent = "Over " + (f0.metrics.games + f1.metrics.games).toLocaleString() + " held-out games, the model alone missed the final margin by " + f0.metrics.margin_rmse.model_only + " and " + f1.metrics.margin_rmse.model_only + " points (RMSE) against " + f0.metrics.margin_rmse.market_close + " and " + f1.metrics.margin_rmse.market_close + " for the closing line. Closing lines are sharper than any public-data model, which is why the desk anchors to the market and bets only where it disagrees for a reason: early lines that have not absorbed the ratings yet, injury news, and the props market's lean toward overs. Expect small edges, real variance and losing nights.";
     }
   }
+  function renderReplay() {
+    var R = JG.replay || {}, seasons = Object.keys(R).sort();
+    if (!seasons.length) { $("replayTbl").innerHTML = "<tbody><tr><td class='muted'>Run python -m jghedge replay to populate.</td></tr></tbody>"; return; }
+    var main = R[seasons[seasons.length - 1]].nights >= 60 ? seasons[seasons.length - 1] : seasons[0];
+    var big = seasons.filter(function (k) { return R[k].nights >= 60; });
+    main = big.length ? big[big.length - 1] : seasons[seasons.length - 1];
+    var pts = (R[main].nightly || []).map(function (n) { return { date: n.date, ret: n.bank / 1000 - 1 }; });
+    var prev = 0; pts = pts.map(function (p) { var r = p.ret - prev; prev = p.ret; return { date: p.date, ret: r }; });
+    $("replayChart").innerHTML = "<div class='small muted' style='margin-bottom:6px'>" + (Number(main) - 1) + "–" + String(main).slice(2) + " bankroll vs start</div>" + lineChart(pts);
+    $("replayTbl").innerHTML = "<thead><tr><th>Season</th><th class='n'>Nights</th><th class='n'>Bets</th><th class='n'>Won</th><th class='n'>ROI</th><th class='n'>$1,000 →</th><th class='n'>Max drawdown</th></tr></thead><tbody>" +
+      seasons.map(function (k) { var r = R[k]; var y = Number(k);
+        return "<tr><td>" + (y - 1) + "–" + String(y).slice(2) + "</td><td class='n'>" + r.nights + "</td><td class='n'>" + (r.bets || 0) + "</td><td class='n'>" + pct((r.wins || 0) / Math.max((r.wins || 0) + (r.losses || 0), 1)) + "</td><td class='n " + ((r.stake_weighted_roi || 0) >= 0 ? "pos" : "neg") + "'>" + sgn((r.stake_weighted_roi || 0) * 100) + "%</td><td class='n'>" + usd(r.end_bankroll) + "</td><td class='n'>" + pct(r.max_drawdown) + "</td></tr>"; }).join("") + "</tbody>";
+  }
   function bindTips(id, data, fmt) {
     $(id).querySelectorAll(".hit").forEach(function (el) {
       el.addEventListener("mousemove", function (e) { var d = data[Number(el.dataset.i)]; if (d) showTip(e, fmt(d)); });
@@ -587,6 +618,6 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     });
   }
 
-  renderDesk(); renderGames(); renderProps(); renderRecord();
+  renderDesk(); renderGames(); renderProps(); renderRecord(); renderReplay();
 })();
 </script>

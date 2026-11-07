@@ -17,7 +17,8 @@ def _load(name: str) -> dict:
 
 
 def render() -> str:
-    data = {"slate": _load("latest.json"), "ledger": _load("ledger.json"), "backtest": _load("backtest.json")}
+    data = {"slate": _load("latest.json"), "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
+            "replay": _load("replay_open.json")}
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return TEMPLATE.read_text(encoding="utf-8").replace('"__JG_DATA__"', blob)
 

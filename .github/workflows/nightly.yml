@@ -46,7 +46,7 @@ jobs:
           echo "task=$T" >> "$GITHUB_OUTPUT"
       - name: Refit model
         if: steps.task.outputs.task == 'backtest'
-        run: python -m jghedge backtest && python -m jghedge run --no-ledger
+        run: python -m jghedge backtest && python -m jghedge replay && python -m jghedge run --no-ledger
       - name: Grade ledger
         if: steps.task.outputs.task == 'grade'
         run: python -m jghedge grade && python -m jghedge site

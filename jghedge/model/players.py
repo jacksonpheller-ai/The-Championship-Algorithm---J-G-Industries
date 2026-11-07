@@ -20,6 +20,47 @@ import pandas as pd
 from ..data.bbref import norm_name
 
 REPL_O, REPL_D = -1.4, -0.6   # replacement level split (sums to -2.0 BPM)
+W_RTG_O, W_RTG_D = 0.25, 0.30  # weight of individual ORtg/DRtg in the blended value
+
+
+def enrich_with_ratings(adv: pd.DataFrame | None, per_poss: pd.DataFrame | None) -> pd.DataFrame | None:
+    """Fold individual Offensive/Defensive Rating (Basketball-Reference, Dean Oliver method)
+    into the box plus/minus value.
+
+    Individual ORtg (points produced per 100 possessions used) is converted to points above
+    average per 100 team possessions via (ORtg - lg) * USG%. Individual DRtg (points allowed
+    per 100 while on court) gives (lg - DRtg). Each is mapped onto the OBPM/DBPM scale by a
+    minutes-weighted regression across the league that season, then blended with BPM.
+    """
+    if adv is None or adv.empty:
+        return adv
+    df = adv.copy()
+    for c in ("off_rtg", "def_rtg"):
+        if c in df:
+            df = df.drop(columns=c)
+    if per_poss is not None and not per_poss.empty and "bbref_id" in per_poss:
+        df = df.merge(per_poss[["bbref_id", "off_rtg", "def_rtg"]].drop_duplicates("bbref_id"),
+                      on="bbref_id", how="left")
+    else:
+        df["off_rtg"] = np.nan
+        df["def_rtg"] = np.nan
+    df["obpm_box"], df["dbpm_box"] = df["obpm"], df["dbpm"]
+    m = (df["mp"] >= 250) & df["off_rtg"].notna() & df["def_rtg"].notna() & df["usg_pct"].notna()
+    if m.sum() >= 60:
+        w = np.sqrt(df.loc[m, "mp"].to_numpy())
+        lg_o = float(np.average(df.loc[m, "off_rtg"], weights=df.loc[m, "mp"]))
+        lg_d = float(np.average(df.loc[m, "def_rtg"], weights=df.loc[m, "mp"]))
+        xo = (df["off_rtg"] - lg_o) * df["usg_pct"] / 100.0
+        xd = lg_d - df["def_rtg"]
+        bo = np.polyfit(xo[m], df.loc[m, "obpm"], 1, w=w)
+        bd = np.polyfit(xd[m], df.loc[m, "dbpm"], 1, w=w)
+        o_rtg = np.polyval(bo, xo)
+        d_rtg = np.polyval(bd, xd)
+        ok = df["off_rtg"].notna() & df["def_rtg"].notna() & df["usg_pct"].notna() & (df["mp"] >= 100)
+        df.loc[ok, "obpm"] = (1 - W_RTG_O) * df.loc[ok, "obpm_box"] + W_RTG_O * o_rtg[ok]
+        df.loc[ok, "dbpm"] = (1 - W_RTG_D) * df.loc[ok, "dbpm_box"] + W_RTG_D * d_rtg[ok]
+        df["bpm_blend"] = df["obpm"] + df["dbpm"]
+    return df
 
 
 def build_values(prev: pd.DataFrame | None, cur: pd.DataFrame | None, id_names: dict[str, str],
@@ -52,6 +93,8 @@ def build_values(prev: pd.DataFrame | None, cur: pd.DataFrame | None, id_names: 
             d = (cm * float(c.dbpm) + pw * pd_) / (cm + pw)
             extra = {"per": _f(c.per), "ts_pct": _f(c.ts_pct), "usg_pct": _f(c.usg_pct),
                      "ws_per_48": _f(c.ws_per_48), "vorp": _f(c.vorp), "bpm_cur": _f(c.bpm),
+                     "obpm_cur": _f(getattr(c, "obpm_box", c.obpm)), "dbpm_cur": _f(getattr(c, "dbpm_box", c.dbpm)),
+                     "ortg": _f(getattr(c, "off_rtg", None)), "drtg": _f(getattr(c, "def_rtg", None)),
                      "mp_cur": cm}
         else:
             o, d, extra = po, pd_, {}

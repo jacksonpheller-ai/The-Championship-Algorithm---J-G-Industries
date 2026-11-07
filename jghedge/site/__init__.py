@@ -18,6 +18,7 @@ def _load(name: str) -> dict:
 
 REPO_URL = "https://github.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries"
 PAGES_URL = "https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/"
+RAW_URL = "https://raw.githack.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/claude/wonderful-bell-w1m2r1/docs/index.html"
 
 
 def _recent_results(n: int = 7) -> dict:
@@ -31,7 +32,7 @@ def _recent_results(n: int = 7) -> dict:
 def render() -> str:
     data = {"slate": _load("latest.json"), "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
             "replay": _load("replay_open.json"), "results": _recent_results(), "shared": _load("shared_ledger.json") or None,
-            "repo": REPO_URL, "pages_url": PAGES_URL}
+            "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL}
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return TEMPLATE.read_text(encoding="utf-8").replace('"__JG_DATA__"', blob)
 

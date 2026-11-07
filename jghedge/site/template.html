@@ -651,8 +651,8 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     if (seasons.length) txt += "Replaying the whole nightly pipeline on past nights at the morning lines, balanced profile from $1,000: " + seasons.map(function (k) { var r = RP[k], y = Number(k); return (y - 1) + "–" + String(y).slice(2) + " " + usd(r.end_bankroll) + " (" + sgn((r.stake_weighted_roi || 0) * 100) + "% on money staked, worst drawdown " + pct(r.max_drawdown, 0) + ")"; }).join("; ") + ". Results vary by hundreds of dollars between runs with different random draws, so expect similar swings in real life, and treat the replay as optimistic where its settings were fit on the same seasons.";
     $("methodEvidence").textContent = txt;
   }
-  $("sharePanel").innerHTML = REPO ? "<span><b>Share:</b></span><span class='mono'>" + esc(JG.pages_url || "") + "</span><button class='btn ghost sm' type='button' id='copyLink'>Copy link</button><span class='muted'>Updates itself twice a day.</span>" : "";
-  if ($("copyLink")) $("copyLink").addEventListener("click", function () { copyText(JG.pages_url || "", $("copyLink"), "Copy link"); });
+  $("sharePanel").innerHTML = REPO ? "<span><b>Share:</b></span><span class='mono'>" + esc(JG.raw_url || "") + "</span><button class='btn ghost sm' type='button' id='copyLink'>Copy link</button><span class='muted'>Shows the latest published slate; updates itself twice a day." + (JG.pages_url ? " Once GitHub Pages is on, the shorter address " + esc(JG.pages_url) + " works too." : "") + "</span>" : "";
+  if ($("copyLink")) $("copyLink").addEventListener("click", function () { copyText(JG.raw_url || "", $("copyLink"), "Copy link"); });
 
   renderDesk(); renderGames(); renderProps(); renderRecord(); gradeAll().then(renderOur);
 })();

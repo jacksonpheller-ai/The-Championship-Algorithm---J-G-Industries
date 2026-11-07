@@ -84,6 +84,22 @@ def test_parlays_only_cross_game():
         assert len(set(games)) == len(games)
 
 
+def test_parlay_closed_form_ev():
+    n = 20000
+    rng = np.random.default_rng(9)
+    legs, pay = [], {}
+    for i, (p, d) in enumerate(((0.55, 1.91), (0.53, 1.95), (0.60, 1.70))):
+        legs.append({"id": f"l{i}", "game_id": f"g{i}", "ev": p * d - 1, "p_final": p, "dec": d})
+        pay[f"l{i}"] = np.where(rng.random(n) < p, d - 1, -1.0)
+    out = build_parlays(legs, pay, max_legs=3, min_leg_prob=0.4)
+    three = [x for x in out if x["n_legs"] == 3][0]
+    pw = [float(np.mean(pay[l] > 0)) for l in three["legs"]]
+    expect = np.prod([w * d for w, d in zip(pw, [1.91, 1.95, 1.70])]) - 1
+    assert abs(three["ev"] - expect) < 1e-9
+    assert abs(three["p_hit"] - np.prod(pw)) < 1e-9
+    assert abs(three["payoff"].mean() - three["ev"]) < 1e-6      # sized payoff matches the closed form
+
+
 def test_game_sim_centres_and_settles():
     params = {"margin_sd": 13.0, "total_sd": 18.0, "margin_total_corr": 0.0}
     sim = GameSim(5.0, 225.0, params, 40000, np.random.default_rng(4))

@@ -528,7 +528,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     $("ourTiles").innerHTML = tilesHtml(summarize(arr));
     $("ourTbl").innerHTML = betTable(arr);
     $("ourNote").textContent = "Stored in this browser only. Use Export / Import to move it, or “Log to shared record” on the Tonight tab to post a ticket to the repository, where it is graded for both of us.";
-    if (SHARED && SHARED.entries) { $("sharedWrap").hidden = false; $("sharedTiles").innerHTML = tilesHtml(summarize(SHARED.entries)); $("sharedTbl").innerHTML = betTable(SHARED.entries); }
+    if (SHARED && SHARED.entries && SHARED.entries.length) { $("sharedWrap").hidden = false; $("sharedTiles").innerHTML = tilesHtml(summarize(SHARED.entries)); $("sharedTbl").innerHTML = betTable(SHARED.entries); }
   }
   $("exportBtn").addEventListener("click", function () { $("ioBox").hidden = false; $("ioText").value = JSON.stringify(loadPlaced()); $("ioText").select(); });
   $("importBtn").addEventListener("click", function () { $("ioBox").hidden = false; $("ioText").value = ""; $("ioText").focus(); });

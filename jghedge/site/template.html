@@ -212,8 +212,8 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   #replayChart, #ledgerChart { max-width: 620px; }
   .whywrap { position: sticky; left: 14px; max-width: min(1100px, calc(100vw - 64px)); }
   @media (max-width: 640px) {
-    header.mast { position: static; }
-    .mast .row { padding-block: 10px 2px; } .mast .meta { font-size: 12px; } #shareBtn { display: none; }
+    .mast .row { padding-block: 8px 0; } .mast .meta, #shareBtn { display: none; } .mast .brand { font-size: 22px; }
+    p.phonemeta { display: block !important; margin: 0; font-size: 12px; color: var(--ink-3); }
     a.golink { display: inline-block; padding: 6px 0; }
     .whybtn { padding: 5px 12px; font-size: 13px; }
     table.stack thead { display: none; }
@@ -266,6 +266,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
 </header>
 
 <main class="wrap">
+  <p class="phonemeta" id="meta2" hidden style="display:none"></p>
   <!-- ================================================================ TONIGHT -->
   <section class="view" id="view-desk">
     <div class="banner" id="fresh" hidden></div>
@@ -466,7 +467,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
 
   // ---------------------------------------------------------------- header, freshness
   var gen = S.generated ? new Date(S.generated) : null;
-  $("meta").textContent = S.date ? ("Slate " + S.date + " · " + (S.games || []).length + " games · " + "built " + (gen ? gen.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "") + " · prices four times a day") : "No slate loaded";
+  $("meta").textContent = $("meta2").textContent = S.date ? ("Slate " + S.date + " · " + (S.games || []).length + " games · " + "built " + (gen ? gen.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "") + " · prices four times a day") : "No slate loaded";
   $("foot").textContent = "J&G Hedging Co. · engine v" + (S.version || "1") + " · " + ((S.counts || {}).bets_priced || 0).toLocaleString() + " bets priced from " + (S.n_sims || 0).toLocaleString() + " simulations per game · research tool, not financial advice.";
   if (S.date && S.date < usToday()) { $("fresh").hidden = false; $("fresh").textContent = "This slate is from " + S.date + ". Today's lines usually post by late morning; the desk prices four times a day (about 9:30 pm the night before, 10:40 am, 3:40 pm and 5:15 pm Eastern). Reload later for tonight's ticket."; }
   else if (!S.date || !(S.games || []).length) { $("fresh").hidden = false; $("fresh").textContent = "No games are left to bet on this slate."; }
@@ -696,7 +697,12 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     ].map(tile).join("");
     var small = t.label !== "standard";
     $("smallNote").hidden = !small;
-    if (small) $("smallNote").textContent = "At " + usd(B) + " one " + usd(u) + " unit is " + pct(u / B, 1) + " of the bankroll" + (u / B > 0.02 ? ": too big to size small edges, so the desk often passes." + (state.fliffMin <= 0.1 + 1e-9 ? (u > 0.1 ? " Switch to $0.10 units." : "") : " If Fliff accepts $0.10 bets, set the Fliff minimum to $0.10 and use $0.10 units (the replay grew $10 more often that way).") : ".");
+    if (small) {
+      var canTen = u > 0.1 + 1e-9 && u / B > 0.02;
+      $("smallNote").innerHTML = esc("At " + usd(B) + " one " + usd(u) + " unit is " + pct(u / B, 1) + " of the bankroll" + (u / B > 0.02 ? ": too big to size small edges, so the desk often passes. In the replay, $10 grew more often with $0.10 units." : ".")) +
+        (canTen ? " <button type='button' class='btn ghost sm' id='use10'>Use $0.10 units</button>" + (state.fliffMin > 0.1 + 1e-9 ? " <span class='small'>(this also sets Fliff's smallest bet to $0.10; only do it if Fliff accepts $0.10 bets)</span>" : "") : "");
+      if ($("use10")) $("use10").addEventListener("click", function () { state.fliffMin = Math.min(state.fliffMin, 0.1); store.set("jg.fliffmin", state.fliffMin); $("fliffMin").value = state.fliffMin; state.unit = 0.1; store.set("jg.unit", 0.1); fillUnits(); state.fixed = {}; renderDesk(); });
+    }
     $("fliffSrc").textContent = "prices are DraftKings' via ESPN; bet the number shown or better on Fliff";
     if (!rows.length) {
       $("ticket").innerHTML = "<tbody><tr><td class='muted'>" + (isPass() && IDS.length ? "PASS night: the desk stakes nothing. The bets below the line were priced but none earns its risk at the reference size; type a stake only if you disagree." : IDS.length ? "No total or parlay grows a " + usd(B) + " bankroll at " + usd(u) + " units tonight. That is a PASS at this size; a smaller unit may change it." : nTotalsPriced() ? nTotalsPriced() + " totals were priced; none clears the edge and growth tests tonight" + (NIGHT && (NIGHT.would_change || []).filter(function (w) { return /becomes a bet/.test(w); }).length ? ". Closest: " + NIGHT.would_change.filter(function (w) { return /becomes a bet/.test(w); })[0] : ".") : "No game lines were posted for this slate yet.") + "</td></tr></tbody>";

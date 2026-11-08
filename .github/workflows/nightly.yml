@@ -1,6 +1,9 @@
 name: J&G nightly slate
 
 on:
+  # Times are UTC. GitHub runs scheduled jobs only from the default branch, as the account
+  # that last changed these lines; if no 'schedule' runs appear in the Actions tab, re-save
+  # this file from github.com to re-register them.
   schedule:
     - cron: "31 2 * * *"    # 02:31 UTC (~9:31 pm ET): price tomorrow's slate at the OPENERS
     - cron: "41 15 * * *"   # 15:41 UTC (~10:41 am ET): morning lines + injury report

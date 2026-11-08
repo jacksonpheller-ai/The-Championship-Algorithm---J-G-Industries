@@ -76,16 +76,16 @@ Full nightly pipeline replayed on every past night at that morning's opening lin
 
 | Season | Nights bet / nights | Bets | ROI on money staked | $1,000 became (seed 1 / seed 2) | Worst drawdown | Before the rebuild | $10, $0.10 units | $10, $0.50 units |
 |---|---|---|---|---|---|---|---|---|
-| 2023-24 | 47.5 / 162 | 361 | +0.8% | $1,013 ($1,078 / $948) | 18% | $1,157, DD 27% | $10.45 | $9.50 |
-| 2024-25 | 45.5 / 167 | 311.5 | +23.0% | $1,336 ($1,387 / $1,285) | 7% | $1,518, DD 17% | $13.70 | $14.98 |
-| 2025-26 | 56 / 168 | 382.5 | +19.4% | $1,316 ($1,330 / $1,301) | 15% | $958, DD 41% | $12.57 | $9.90 |
-| 2026-27 (to date) | 8.5 / 17 | 58.5 | +7.3% | $1,015 ($1,019 / $1,010) | 3% | $1,018, DD 7% | $10.20 | $9.72 |
+| 2023-24 | 47.5 / 162 | 353 | +1.8% | $1,024 ($1,098 / $950) | 17% | $1,157, DD 27% | $10.20 | $9.50 |
+| 2024-25 | 45 / 167 | 275 | +23.1% | $1,301 ($1,366 / $1,235) | 8% | $1,518, DD 17% | $12.96 | $15.41 |
+| 2025-26 | 53 / 168 | 336 | +22.0% | $1,323 ($1,360 / $1,287) | 14% | $958, DD 41% | $13.01 | $9.90 |
+| 2026-27 (to date) | 8.5 / 17 | 59.5 | +9.1% | $1,018 ($1,019 / $1,017) | 3% | $1,018, DD 7% | $10.20 | $9.72 |
 
-**Read this table with care.** The late-season totals adjustment and the pass threshold were chosen by looking at these same seasons, so the improvement over the old policy is partly in-sample (the adjustment has since been cut to its held-out size, +1.2 points, which the table above predates). The honest out-of-sample evidence is 2026-27 to date (17 nights, +7.3% on staked, $1,015) and, from now on, the live ledger. The policy bets on roughly a third of nights; most of the drawdown reduction comes from passing and from the growth gate.
+**Read this table with care.** The late-season totals adjustment and the pass threshold were chosen by looking at these same seasons, so the improvement over the old policy is partly in-sample (the table uses the adjustment at its held-out size, +1.2 points). The honest out-of-sample evidence is 2026-27 to date (17 nights, +9.1% on staked, $1,018) and, from now on, the live ledger. The policy bets on roughly a third of nights; most of the drawdown reduction comes from passing and from the growth gate.
 
 Player props: on 1,754 pre-tip DraftKings lines this season, overs hit 44.9% against a 49.0% implied rate; the calibrated blend returned +5.2% on 97 held-out bets. Small sample.
 
-What this means: the repeatable edges are game totals (best at the opening line, which is why a run now prices the evening before), late-season overs, and PrizePicks lines that lag the sportsbook. Spreads and moneylines lost in two of three replayed seasons and are no longer bet. Edges are small, and single seasons swing by hundreds of dollars on a $1,000 bankroll from luck alone (re-running a season with different random draws moves the result by $50–150). A $10 bankroll compounds the same percentages with far lumpier stakes: in the replays, $10 at Balanced with $0.10 units ended most seasons between $9 and $16, and full Kelly with $0.50 units anywhere from $3 to $44.
+What this means: the repeatable edges are game totals (best at the opening line, which is why a run now prices the evening before), late-season overs, and PrizePicks lines that lag the sportsbook. Spreads and moneylines lost in two of three replayed seasons and are no longer bet. Edges are small, and single seasons swing by hundreds of dollars on a $1,000 bankroll from luck alone (re-running a season with different random draws moves the result by $50–150). A $10 bankroll compounds the same percentages with far lumpier stakes: in the replays, $10 with $0.10 units ended each season between $10.20 and $13.01, and with $0.50 units between $9.50 and $15.41, because a $0.50 unit is 5% of $10 and the desk could place it on only a handful of nights.
 
 Reports: `data/backtest_report.json`, `data/prop_backtest.json`, `data/replay_open.json`.
 

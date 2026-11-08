@@ -427,7 +427,7 @@ def headline(verdict: str, best_bets: list[dict], flags: dict | None = None,
                  "skipping costs no expected growth and cuts variance.")
     if verdict == "PASS":
         if top is None:
-            return "Pass tonight: nothing on the board clears the shrunk-edge floor." + close
+            return "Pass tonight: no bet still has an edge once the model's edge is halved." + close
         label = top.get("label") or top.get("id") or "best bet"
         ev = float(top.get("shrunk_ev") or 0.0)
         g = top.get("growth_1u")

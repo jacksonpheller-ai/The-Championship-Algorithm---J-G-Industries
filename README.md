@@ -1,6 +1,6 @@
 # J&G Hedging Co. — NBA Desk
 
-A quantitative NBA betting engine and dashboard for two people and a small bankroll. Every day it prices the slate (moneylines, spreads, totals, player props), builds cross-game parlays, and turns whatever bankroll you type in into a ticket of whole-unit stakes. It records the bets you say you placed and grades them from the box scores.
+A quantitative NBA betting engine and dashboard for two people and a small bankroll. Every day it prices the slate (moneylines, spreads, totals, player props), builds cross-game parlays, and splits whatever you want to bet tonight across the bets that have an edge. It records the bets you say you placed and grades them from the box scores.
 
 **Open it:** `https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/` once GitHub Pages is switched on (Settings → Pages → *Deploy from a branch* → `main`, folder `/docs`). Until then, `dist/jg-hedging-co.html` is a single file that opens in any browser with that day's data built in.
 
@@ -47,11 +47,15 @@ Three flags modify it: `props_regime` (rolling 30-night under lean of the logged
 
 ## Using it
 
-1. **Bankroll and smallest bet.** Type the bankroll ($10 works) and the smallest stake your book allows. The page tells you your tier and whether the unit is too large for the bankroll.
-2. **Read the verdict.** PASS / LIGHT / BET with the reasons and what would change it. On a PASS there is nothing to place; the best available bet is shown with the line that would make it playable.
-3. **Fliff ticket.** Whole-unit stakes across the qualifying totals and cross-game parlays under your tier. Bet each number at the stated price or better; skip anything past its max line.
-4. **PrizePicks slips.** Check each leg's take-it threshold against the line in the app (or type the app's line into the table). Suggested slips show payout multiple, shrunk EV and growth at the minimum entry; build your own from the leg list and the page prices it.
-5. **After you bet,** press *I placed these bets*. They are stored in your browser and graded automatically when the results files are published. *Log to shared record* opens a pre-filled GitHub issue; the nightly job grades it and closes it with the result, so both of us see one shared record. The desk's own reference ticket ($100 / $0.50, singles, parlays and up to two $5 pick'em entries) is recorded before tip and graded with closing-line value per leg.
+The page has five tabs: **Tonight**, **Games**, **Player props**, **Record** and **How it works** (the method in plain words). There is no bankroll box; the only input is what you want to bet tonight.
+
+1. **Tonight's amount.** Type how much you want to bet tonight (it is remembered on your device). The desk splits it across the bets with an edge and you keep the rest:
+   - **PrizePicks first:** if a slip has an edge and the $5 minimum entry is no more than half the amount, the slip gets the minimum entry (only the minimum: PrizePicks edges have no track record yet).
+   - **Fliff with the rest:** all of it on a BET night, half on LIGHT, none on PASS, split in the proportions of the desk's reference ticket (quarter Kelly) in steps of Fliff's minimum bet.
+2. **Read the plan.** Each bet is a card: amount, the bet, the worst line to take it at, and our chance against the chance the price needs. On stand-in nights the PrizePicks card lists the line each pick needs in the app.
+3. **Where the edge is.** Every game total and the top player picks, each with a bar (our chance after the safety cut) and a tick (the chance the price needs), tagged Edge / Close / None. The Games and Player props tabs have every row, the numbers behind it, PrizePicks line re-pricing and a slip builder.
+4. **After you bet,** press *I placed these bets*. They are stored in your browser and graded automatically when the results files are published. *Log to shared record* opens a pre-filled GitHub issue; the nightly job grades it and closes it with the result, so both of us see one shared record. The desk's own reference ticket ($100 / $0.50, singles, parlays and up to two $5 pick'em entries) is recorded before tip and graded with closing-line value per leg.
+5. **Assumptions** (Fliff's smallest bet, PrizePicks' minimum entry) are editable at the bottom of How it works.
 
 ## What it does each night
 

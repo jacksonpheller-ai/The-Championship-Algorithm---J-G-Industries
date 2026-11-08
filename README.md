@@ -121,7 +121,7 @@ tests/         test_core, test_policy, test_pickem, test_context, test_pipeline;
 - **PrizePicks void rules**: a pick that lands on the line or whose player does not play is voided and the entry drops to the next size down with that size's payout; below two picks it is refunded. Grading follows this.
 - **Fliff minimum wager $0.25**; the Fliff numbers shown are DraftKings via ESPN unless an Odds API key supplies Fliff's own line.
 - **Odds API** bookmaker keys (`fliff`, `prizepicks` under `us_dfs`) and credit costs were written from memory and are checked against the first live response.
-- **Shrinkage s = 0.5** is a floor estimated from the published replay seed (seed-averaged ~0.45); **s = 0** on props and pick'em edges are provisional until the live ledger grades them. The pick'em market-anchored probabilities have no historical validation (no PrizePicks line archive).
+- **Shrinkage s = 0.5** is a floor estimated from the published replay seed (seed-averaged ~0.45); **s = 0** on sportsbook props and **s = 0.5** on PrizePicks legs (one-sided: a leg below break-even is never pulled up) are provisional until the live ledger grades them; s is a fixed setting, not refit automatically. The pick'em market-anchored probabilities have no historical validation (no PrizePicks line archive).
 - The late-season total adjustment was found on 2023-26 and checked on 2021-23 (direction held, size about half); it cannot be tested live until March.
 
 ## House rules

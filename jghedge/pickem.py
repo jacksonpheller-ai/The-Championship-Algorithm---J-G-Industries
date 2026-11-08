@@ -143,9 +143,14 @@ def breakevens(payouts: dict = PAYOUTS, max_legs: int = 6) -> dict[str, float]:
 
 
 def shrink(p, be, s):
-    """Pull p toward the break-even probability: be + s*(p - be). s=1 keeps the model's number,
-    s=0 says the market is right. Applied to the edge, not to the coin flip."""
-    return be + s * (np.asarray(p, dtype=float) - be) if np.ndim(p) else be + s * (float(p) - be)
+    """Shrink only the edge ABOVE the break-even: be + s*(p - be) when p > be, p otherwise.
+    s=1 keeps the model's number, s=0 says the market is right. A leg below break-even is never
+    moved up (shrinkage must never improve a bet)."""
+    if np.ndim(p):
+        x = np.asarray(p, dtype=float)
+        return np.where(x > be, be + s * (x - be), x)
+    x = float(p)
+    return be + s * (x - be) if x > be else x
 
 
 # ------------------------------------------------------------------ anchoring
@@ -369,6 +374,8 @@ def build_legs(players: list[dict], prop_sims: dict[str, dict], dk_props: list[d
             if a is None:
                 continue
             pprow, dk_row = pp.get((pid, st)), a["dk"]
+            if pp and pprow is None:
+                continue   # live board: a leg PrizePicks does not offer cannot be played
             if pprow is not None:
                 line, src = float(pprow["line"]), "prizepicks"
             elif dk_row is not None:
@@ -474,12 +481,8 @@ def _thin(rows: np.ndarray, p_cond: np.ndarray, be: float, s: float, U: np.ndarr
         if pc <= 0 or p_u[i] <= 0:
             continue
         ratio = target / pc
-        if ratio < 1.0:                         # keep each win with prob ratio
+        if ratio < 1.0:                         # keep each win with prob ratio; never promote losses
             out[i] = rows[i] & (U[i] < ratio)
-        elif ratio > 1.0:                       # promote losses so the marginal rises
-            t_u = min(p_u[i] * ratio, 1.0)
-            flip = (t_u - p_u[i]) / max(1.0 - p_u[i], 1e-12)
-            out[i] = rows[i] | ((rows[i] == 0) & (U[i] < flip))
     return out
 
 
@@ -655,11 +658,14 @@ def build_pickem_block(legs: list[dict], prop_sims: dict[str, dict], source: str
     # anchoring parameters keep full precision so the hit matrix can be re-derived exactly
     out["legs"] = [_round(l) | {k: l.get(k) for k in ("anchor_m", "anchor_shift", "anchor_components")} for l in legs]
     out["sims"] = {"n": int(H.shape[1]) if H.size else 0, "legs": [l["id"] for l in sim_legs], "bits": pack_bits(H)}
-    proxy = source != "prizepicks" and all(l.get("line_source") != "prizepicks" for l in legs)
-    if proxy:
-        for x in slips:
+    proxy = source not in ("prizepicks", "oddsapi_prizepicks") and all(l.get("line_source") != "prizepicks" for l in legs)
+    by_id = {l["id"]: l for l in legs}
+    for x in slips:
+        stand_in = proxy or any(by_id.get(i, {}).get("line_source") == "dk" for i in x.get("legs", []))
+        if stand_in:
             x["verdict_if_lines_match"] = x["verdict"]
-            x["verdict"] = "check_lines"
+            if x["verdict"] == "play":          # only would-be plays are worth a line check
+                x["verdict"] = "check_lines"
         out["notes"].append("PrizePicks lines were not available to the server, so these legs use DraftKings' main line "
                             "as a stand-in. A slip is only worth playing where PrizePicks posts a line at or better than each "
                             "leg's take-it threshold (More if the line is at most X, Less if at least Y). Type the app's "

@@ -43,23 +43,28 @@ jobs:
         run: python tests/run_all.py
       - name: Pick task
         id: task
+        env:
+          IN_TASK: ${{ github.event.inputs.task }}
+          IN_LABEL: ${{ github.event.inputs.label }}
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
-          T="${{ github.event.inputs.task }}"
-          L="${{ github.event.inputs.label }}"
+          T="$IN_TASK"; L="$IN_LABEL"
+          case "$T" in ""|run|grade|backtest) ;; *) echo "::error::task must be run, grade or backtest"; exit 1 ;; esac
+          case "$L" in ""|opener|morning|pretip|afternoon) ;; *) echo "::error::label must be opener, morning, pretip or afternoon"; exit 1 ;; esac
           if [ -z "$T" ]; then
-            case "${{ github.event.schedule }}" in
+            case "$SCHEDULE" in
               "23 9 * * *") T=grade ;;
               "7 11 * * 1") T=backtest ;;
               *) T=run ;;
             esac
           fi
           if [ -z "$L" ]; then
-            case "${{ github.event.schedule }}" in
+            case "$SCHEDULE" in
               "31 2 * * *") L=opener ;;
               "41 15 * * *") L=morning ;;
               "41 20 * * *") L=pretip ;;
               "17 22 * * *") L=afternoon ;;
-              *) L=manual ;;
+              *) L="" ;;          # manual run: the pipeline picks the label from the Eastern time
             esac
           fi
           echo "task=$T" >> "$GITHUB_OUTPUT"
@@ -78,10 +83,20 @@ jobs:
           JG_RUN_LABEL: ${{ steps.task.outputs.label }}
         run: python -m jghedge run && python -m jghedge ingest && python -m jghedge site
       - name: Commit results
+        env:
+          BRANCH: ${{ github.ref_name }}
+          TASK: ${{ steps.task.outputs.task }}
+          LABEL: ${{ steps.task.outputs.label }}
         run: |
           git config user.name "jg-desk-bot"
           git config user.email "jg-desk-bot@users.noreply.github.com"
           git add data docs dist
-          git diff --cached --quiet || git commit -m "Desk update: ${{ steps.task.outputs.task }} ${{ steps.task.outputs.label }} $(date -u +%Y-%m-%dT%H:%MZ)"
-          git push
-          git push origin HEAD:refs/heads/main || echo "main has diverged; mirror skipped"
+          git diff --cached --quiet || git commit -m "Desk update: $TASK $LABEL $(date -u +%Y-%m-%dT%H:%MZ)"
+          # another run may have pushed while this one worked: rebase onto it, keep our fresh outputs
+          git pull --rebase -X theirs origin "$BRANCH" || { git rebase --abort; echo "::error::could not rebase onto $BRANCH"; exit 1; }
+          git push origin "HEAD:$BRANCH"
+          # keep main and the working branch identical, whichever one GitHub treats as the default
+          for b in main claude/wonderful-bell-w1m2r1; do
+            [ "$b" = "$BRANCH" ] && continue
+            git push origin "HEAD:refs/heads/$b" || echo "::warning::$b has diverged from $BRANCH and was not updated; fast-forward it by hand"
+          done

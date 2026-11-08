@@ -226,7 +226,7 @@ def test_night_block_contract():
     assert isinstance(nb["reasons"], list) and nb["reasons"] and isinstance(nb["would_change"], list)
     assert 1 <= len(nb["best_available"]) <= 3 and all(isinstance(i, str) for i in nb["best_available"])
     assert set(nb["best_available"]) <= {m["id"] for m in meta} and "g1-pp-7-pts" not in nb["best_available"]  # s = 0 prop has no edge
-    assert nb["flags"] == {"props_regime": "neutral", "lineup_uncertainty": [], "hours_to_first_tip": 6.2}
+    assert nb["flags"] == {"props_regime": "neutral", "props_regime_n": None, "props_regime_min": None, "lineup_uncertainty": [], "hours_to_first_tip": 6.2}
     assert any("small (28 units" in r for r in nb["reasons"])
     tiny = policy.night_block(Rs, meta, bankroll=10, unit=0.5, flags=flags)          # 20 units -> tiny tier
     assert any("tiny" in r for r in tiny["reasons"]) and any("$0.10 units" in r for r in tiny["reasons"])

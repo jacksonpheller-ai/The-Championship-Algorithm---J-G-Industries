@@ -1,1 +1,490 @@
-[]
+[
+ {
+  "date": "2026-11-07",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Peyton Watson Less 2.5 Ast + Julian Champagnie More 1.5 3PM + Marcus Smart Less 1.5 3PM + Tyrese Proctor Less 2.5 Ast + Nickeil Alexander-Walker More 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0795,
+  "ev": 0.4366,
+  "ev_shrunk": 0.2227,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909940-pk-4576087-ast-2.5-less",
+    "game_id": "401909940",
+    "kind": "pickem",
+    "label": "Peyton Watson Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4576087",
+    "player": "Peyton Watson",
+    "p_final": 0.5998,
+    "matchup": "NY @ CLE",
+    "tip": "2026-11-08T01:00Z"
+   },
+   {
+    "id": "401909944-pk-4592479-fg3m-1.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Julian Champagnie More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4592479",
+    "player": "Julian Champagnie",
+    "p_final": 0.5978,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   },
+   {
+    "id": "401909943-pk-2990992-fg3m-1.5-less",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Marcus Smart Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "2990992",
+    "player": "Marcus Smart",
+    "p_final": 0.5977,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   },
+   {
+    "id": "401909940-pk-5023693-ast-2.5-less",
+    "game_id": "401909940",
+    "kind": "pickem",
+    "label": "Tyrese Proctor Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "5023693",
+    "player": "Tyrese Proctor",
+    "p_final": 0.5961,
+    "matchup": "NY @ CLE",
+    "tip": "2026-11-08T01:00Z"
+   },
+   {
+    "id": "401909939-pk-4278039-ast-2.5-more",
+    "game_id": "401909939",
+    "kind": "pickem",
+    "label": "Nickeil Alexander-Walker More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4278039",
+    "player": "Nickeil Alexander-Walker",
+    "p_final": 0.5947,
+    "matchup": "BKN @ ATL",
+    "tip": "2026-11-08T00:30Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909939-pk-4278039-ast-2.5-more+401909940-pk-4576087-ast-2.5-less+401909940-pk-5023693-ast-2.5-less+401909943-pk-2990992-fg3m-1.5-less+401909944-pk-4592479-fg3m-1.5-more",
+  "recorded_at": "2026-11-08T00:05:13+00:00",
+  "run_label": "afternoon"
+ },
+ {
+  "date": "2026-11-07",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Scoot Henderson More 0.5 Stl + Devin Booker Less 3.5 Reb + Tyrese Proctor Less 2.5 Ast + Nickeil Alexander-Walker Less 1.5 Stl + Damian Lillard More 0.5 Stl",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0794,
+  "ev": 0.4314,
+  "ev_shrunk": 0.2217,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909944-pk-4683678-stl-0.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Scoot Henderson More 0.5 Stl",
+    "side": "more",
+    "line": 0.5,
+    "stat": "stl",
+    "player_id": "4683678",
+    "player": "Scoot Henderson",
+    "p_final": 0.5987,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   },
+   {
+    "id": "401909943-pk-3136193-reb-3.5-less",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Devin Booker Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "3136193",
+    "player": "Devin Booker",
+    "p_final": 0.5977,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   },
+   {
+    "id": "401909940-pk-5023693-ast-2.5-less",
+    "game_id": "401909940",
+    "kind": "pickem",
+    "label": "Tyrese Proctor Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "5023693",
+    "player": "Tyrese Proctor",
+    "p_final": 0.5961,
+    "matchup": "NY @ CLE",
+    "tip": "2026-11-08T01:00Z"
+   },
+   {
+    "id": "401909939-pk-4278039-stl-1.5-less",
+    "game_id": "401909939",
+    "kind": "pickem",
+    "label": "Nickeil Alexander-Walker Less 1.5 Stl",
+    "side": "less",
+    "line": 1.5,
+    "stat": "stl",
+    "player_id": "4278039",
+    "player": "Nickeil Alexander-Walker",
+    "p_final": 0.592,
+    "matchup": "BKN @ ATL",
+    "tip": "2026-11-08T00:30Z"
+   },
+   {
+    "id": "401909944-pk-6606-stl-0.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Damian Lillard More 0.5 Stl",
+    "side": "more",
+    "line": 0.5,
+    "stat": "stl",
+    "player_id": "6606",
+    "player": "Damian Lillard",
+    "p_final": 0.5915,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909939-pk-4278039-stl-1.5-less+401909940-pk-5023693-ast-2.5-less+401909943-pk-3136193-reb-3.5-less+401909944-pk-4683678-stl-0.5-more+401909944-pk-6606-stl-0.5-more",
+  "recorded_at": "2026-11-08T00:05:13+00:00",
+  "run_label": "afternoon"
+ },
+ {
+  "date": "2026-11-07",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Peyton Watson Less 2.5 Ast + Scoot Henderson More 0.5 Stl + Julian Champagnie More 1.5 3PM + Tyrese Proctor Less 2.5 Ast + Nickeil Alexander-Walker More 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.079,
+  "ev": 0.4355,
+  "ev_shrunk": 0.2203,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909940-pk-4576087-ast-2.5-less",
+    "game_id": "401909940",
+    "kind": "pickem",
+    "label": "Peyton Watson Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4576087",
+    "player": "Peyton Watson",
+    "p_final": 0.5998,
+    "matchup": "NY @ CLE",
+    "tip": "2026-11-08T01:00Z"
+   },
+   {
+    "id": "401909944-pk-4683678-stl-0.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Scoot Henderson More 0.5 Stl",
+    "side": "more",
+    "line": 0.5,
+    "stat": "stl",
+    "player_id": "4683678",
+    "player": "Scoot Henderson",
+    "p_final": 0.5987,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   },
+   {
+    "id": "401909944-pk-4592479-fg3m-1.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Julian Champagnie More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4592479",
+    "player": "Julian Champagnie",
+    "p_final": 0.5978,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   },
+   {
+    "id": "401909940-pk-5023693-ast-2.5-less",
+    "game_id": "401909940",
+    "kind": "pickem",
+    "label": "Tyrese Proctor Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "5023693",
+    "player": "Tyrese Proctor",
+    "p_final": 0.5961,
+    "matchup": "NY @ CLE",
+    "tip": "2026-11-08T01:00Z"
+   },
+   {
+    "id": "401909939-pk-4278039-ast-2.5-more",
+    "game_id": "401909939",
+    "kind": "pickem",
+    "label": "Nickeil Alexander-Walker More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4278039",
+    "player": "Nickeil Alexander-Walker",
+    "p_final": 0.5947,
+    "matchup": "BKN @ ATL",
+    "tip": "2026-11-08T00:30Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909939-pk-4278039-ast-2.5-more+401909940-pk-4576087-ast-2.5-less+401909940-pk-5023693-ast-2.5-less+401909944-pk-4592479-fg3m-1.5-more+401909944-pk-4683678-stl-0.5-more",
+  "recorded_at": "2026-11-08T00:07:23+00:00",
+  "run_label": "afternoon"
+ },
+ {
+  "date": "2026-11-07",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Peyton Watson Less 2.5 Ast + Marcus Smart Less 1.5 3PM + Tyrese Proctor Less 2.5 Ast + Anthony Black Less 1.5 Stl + Reed Sheppard Less 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0812,
+  "ev": 0.4401,
+  "ev_shrunk": 0.2223,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909940-pk-4576087-ast-2.5-less",
+    "game_id": "401909940",
+    "kind": "pickem",
+    "label": "Peyton Watson Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4576087",
+    "player": "Peyton Watson",
+    "p_final": 0.5998,
+    "matchup": "NY @ CLE",
+    "tip": "2026-11-08T01:00Z"
+   },
+   {
+    "id": "401909943-pk-2990992-fg3m-1.5-less",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Marcus Smart Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "2990992",
+    "player": "Marcus Smart",
+    "p_final": 0.5977,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   },
+   {
+    "id": "401909940-pk-5023693-ast-2.5-less",
+    "game_id": "401909940",
+    "kind": "pickem",
+    "label": "Tyrese Proctor Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "5023693",
+    "player": "Tyrese Proctor",
+    "p_final": 0.5961,
+    "matchup": "NY @ CLE",
+    "tip": "2026-11-08T01:00Z"
+   },
+   {
+    "id": "401909942-pk-4712849-stl-1.5-less",
+    "game_id": "401909942",
+    "kind": "pickem",
+    "label": "Anthony Black Less 1.5 Stl",
+    "side": "less",
+    "line": 1.5,
+    "stat": "stl",
+    "player_id": "4712849",
+    "player": "Anthony Black",
+    "p_final": 0.5915,
+    "matchup": "ORL @ GS",
+    "tip": "2026-11-08T01:30Z"
+   },
+   {
+    "id": "401909943-pk-4711272-ast-2.5-less",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Reed Sheppard Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4711272",
+    "player": "Reed Sheppard",
+    "p_final": 0.5894,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909940-pk-4576087-ast-2.5-less+401909940-pk-5023693-ast-2.5-less+401909942-pk-4712849-stl-1.5-less+401909943-pk-2990992-fg3m-1.5-less+401909943-pk-4711272-ast-2.5-less",
+  "recorded_at": "2026-11-08T00:07:23+00:00",
+  "run_label": "afternoon"
+ }
+]

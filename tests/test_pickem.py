@@ -60,9 +60,9 @@ def test_shrink_toward_breakeven():
     be = 0.5774
     assert abs(pickem.shrink(0.60, be, 0.5) - (be + 0.5 * (0.60 - be))) < 1e-12
     assert abs(pickem.shrink(be, be, 0.5) - be) < 1e-12
-    assert pickem.shrink(0.55, be, 0.5) > 0.55          # below break-even moves up, not toward 0.5
+    assert pickem.shrink(0.55, be, 0.5) == 0.55         # below break-even: never moved up (shrink never improves a bet)
     arr = pickem.shrink(np.array([0.6, 0.5]), be, 0.0)
-    assert np.allclose(arr, be)
+    assert np.allclose(arr, [be, 0.5])
 
 
 # ------------------------------------------------------------------ anchoring
@@ -333,7 +333,8 @@ def test_build_legs_hit_matrix_and_slips():
           {"player_id": "1", "stat": "pra", "line": 44.5, "odds_type": "standard", "status": "pre_game", "projection_id": "b"},
           {"player_id": "1", "stat": "reb", "line": 11.5, "odds_type": "goblin", "status": "pre_game", "projection_id": "c"},
           {"player_id": "2", "stat": "pts", "line": 30.5, "odds_type": "standard", "status": "pre_game", "projection_id": "d"},
-          {"player_id": "2", "stat": "reb", "line": 3.5, "odds_type": "standard", "status": "pre_game", "projection_id": "e"}]
+          {"player_id": "2", "stat": "reb", "line": 3.5, "odds_type": "standard", "status": "pre_game", "projection_id": "e"},
+          {"player_id": "2", "stat": "ast", "line": 4.5, "odds_type": "standard", "status": "pre_game", "projection_id": "f"}]
     game = {"id": "g1", "matchup": "LAL @ DEN", "tip": "2026-11-08T02:00Z"}
     legs = pickem.build_legs(players, sims, dk, pp, {"s": 0.5}, game=game)
     by = {(l["player_id"], l["stat"]): l for l in legs}
@@ -349,7 +350,9 @@ def test_build_legs_hit_matrix_and_slips():
     pra = by[("1", "pra")]
     assert pra["anchor"] == "components" and pra["dk_line"] is None and pra["line_source"] == "prizepicks"
     assert len(pra["anchor_components"]) == 3 and pra["line"] == 44.5
-    assert by[("1", "reb")]["line_source"] == "dk" and by[("1", "reb")]["odds_type"] is None   # goblin ignored -> DK proxy
+    assert ("1", "reb") not in by   # live board offers this stat only as a Goblin: not playable at standard payouts -> no leg
+    assert ("1", "ast") not in by   # live board does not list it at all -> no DK stand-in leg on a live night
+    assert by[("2", "ast")]["line_source"] == "prizepicks" and by[("2", "ast")]["line"] == 4.5
     assert abs(by[("2", "pts")]["p_side"] - 0.5) < 0.1 if ("2", "pts") in by else True
     assert legs == sorted(legs, key=lambda l: (-l["p_side_shrunk"], l["id"]))
     assert pickem.fmt_leg_label(j) == "Nikola Jokic More 23.5 Pts" and j["label"] == pickem.fmt_leg_label(j)

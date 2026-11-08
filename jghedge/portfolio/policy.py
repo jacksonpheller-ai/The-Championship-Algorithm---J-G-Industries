@@ -507,7 +507,8 @@ def would_change(verdict: str, bets: list[dict], score: float, flags: dict | Non
                            f"{one} -110 total at {_pct(need_edge)} shrunk edge sized at 2% of bankroll.")
     unc = list(flags.get("lineup_uncertainty") or [])
     if unc:
-        out.append(f"GTD starters in {_plural(len(unc), 'priced game')} ({', '.join(str(g) for g in unc[:4])}): "
+        lab = flags.get("game_labels") or {}
+        out.append(f"GTD starters in {_plural(len(unc), 'priced game')} ({', '.join(str(lab.get(g, g)) for g in unc[:4])}): "
                    "a confirmed scratch re-prices those totals; stakes there are provisional until lineups post.")
     regime = flags.get("props_regime")
     if regime == "stand_down":
@@ -531,7 +532,7 @@ def _why_nothing_placeable(rows: list[dict], bankroll: float, unit: float, t: di
     with a one-unit stake) or the Kelly fraction (a unit is growth-positive but larger than
     the k-Kelly stake the tier allows, the memo's 'frozen' small bankroll)."""
     share = unit / bankroll if bankroll > 0 else math.inf
-    head = f"At your unit no bet is placeable: one {_money(unit)} unit is {_pct(share)} of bankroll"
+    head = f"At the reference unit no bet is placeable: one {_money(unit)} unit is {_pct(share)} of bankroll"
     if unit > t["per_bet_cap"] * bankroll + 1e-12:
         return f"{head}, above the {_pct(t['per_bet_cap'], 0)} per-bet cap ({_money(t['per_bet_cap'] * bankroll)})."
     pos = [r for r in rows if (r.get("growth_1u") or 0) > 0]
@@ -554,7 +555,7 @@ def reasons(verdict: str, rows: list[dict], score: float, n_bets: int, bankroll:
            f"at the $100 / $0.50 reference.",
            f"Reference ticket shrunk expected profit: {_pct(score, 3)} of bankroll (PASS below "
            f"{_pct(thresholds['light'], 3)}, BET from {_pct(thresholds['bet'], 3)}).",
-           f"Your tier: {t['label']} ({t['units']:.0f} units of {_money(unit)} on {_money(bankroll)}); "
+           f"Reference tier: {t['label']} ({t['units']:.0f} units of {_money(unit)} on {_money(bankroll)}); "
            f"Kelly fraction {t['k']:g} on shrunk edge"
            + (f", opt-in {t['opt_in_k']:g} available" if t["opt_in_k"] and verdict == "BET" else "") + "."]
     if user_units is not None:
@@ -562,7 +563,7 @@ def reasons(verdict: str, rows: list[dict], score: float, n_bets: int, bankroll:
         n_user = int((uu > 0).sum())
         staked = float(uu.sum() * unit)
         if n_user:
-            out.append(f"At your unit, {_plural(n_user, 'bet')} placeable for {_money(staked)} "
+            out.append(f"At the reference unit, {_plural(n_user, 'bet')} placeable for {_money(staked)} "
                        f"({_pct(staked / bankroll)} of bankroll).")
         else:
             out.append(_why_nothing_placeable(rows, bankroll, unit, t))
@@ -627,6 +628,7 @@ def night_block(R_shrunk, bets_meta: list[dict], bankroll: float, unit: float, f
         "reasons": reasons(v, rows, score, n_bets, bankroll, unit, flags, thresholds, user_units),
         "would_change": would_change(v, rows, score, flags, thresholds),
         "flags": {"props_regime": flags.get("props_regime", "neutral"),
+                  "props_regime_n": flags.get("props_regime_n"), "props_regime_min": flags.get("props_regime_min"),
                   "lineup_uncertainty": sorted(unc),
                   "hours_to_first_tip": (round(float(flags["hours_to_first_tip"]), 4)
                                          if flags.get("hours_to_first_tip") is not None else None)},

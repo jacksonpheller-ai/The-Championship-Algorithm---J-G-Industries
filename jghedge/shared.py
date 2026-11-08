@@ -66,10 +66,12 @@ def _parse_issue(issue: dict) -> list[dict]:
         legs = b.get("legs") or []
         if not legs or not isinstance(b.get("stake"), (int, float)) or b["stake"] <= 0:
             continue
+        is_pk = b.get("type") == "pickem" or bool(b.get("slip_type"))
         out.append({"id": f"{issue['number']}-{i}", "issue": issue["number"], "date": date,
                     "by": (issue.get("user") or {}).get("login"), "ref": b.get("ref"),
-                    "type": "parlay" if len(legs) > 1 else "single",
-                    "kind": "parlay" if len(legs) > 1 else legs[0].get("kind"),
+                    "type": "pickem" if is_pk else ("parlay" if len(legs) > 1 else "single"),
+                    "kind": "pickem" if is_pk else ("parlay" if len(legs) > 1 else legs[0].get("kind")),
+                    "slip_type": b.get("slip_type"), "payouts": b.get("payouts"),
                     "label": str(b.get("label") or "")[:200], "price": b.get("price"), "dec": float(b.get("dec") or 0),
                     "stake": float(b["stake"]), "legs": [{k: l.get(k) for k in ("game_id", "kind", "side", "line", "player_id", "stat", "dec", "label")} for l in legs],
                     "result": None, "pnl": None})
@@ -115,7 +117,11 @@ def ingest(season: int) -> dict:
         res = [_settle_leg(l, games, players) for l in e["legs"]]
         if any(x is None for x in res):
             continue
-        if e["type"] == "single":
+        if e["type"] == "pickem":
+            from .ledger import settle_pickem
+            r0, u, _ = settle_pickem(e.get("slip_type"), res, e.get("payouts"))
+            e["result"], e["pnl"] = r0, round(e["stake"] * u, 2)
+        elif e["type"] == "single":
             r0 = res[0]
             e["result"] = r0
             e["pnl"] = round(e["stake"] * (e["dec"] - 1), 2) if r0 == "win" else (-e["stake"] if r0 == "loss" else 0.0)

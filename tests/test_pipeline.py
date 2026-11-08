@@ -160,6 +160,7 @@ def test_ledger_pickem_grading_rules():
     assert ledger.settle_pickem("flex3", ["win", "void", "win"], pay) == ("win", 2.0, 2)       # reduced to 2-pick power
     assert ledger.settle_pickem("power2", ["win", "void"], pay) == ("push", 0.0, 1)             # below 2 picks: refund
     assert ledger.settle_pickem("flex6", ["win"] * 4 + ["loss", "void"], pay) == ("win", 1.0, 4)  # -> flex5, 4 of 5
+    assert ledger.settle_pickem("power3", ["win", "push", "win"], pay) == ("win", 2.0, 2)       # tie drops the pick like a void
     games = {"g": {"home_score": 110, "away_score": 104}}
     players = {("g", "7"): {"pts": 22, "reb": 5}}
     leg = {"game_id": "g", "kind": "pickem", "side": "more", "line": 21.5, "player_id": "7", "stat": "pts"}

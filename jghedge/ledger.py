@@ -40,7 +40,8 @@ def _pickem_rows(result: dict) -> list[dict]:
     for s in pk.get("slips", []):
         if len(rows) >= max_slips:
             break
-        if s.get("verdict") != "play" or not all(l in legs for l in s.get("legs", [])):
+        paper = s.get("verdict") == "check_lines" and s.get("verdict_if_lines_match") == "play"
+        if (s.get("verdict") != "play" and not paper) or not all(l in legs for l in s.get("legs", [])):
             continue
         lrows = [{"id": lid, "game_id": legs[lid].get("game_id"), "kind": "pickem", "label": legs[lid].get("label"),
                   "side": legs[lid].get("side"), "line": legs[lid].get("line"), "stat": legs[lid].get("stat"),
@@ -51,37 +52,59 @@ def _pickem_rows(result: dict) -> list[dict]:
                      "kind": "pickem", "slip_type": s["type"], "platform": pk.get("platform", "PrizePicks"),
                      "line_source": pk.get("source"), "payouts": pk.get("payouts"), "price": None,
                      "dec": None, "p_final": s.get("p_all"), "ev": s.get("ev"), "ev_shrunk": s.get("ev_shrunk"),
-                     "frac": round(min_entry / REF_BANKROLL, 5), "legs": lrows, "result": None})
+                     "frac": 0.0 if paper else round(min_entry / REF_BANKROLL, 5), "paper": paper,
+                     "legs": lrows, "result": None})
     return rows
 
 
+def _key(row: dict) -> str:
+    """Stable identity of a recorded bet across runs (parlay/slip ids are per-run labels)."""
+    if row.get("type") in ("parlay", "pickem"):
+        return (row.get("slip_type") or row["type"]) + ":" + "+".join(sorted(l.get("id") or "" for l in row.get("legs", [])))
+    return row["ref"]
+
+
 def record(result: dict, profile: str = "reference") -> int:
-    """Store tonight's reference ticket ($100 bankroll, $0.50 units, policy k 0.25: singles,
-    parlays and pick'em slips), replacing any earlier run for the same date."""
+    """Record tonight's reference ticket ($100 bankroll, $0.50 units): singles, parlays and
+    pick'em slips. Each bet is recorded ONCE, by the first run that bets it, at that run's line,
+    so early tips are kept and closing-line value is measured against later snapshots. Nothing
+    is staked on a PASS night (the replay skips PASS nights too); stand-in PrizePicks slips are
+    recorded as a zero-stake paper track so the pick'em model is graded even without the board."""
     bets = {b["id"]: b for b in result["bets"]}
     parlays = {p["id"]: p for p in result["parlays"]}
     alloc = result["allocations"].get(profile) or result["allocations"].get("balanced", {})
+    verdict = (result.get("night") or {}).get("verdict")
     rows = _pickem_rows(result)
-    for it in alloc.get("items", []):
-        ref = it["ref"]
-        if ref in bets:
-            b = bets[ref]
-            rows.append({"date": result["date"], "ref": ref, "type": "single", "label": b["label"],
-                         "kind": b["kind"], "price": b["price"], "dec": b["dec"], "p_final": b["p_final"],
-                         "ev": b["ev"], "ev_shrunk": b.get("shrunk_ev"), "max_line": b.get("max_line"),
-                         "units": None, "frac": it["frac"], "legs": [_leg(b)], "result": None})
-        elif ref in parlays:
-            p = parlays[ref]
-            legs = [_leg(bets[l]) for l in p["legs"] if l in bets]
-            rows.append({"date": result["date"], "ref": ref, "type": "parlay",
-                         "label": " + ".join(l["label"] for l in legs), "kind": "parlay",
-                         "price": p.get("american"), "dec": p["dec"], "p_final": p["p_hit"], "ev": p["ev"],
-                         "ev_shrunk": p.get("shrunk_ev"), "frac": it["frac"], "legs": legs, "result": None})
-    entries = [e for e in load() if e["date"] != result["date"] or e.get("result") is not None]
-    # don't overwrite already-graded entries; replace ungraded ones for the date
-    entries = [e for e in entries if e["date"] != result["date"]] + rows
-    save(entries)
-    return len(rows)
+    if verdict == "PASS":
+        rows = [r for r in rows if r.get("paper")]
+    else:
+        for it in alloc.get("items", []):
+            ref = it["ref"]
+            if ref in bets:
+                b = bets[ref]
+                rows.append({"date": result["date"], "ref": ref, "type": "single", "label": b["label"],
+                             "kind": b["kind"], "price": b["price"], "dec": b["dec"], "p_final": b["p_final"],
+                             "ev": b["ev"], "ev_shrunk": b.get("shrunk_ev"), "max_line": b.get("max_line"),
+                             "units": None, "frac": it["frac"], "legs": [_leg(b)], "result": None})
+            elif ref in parlays:
+                p = parlays[ref]
+                legs = [_leg(bets[l]) for l in p["legs"] if l in bets]
+                rows.append({"date": result["date"], "ref": ref, "type": "parlay",
+                             "label": " + ".join(l["label"] for l in legs), "kind": "parlay",
+                             "price": p.get("american"), "dec": p["dec"], "p_final": p["p_hit"], "ev": p["ev"],
+                             "ev_shrunk": p.get("shrunk_ev"), "frac": it["frac"], "legs": legs, "result": None})
+    entries = load()
+    have = {(e["date"], e.get("key") or _key(e)) for e in entries}
+    new = []
+    for r in rows:
+        r["key"] = _key(r)
+        r["recorded_at"] = result.get("generated")
+        r["run_label"] = result.get("run_label")
+        if (r["date"], r["key"]) not in have:
+            new.append(r)
+            have.add((r["date"], r["key"]))
+    save(entries + new)
+    return len(new)
 
 
 def _settle_leg(leg: dict, games: dict, players: dict) -> str | None:
@@ -162,11 +185,11 @@ def grade(season: int) -> int:
 
 def settle_pickem(slip_type: str | None, leg_results: list[str], payouts: dict | None) -> tuple[str, float, int]:
     """Grade a pick'em slip from its leg results per PrizePicks rules (ASSUMPTION, from the
-    public house rules as remembered: a void pick drops the entry to the next size down with
-    that size's payout; an entry that falls below 2 picks is refunded). Returns
+    public house rules as remembered: a void or tied pick drops the entry to the next size down
+    with that size's payout; an entry that falls below 2 picks is refunded). Returns
     (result, units per $1 of entry, hits among non-void legs)."""
     from .pickem import payout_vector
-    live = [r for r in leg_results if r != "void"]
+    live = [r for r in leg_results if r not in ("void", "push")]
     hits = sum(1 for r in live if r == "win")
     n = len(live)
     if n < 2 or not slip_type or not payouts:
@@ -186,6 +209,8 @@ def settle_pickem(slip_type: str | None, leg_results: list[str], payouts: dict |
 
 def summary(entries: list[dict] | None = None) -> dict:
     entries = entries if entries is not None else load()
+    paper = [e for e in entries if e.get("paper") and e.get("result") in ("win", "loss", "push", "void")]
+    entries = [e for e in entries if not e.get("paper")]
     done = [e for e in entries if e.get("result") in ("win", "loss", "push", "void")]
     w = sum(e["result"] == "win" for e in done)
     l = sum(e["result"] == "loss" for e in done)
@@ -203,7 +228,10 @@ def summary(entries: list[dict] | None = None) -> dict:
     for e in done:
         nights[e["date"]] = nights.get(e["date"], 0.0) + e["frac"] * e.get("units", 0.0)
     clvs = [lg["clv"] for e in done for lg in e["legs"] if lg.get("clv") is not None]
-    return {"bets": len(done), "wins": w, "losses": l, "pushes": len(done) - w - l,
+    paper_summary = {"slips": len(paper), "wins": sum(e["result"] == "win" for e in paper),
+                     "losses": sum(e["result"] == "loss" for e in paper),
+                     "units": round(sum(e.get("units", 0.0) or 0.0 for e in paper), 3)}
+    return {"bets": len(done), "wins": w, "losses": l, "pushes": len(done) - w - l, "pickem_paper": paper_summary,
             "avg_clv": round(sum(clvs) / len(clvs), 3) if clvs else None,
             "beat_close_pct": round(sum(1 for c in clvs if c > 0) / len(clvs), 4) if clvs else None,
             "clv_n": len(clvs),

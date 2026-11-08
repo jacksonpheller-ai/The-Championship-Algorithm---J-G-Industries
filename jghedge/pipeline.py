@@ -76,8 +76,9 @@ def slate_day(label: str, now: datetime | None = None) -> date:
     """The slate an unlabelled run prices: today (US), or tomorrow for an evening 'opener' run
     (the 02:31 UTC job prices the next day's openers)."""
     now = now or datetime.now(timezone.utc)
-    d = (now - timedelta(hours=6)).date()
-    if label == "opener" and now.astimezone(ET).hour >= 18:
+    et = now.astimezone(ET)
+    d = et.date()                     # Eastern calendar date: an opener delayed past midnight ET
+    if label == "opener" and et.hour >= 18:   # still prices the right (new) day
         d = d + timedelta(days=1)
     return d
 
@@ -202,15 +203,12 @@ def props_regime(day, params: dict | None = None, log_dir=None, results_dir=None
 # ------------------------------------------------------------------ growth cache
 def growth_block_cached(replay_file=None, cache_file=None) -> dict:
     """growth.growth_block on data/replay_open.json, cached in data/growth_grid.json and
-    recomputed only when the replay file changes (size + sha1 of its first 64 KB + mtime)."""
+    recomputed only when the replay file's contents change (sha1 of the whole file)."""
     replay_file = replay_file or growth_mod.REPLAY_FILE
     cache_file = cache_file or GROWTH_CACHE
     if not replay_file.exists():
         return growth_mod.growth_block(replay_file)
-    st = replay_file.stat()
-    with open(replay_file, "rb") as fh:
-        head = hashlib.sha1(fh.read(65536)).hexdigest()
-    key = f"{st.st_size}:{int(st.st_mtime)}:{head}"
+    key = hashlib.sha1(replay_file.read_bytes()).hexdigest()
     if cache_file.exists():
         try:
             c = json.loads(cache_file.read_text())
@@ -573,7 +571,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     kinds = ["total"] * len(singles) + ["parlay"] * len(parlays)
     decs = [b["dec"] for b in singles] + [p["dec"] for p in parlays]
     R = np.column_stack([payoffs[i] for i in ids]) if ids else np.zeros((n, 0))
-    R_s = policy.shrink_matrix(R, kinds, decs, seed=seed, p_win=[None] * len(singles) + [p["p_hit"] for p in parlays]) \
+    R_s = policy.shrink_matrix(R, kinds, decs, seed=seed, p_win=None) \
         if ids else R
     u_common = np.random.default_rng(seed).random(n)
     col_of = {i: j for j, i in enumerate(ids)}
@@ -603,13 +601,34 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                      "game_id": None, "dec": p["dec"]})
     regime = props_regime(day) if not replay else {"regime": "neutral", "n": 0}
     hours_first = min((gm["hours_to_tip"] for gm in games_out if gm.get("hours_to_tip") is not None), default=None)
-    flags = {"props_regime": regime["regime"], "lineup_uncertainty": gtd_games, "hours_to_first_tip": hours_first}
+    flags = {"props_regime": regime["regime"], "props_regime_n": int(regime.get("n") or 0), "props_regime_min": int(PROPS_REGIME["min_lines"]),
+             "lineup_uncertainty": gtd_games, "hours_to_first_tip": hours_first,
+             "game_labels": {gm["id"]: f'{gm["away"].get("abbr", "")}@{gm["home"].get("abbr", "")}' for gm in games_out}}
     # ineligible totals are offered to would_change as 'misses' (what line would clear the floor)
     night = policy.night_block(R_s, meta, REF_BANKROLL, REF_UNIT, flags)
     misses = [b for b in bets if b["kind"] == "total" and b["id"] not in col_of and (b.get("shrunk_ev") or 0) > 0]
     if misses and night["verdict"] in ("PASS", "LIGHT"):
         extra = policy.would_change(night["verdict"], [{**b, "frac_ref": 0.0} for b in misses], night["score"], {})
         night["would_change"] = night["would_change"] + [t for t in extra if "would clear it" in t][:2]
+    if night["verdict"] in ("PASS", "LIGHT"):
+        # name the closest totals and the line each would need (best available bet on a quiet night)
+        near = []
+        for b in bets:
+            if b["kind"] != "total" or b.get("max_line") is None or b.get("line") is None or b["id"] in col_of:
+                continue
+            gap = (b["line"] - b["max_line"]) if b["side"] == "over" else (b["max_line"] - b["line"])
+            if gap > 0:
+                near.append((gap, b))
+        near.sort(key=lambda x: x[0])
+        closest = []
+        for gap, b in near[:2]:
+            need = f"{b['max_line']:g} or lower" if b["side"] == "over" else f"{b['max_line']:g} or higher"
+            closest.append(f"{b['label']} (now {b['line']:g}) becomes a bet at {need}: "
+                           f"{gap:g} points away. Check Fliff's number before passing.")
+        night["would_change"] = closest + night["would_change"]   # the most actionable line first
+        if near:
+            night.setdefault("best_available", [])
+            night["best_available"] = list(dict.fromkeys(list(night["best_available"]) + [near[0][1]["id"]]))[:3]
 
     ref_units = policy.reference_units(R_s) if ids else np.zeros(0, dtype=int)
     opt_units = policy.allocate(R_s, REF_BANKROLL, REF_UNIT, policy.OPT_IN_K) if ids else np.zeros(0, dtype=int)
@@ -685,7 +704,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                 except Exception:  # noqa: BLE001
                     props_ev = {}
                 for (pname, stat), books in props_ev.items():
-                    for bk in oddsapi.PICKEM_KEYS:
+                    for bk in ("prizepicks",):        # Underdog / Pick6 lines are not PrizePicks lines
                         if bk in books and books[bk].get("line") is not None:
                             rows.append({"name": pname, "team": None, "stat": stat, "line": books[bk]["line"],
                                          "odds_type": "standard", "status": "pre_game", "supported": True,
@@ -754,7 +773,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         for b in kept:
             mv = lines_mod.movement(day, b)
             if mv:
-                ok = mv["still_ok"] and policy.still_ok(b["side"], mv["line_now"], b.get("max_line"))
+                # the bet was re-priced at the current line; it stays on as long as that line is within its max line
+                ok = policy.still_ok(b["side"], mv["line_now"], b.get("max_line"))
                 lines_block["moved"].append({"bet_id": b["id"], "priced_at": mv["priced_at"], "line_then": mv["line_then"],
                                              "line_now": mv["line_now"], "moved_by": mv["moved_by"], "still_ok": bool(ok)})
         log_props(day, props_log_rows)

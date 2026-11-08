@@ -116,10 +116,13 @@
     "tip": "2026-11-08T00:30Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909939-pk-4278039-ast-2.5-more+401909940-pk-4576087-ast-2.5-less+401909940-pk-5023693-ast-2.5-less+401909943-pk-2990992-fg3m-1.5-less+401909944-pk-4592479-fg3m-1.5-more",
   "recorded_at": "2026-11-08T00:05:13+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-08T09:24:32+00:00"
  },
  {
   "date": "2026-11-07",
@@ -238,10 +241,13 @@
     "tip": "2026-11-08T03:00Z"
    }
   ],
-  "result": null,
+  "result": "push",
   "key": "flex5:401909939-pk-4278039-stl-1.5-less+401909940-pk-5023693-ast-2.5-less+401909943-pk-3136193-reb-3.5-less+401909944-pk-4683678-stl-0.5-more+401909944-pk-6606-stl-0.5-more",
   "recorded_at": "2026-11-08T00:05:13+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -0.6,
+  "hits": 3,
+  "graded": "2026-11-08T09:24:32+00:00"
  },
  {
   "date": "2026-11-07",
@@ -360,10 +366,13 @@
     "tip": "2026-11-08T00:30Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909939-pk-4278039-ast-2.5-more+401909940-pk-4576087-ast-2.5-less+401909940-pk-5023693-ast-2.5-less+401909944-pk-4592479-fg3m-1.5-more+401909944-pk-4683678-stl-0.5-more",
   "recorded_at": "2026-11-08T00:07:23+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-08T09:24:32+00:00"
  },
  {
   "date": "2026-11-07",
@@ -482,10 +491,13 @@
     "tip": "2026-11-08T02:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909940-pk-4576087-ast-2.5-less+401909940-pk-5023693-ast-2.5-less+401909942-pk-4712849-stl-1.5-less+401909943-pk-2990992-fg3m-1.5-less+401909943-pk-4711272-ast-2.5-less",
   "recorded_at": "2026-11-08T00:07:23+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-08T09:24:32+00:00"
  },
  {
   "date": "2026-11-07",
@@ -604,10 +616,13 @@
     "tip": "2026-11-08T00:30Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909939-pk-4278039-ast-2.5-more+401909940-pk-4576087-ast-2.5-less+401909940-pk-5023693-ast-2.5-less+401909941-pk-5238230-reb-2.5-less+401909943-pk-2990992-fg3m-1.5-less",
   "recorded_at": "2026-11-08T00:10:59+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-08T09:24:32+00:00"
  },
  {
   "date": "2026-11-07",
@@ -726,10 +741,13 @@
     "tip": "2026-11-08T00:30Z"
    }
   ],
-  "result": null,
+  "result": "push",
   "key": "flex5:401909939-pk-4278039-ast-2.5-more+401909940-pk-3914044-fg3m-1.5-more+401909940-pk-5023693-ast-2.5-less+401909943-pk-2990992-fg3m-1.5-less+401909944-pk-4683678-stl-0.5-more",
   "recorded_at": "2026-11-08T00:10:59+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -0.6,
+  "hits": 3,
+  "graded": "2026-11-08T09:24:32+00:00"
  },
  {
   "date": "2026-11-07",
@@ -848,10 +866,13 @@
     "tip": "2026-11-08T03:00Z"
    }
   ],
-  "result": null,
+  "result": "push",
   "key": "flex5:401909943-pk-3136193-reb-3.5-less+401909943-pk-4711272-fg3m-1.5-more+401909944-pk-3995-reb-3.5-more+401909944-pk-4683678-stl-0.5-more+401909944-pk-6606-stl-0.5-more",
   "recorded_at": "2026-11-08T01:27:16+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -0.6,
+  "hits": 3,
+  "graded": "2026-11-08T09:24:32+00:00"
  },
  {
   "date": "2026-11-07",
@@ -970,9 +991,256 @@
     "tip": "2026-11-08T01:30Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909942-pk-4709138-fg3m-1.5-more+401909942-pk-4712849-stl-1.5-less+401909943-pk-2990992-fg3m-1.5-less+401909943-pk-4433192-fg3m-1.5-less+401909944-pk-4683678-stl-0.5-more",
   "recorded_at": "2026-11-08T01:27:16+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": 1.0,
+  "hits": 4,
+  "graded": "2026-11-08T09:24:32+00:00"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Payton Pritchard Less 2.5 3PM + Jaime Jaquez Jr. Less 3.5 Ast + Klay Thompson More 1.5 Ast + De'Andre Hunter More 1.5 3PM + Darius Acuff Jr. More 2.5 Reb",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0767,
+  "ev": 0.4054,
+  "ev_shrunk": 0.2054,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909949-pk-4066354-fg3m-2.5-less",
+    "game_id": "401909949",
+    "kind": "pickem",
+    "label": "Payton Pritchard Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4066354",
+    "player": "Payton Pritchard",
+    "p_final": 0.5977,
+    "matchup": "BOS @ MIL",
+    "tip": "2026-11-09T01:00Z"
+   },
+   {
+    "id": "401909949-pk-4432848-ast-3.5-less",
+    "game_id": "401909949",
+    "kind": "pickem",
+    "label": "Jaime Jaquez Jr. Less 3.5 Ast",
+    "side": "less",
+    "line": 3.5,
+    "stat": "ast",
+    "player_id": "4432848",
+    "player": "Jaime Jaquez Jr.",
+    "p_final": 0.593,
+    "matchup": "BOS @ MIL",
+    "tip": "2026-11-09T01:00Z"
+   },
+   {
+    "id": "401909951-pk-6475-ast-1.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Klay Thompson More 1.5 Ast",
+    "side": "more",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "6475",
+    "player": "Klay Thompson",
+    "p_final": 0.5926,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909951-pk-4065732-fg3m-1.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "De'Andre Hunter More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4065732",
+    "player": "De'Andre Hunter",
+    "p_final": 0.591,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909951-pk-5142620-reb-2.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Darius Acuff Jr. More 2.5 Reb",
+    "side": "more",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "5142620",
+    "player": "Darius Acuff Jr.",
+    "p_final": 0.5889,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909949-pk-4066354-fg3m-2.5-less+401909949-pk-4432848-ast-3.5-less+401909951-pk-4065732-fg3m-1.5-more+401909951-pk-5142620-reb-2.5-more+401909951-pk-6475-ast-1.5-more",
+  "recorded_at": "2026-11-08T09:24:23+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Walker Kessler More 1.5 Blk + Matas Buzelis More 1.5 Ast + Michael Porter Jr. More 2.5 3PM + Darius Acuff Jr. More 2.5 Reb + Jaden McDaniels More 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0764,
+  "ev": 0.4001,
+  "ev_shrunk": 0.1984,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909946-pk-4433136-blk-1.5-more",
+    "game_id": "401909946",
+    "kind": "pickem",
+    "label": "Walker Kessler More 1.5 Blk",
+    "side": "more",
+    "line": 1.5,
+    "stat": "blk",
+    "player_id": "4433136",
+    "player": "Walker Kessler",
+    "p_final": 0.5987,
+    "matchup": "LAL @ DET",
+    "tip": "2026-11-08T23:00Z"
+   },
+   {
+    "id": "401909945-pk-4711294-ast-1.5-more",
+    "game_id": "401909945",
+    "kind": "pickem",
+    "label": "Matas Buzelis More 1.5 Ast",
+    "side": "more",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "4711294",
+    "player": "Matas Buzelis",
+    "p_final": 0.5978,
+    "matchup": "PHI @ CHI",
+    "tip": "2026-11-08T20:30Z"
+   },
+   {
+    "id": "401909948-pk-4278104-fg3m-2.5-more",
+    "game_id": "401909948",
+    "kind": "pickem",
+    "label": "Michael Porter Jr. More 2.5 3PM",
+    "side": "more",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4278104",
+    "player": "Michael Porter Jr.",
+    "p_final": 0.5941,
+    "matchup": "BKN @ DAL",
+    "tip": "2026-11-09T00:30Z"
+   },
+   {
+    "id": "401909951-pk-5142620-reb-2.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Darius Acuff Jr. More 2.5 Reb",
+    "side": "more",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "5142620",
+    "player": "Darius Acuff Jr.",
+    "p_final": 0.5889,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909947-pk-4431671-ast-2.5-more",
+    "game_id": "401909947",
+    "kind": "pickem",
+    "label": "Jaden McDaniels More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4431671",
+    "player": "Jaden McDaniels",
+    "p_final": 0.5857,
+    "matchup": "UTAH @ MIN",
+    "tip": "2026-11-09T00:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909945-pk-4711294-ast-1.5-more+401909946-pk-4433136-blk-1.5-more+401909947-pk-4431671-ast-2.5-more+401909948-pk-4278104-fg3m-2.5-more+401909951-pk-5142620-reb-2.5-more",
+  "recorded_at": "2026-11-08T09:24:23+00:00",
+  "run_label": "opener"
  }
 ]

@@ -1486,5 +1486,249 @@
   "key": "flex5:401909946-pk-3157465-ast-2.5-less+401909947-pk-4431671-ast-2.5-more+401909947-pk-4873138-ast-1.5-more+401909949-pk-4432848-ast-2.5-more+401909950-pk-5144091-fg3m-1.5-less",
   "recorded_at": "2026-11-08T19:58:17+00:00",
   "run_label": "morning"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Klay Thompson More 2.5 3PM + Jaime Jaquez Jr. More 2.5 Ast + Ryan Rollins More 2.5 Ast + Zach LaVine Less 3.5 Ast + Derik Queen Less 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0777,
+  "ev": 0.4206,
+  "ev_shrunk": 0.2064,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909951-pk-6475-fg3m-2.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Klay Thompson More 2.5 3PM",
+    "side": "more",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "6475",
+    "player": "Klay Thompson",
+    "p_final": 0.5978,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909949-pk-4432848-ast-2.5-more",
+    "game_id": "401909949",
+    "kind": "pickem",
+    "label": "Jaime Jaquez Jr. More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4432848",
+    "player": "Jaime Jaquez Jr.",
+    "p_final": 0.5977,
+    "matchup": "BOS @ MIL",
+    "tip": "2026-11-09T01:00Z"
+   },
+   {
+    "id": "401909949-pk-4591725-ast-2.5-more",
+    "game_id": "401909949",
+    "kind": "pickem",
+    "label": "Ryan Rollins More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4591725",
+    "player": "Ryan Rollins",
+    "p_final": 0.5961,
+    "matchup": "BOS @ MIL",
+    "tip": "2026-11-09T01:00Z"
+   },
+   {
+    "id": "401909951-pk-3064440-ast-3.5-less",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Zach LaVine Less 3.5 Ast",
+    "side": "less",
+    "line": 3.5,
+    "stat": "ast",
+    "player_id": "3064440",
+    "player": "Zach LaVine",
+    "p_final": 0.5941,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909950-pk-4869780-ast-2.5-less",
+    "game_id": "401909950",
+    "kind": "pickem",
+    "label": "Derik Queen Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4869780",
+    "player": "Derik Queen",
+    "p_final": 0.5905,
+    "matchup": "NO @ LAC",
+    "tip": "2026-11-09T02:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909949-pk-4432848-ast-2.5-more+401909949-pk-4591725-ast-2.5-more+401909950-pk-4869780-ast-2.5-less+401909951-pk-3064440-ast-3.5-less+401909951-pk-6475-fg3m-2.5-more",
+  "recorded_at": "2026-11-08T23:59:13+00:00",
+  "run_label": "pretip"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Klay Thompson More 2.5 3PM + Jaime Jaquez Jr. More 2.5 Ast + Zach LaVine Less 3.5 Ast + Rui Hachimura Less 1.5 Ast + Jaden McDaniels More 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.077,
+  "ev": 0.4054,
+  "ev_shrunk": 0.204,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909951-pk-6475-fg3m-2.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Klay Thompson More 2.5 3PM",
+    "side": "more",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "6475",
+    "player": "Klay Thompson",
+    "p_final": 0.5978,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909949-pk-4432848-ast-2.5-more",
+    "game_id": "401909949",
+    "kind": "pickem",
+    "label": "Jaime Jaquez Jr. More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4432848",
+    "player": "Jaime Jaquez Jr.",
+    "p_final": 0.5977,
+    "matchup": "BOS @ MIL",
+    "tip": "2026-11-09T01:00Z"
+   },
+   {
+    "id": "401909951-pk-3064440-ast-3.5-less",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Zach LaVine Less 3.5 Ast",
+    "side": "less",
+    "line": 3.5,
+    "stat": "ast",
+    "player_id": "3064440",
+    "player": "Zach LaVine",
+    "p_final": 0.5941,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909950-pk-4066648-ast-1.5-less",
+    "game_id": "401909950",
+    "kind": "pickem",
+    "label": "Rui Hachimura Less 1.5 Ast",
+    "side": "less",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "4066648",
+    "player": "Rui Hachimura",
+    "p_final": 0.5894,
+    "matchup": "NO @ LAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909947-pk-4431671-ast-2.5-more",
+    "game_id": "401909947",
+    "kind": "pickem",
+    "label": "Jaden McDaniels More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4431671",
+    "player": "Jaden McDaniels",
+    "p_final": 0.5889,
+    "matchup": "UTAH @ MIN",
+    "tip": "2026-11-09T00:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909947-pk-4431671-ast-2.5-more+401909949-pk-4432848-ast-2.5-more+401909950-pk-4066648-ast-1.5-less+401909951-pk-3064440-ast-3.5-less+401909951-pk-6475-fg3m-2.5-more",
+  "recorded_at": "2026-11-08T23:59:13+00:00",
+  "run_label": "pretip"
  }
 ]

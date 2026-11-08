@@ -730,5 +730,249 @@
   "key": "flex5:401909939-pk-4278039-ast-2.5-more+401909940-pk-3914044-fg3m-1.5-more+401909940-pk-5023693-ast-2.5-less+401909943-pk-2990992-fg3m-1.5-less+401909944-pk-4683678-stl-0.5-more",
   "recorded_at": "2026-11-08T00:10:59+00:00",
   "run_label": "afternoon"
+ },
+ {
+  "date": "2026-11-07",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Reed Sheppard More 1.5 3PM + Scoot Henderson More 0.5 Stl + Devin Booker Less 3.5 Reb + Damian Lillard More 0.5 Stl + Jrue Holiday More 3.5 Reb",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0774,
+  "ev": 0.4113,
+  "ev_shrunk": 0.2043,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909943-pk-4711272-fg3m-1.5-more",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Reed Sheppard More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4711272",
+    "player": "Reed Sheppard",
+    "p_final": 0.5998,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   },
+   {
+    "id": "401909944-pk-4683678-stl-0.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Scoot Henderson More 0.5 Stl",
+    "side": "more",
+    "line": 0.5,
+    "stat": "stl",
+    "player_id": "4683678",
+    "player": "Scoot Henderson",
+    "p_final": 0.5987,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   },
+   {
+    "id": "401909943-pk-3136193-reb-3.5-less",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Devin Booker Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "3136193",
+    "player": "Devin Booker",
+    "p_final": 0.5977,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   },
+   {
+    "id": "401909944-pk-6606-stl-0.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Damian Lillard More 0.5 Stl",
+    "side": "more",
+    "line": 0.5,
+    "stat": "stl",
+    "player_id": "6606",
+    "player": "Damian Lillard",
+    "p_final": 0.5916,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   },
+   {
+    "id": "401909944-pk-3995-reb-3.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Jrue Holiday More 3.5 Reb",
+    "side": "more",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "3995",
+    "player": "Jrue Holiday",
+    "p_final": 0.5835,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909943-pk-3136193-reb-3.5-less+401909943-pk-4711272-fg3m-1.5-more+401909944-pk-3995-reb-3.5-more+401909944-pk-4683678-stl-0.5-more+401909944-pk-6606-stl-0.5-more",
+  "recorded_at": "2026-11-08T01:27:16+00:00",
+  "run_label": "afternoon"
+ },
+ {
+  "date": "2026-11-07",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Scoot Henderson More 0.5 Stl + Brandin Podziemski More 1.5 3PM + Tari Eason Less 1.5 3PM + Marcus Smart Less 1.5 3PM + Anthony Black Less 1.5 Stl",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0789,
+  "ev": 0.4132,
+  "ev_shrunk": 0.2035,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909944-pk-4683678-stl-0.5-more",
+    "game_id": "401909944",
+    "kind": "pickem",
+    "label": "Scoot Henderson More 0.5 Stl",
+    "side": "more",
+    "line": 0.5,
+    "stat": "stl",
+    "player_id": "4683678",
+    "player": "Scoot Henderson",
+    "p_final": 0.5987,
+    "matchup": "SA @ POR",
+    "tip": "2026-11-08T03:00Z"
+   },
+   {
+    "id": "401909942-pk-4709138-fg3m-1.5-more",
+    "game_id": "401909942",
+    "kind": "pickem",
+    "label": "Brandin Podziemski More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4709138",
+    "player": "Brandin Podziemski",
+    "p_final": 0.5978,
+    "matchup": "ORL @ GS",
+    "tip": "2026-11-08T01:30Z"
+   },
+   {
+    "id": "401909943-pk-4433192-fg3m-1.5-less",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Tari Eason Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4433192",
+    "player": "Tari Eason",
+    "p_final": 0.5978,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   },
+   {
+    "id": "401909943-pk-2990992-fg3m-1.5-less",
+    "game_id": "401909943",
+    "kind": "pickem",
+    "label": "Marcus Smart Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "2990992",
+    "player": "Marcus Smart",
+    "p_final": 0.5851,
+    "matchup": "HOU @ PHX",
+    "tip": "2026-11-08T02:00Z"
+   },
+   {
+    "id": "401909942-pk-4712849-stl-1.5-less",
+    "game_id": "401909942",
+    "kind": "pickem",
+    "label": "Anthony Black Less 1.5 Stl",
+    "side": "less",
+    "line": 1.5,
+    "stat": "stl",
+    "player_id": "4712849",
+    "player": "Anthony Black",
+    "p_final": 0.5846,
+    "matchup": "ORL @ GS",
+    "tip": "2026-11-08T01:30Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909942-pk-4709138-fg3m-1.5-more+401909942-pk-4712849-stl-1.5-less+401909943-pk-2990992-fg3m-1.5-less+401909943-pk-4433192-fg3m-1.5-less+401909944-pk-4683678-stl-0.5-more",
+  "recorded_at": "2026-11-08T01:27:16+00:00",
+  "run_label": "afternoon"
  }
 ]

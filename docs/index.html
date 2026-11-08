@@ -302,7 +302,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
       <p class="easy-date" id="sDate"></p>
       <h1 class="easy-head" id="sHead"></h1>
       <p class="easy-sub" id="sSub"></p>
-      <div class="easy-bank"><label for="sBank">Your bankroll</label><div class="money"><span>$</span><input id="sBank" type="number" inputmode="decimal" min="1" step="1"></div><span class="easy-unit" id="sUnit"></span></div>
+      <div class="easy-bank"><label for="sBudget">Tonight's budget</label><div class="money"><span>$</span><input id="sBudget" type="number" inputmode="decimal" min="0" step="0.25"></div><span class="easy-unit" id="sUnit"></span></div>
       <div id="sBets"></div>
       <div class="easy-card" id="sPP"></div>
       <p class="easy-foot" id="sFoot"></p>
@@ -445,7 +445,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
       <h3 id="glossary">Glossary</h3>
       <dl class="gloss">
         <dt>Win prob (conservative)</dt><dd>Where the model sees an edge, its probability is pulled halfway back to the break-even price (s = 0.5); where it sees none, the figure is left as is. When the two differ, the raw model figure sits beneath in grey.</dd>
-        <dt>Edge</dt><dd>Expected profit per $1 at the conservative probability (positive edges halved, negative ones as is). A total needs +3% to qualify.</dd>
+        <dt>Edge</dt><dd>Expected profit per $1 at the conservative probability (positive edges halved, negative ones as is). A total needs +1.5% (+3% before halving) to qualify.</dd>
         <dt>Shrinkage, by market</dt><dd>Totals and parlays: the model's edge is halved. Sportsbook props: our prop model gets no weight at all (s = 0), so no prop is bet at a price. PrizePicks legs: the chance comes from the DraftKings market, then is pulled halfway to the slip's break-even.</dd>
         <dt>Our total / fair line</dt><dd>The blended game total: our ratings-and-pace model mixed with the market (weight 30% six or more hours before tip, falling to 0% at tip), plus the late-season adjustment.</dd>
         <dt>Worst line</dt><dd>The worst number at which the bet still qualifies: the highest line for an over, the lowest for an under. Past it, skip.</dd>
@@ -562,6 +562,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   }
   var state = { bankroll: Number(store.get("jg.bankroll")) || 10, unit: Number(store.get("jg.unit")) || 0.5, optIn: store.get("jg.optin") === "1",
                 fliffMin: Number(store.get("jg.fliffmin")) || (FL && FL.min_bet) || 0.25, ppMin: Number(store.get("jg.ppmin")) || (PK && PK.min_entry) || 5, off: {}, fixed: {} };
+  state.budget = Number(store.get("jg.budget")) || 1;   // the simple view sizes from what you want to bet tonight
   Object.keys(MOVED).forEach(function (id) { if (MOVED[id].still_ok === false) state.off[id] = true; });   // moved past our number: off by default
   var UNITS = [0.1, 0.25, 0.5, 1, 2, 5, 10];
   function fillUnits() {
@@ -626,7 +627,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   }
 
   // ---------------------------------------------------------------- why: the numbers behind each bet
-  var openWhy = {}, MIN_EV = (S.params && S.params.min_ev) || 0.03, W_EARLY = (S.params && S.params.w_total_early != null) ? S.params.w_total_early : 0.30;
+  var openWhy = {}, MIN_EV = (S.params && S.params.min_ev) || 0.03, MIN_EV_S = MIN_EV * (SHR.total != null ? SHR.total : 0.5), W_EARLY = (S.params && S.params.w_total_early != null) ? S.params.w_total_early : 0.30;
   function dl(rows) { return "<dl>" + rows.map(function (r) { return "<dt>" + r[0] + "</dt><dd" + (r[2] ? " style='font-family:var(--f-body);text-align:left'" : "") + ">" + r[1] + "</dd>"; }).join("") + "</dl>"; }
   function bestTotal(gid) {   // the side our line favours; if both are within 0.5 pt of a coin flip, the better-priced one
     var o = BETS[gid + "-to-o"], u = BETS[gid + "-to-u"]; if (!o) return u || null; if (!u) return o;
@@ -639,7 +640,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     if (mv && mv.still_ok === false) return { cls: "no", text: "Line moved past our number" };
     if (b.eligible) return { cls: "near", text: isPass() ? "Qualifies, but the night is a PASS" : "Qualifies; no stake at your size" };
     if (b.max_line != null && b.line != null) { var gap = b.side === "over" ? b.line - b.max_line : b.max_line - b.line; if (gap > 0 && gap <= 4) return { cls: "near", text: "A bet at " + fline(b.max_line) + (b.side === "over" ? " or lower" : " or higher") + " (" + num(gap, 1) + " pts away)" }; }
-    return { cls: "no", text: evS(b) <= 0 ? "No edge after halving" : "Edge below the " + pct(MIN_EV, 0) + " floor" };
+    return { cls: "no", text: evS(b) <= 0 ? "No edge after halving" : "Edge below the " + pct(MIN_EV_S, 1) + " floor" };
   }
   function absences(t) { var l = (t.injuries || []).filter(function (i) { return (i.play_prob == null || i.play_prob < 0.5) && i.net_impact; }).sort(function (x, y) { return x.net_impact - y.net_impact; }).slice(0, 3); return l.length ? l.map(function (i) { return esc(i.name) + " (" + sgn(i.net_impact, 1) + ")"; }).join(", ") : "none that matter"; }
   function restTxt(t) { return t.b2b ? "back-to-back" : t.rest_days == null ? "—" : t.rest_days + " day" + (t.rest_days === 1 ? "" : "s") + " rest"; }
@@ -657,7 +658,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     var hrs = g.hours_to_tip;
     var note = "Weight on our model is " + pct(w, 0) + (hrs != null ? " because this run was built " + num(Math.max(hrs, 0), 1) + " h before tip" : "") + ": it is " + pct(W_EARLY, 0) + " six or more hours out and falls to 0% at tip, when the closing line has been the better forecast. " +
       (ctx ? "Late in the regular season totals have run over the closing line, so " + sgn(ctx, 1) + " points are added. " : "") +
-      "A total qualifies when its halved edge is at least " + pct(MIN_EV, 0) + " and one unit grows your bankroll. Tonight: <b>" + esc(st.text) + "</b>. <a href='#games/" + esc(g.id) + "'>Open the full game card →</a>";
+      "A total qualifies when its conservative edge is at least " + pct(MIN_EV_S, 1) + " (" + pct(MIN_EV, 0) + " before halving) and one unit grows your bankroll. Tonight: <b>" + esc(st.text) + "</b>. <a href='#games/" + esc(g.id) + "'>Open the full game card →</a>";
     return "<div class='whygrid'>" + c1 + c2 + c3 + "</div><p class='whynote'>" + note + "</p>";
   }
   function whyParlay(id) {
@@ -739,23 +740,40 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     var b = best.b;
     return " Closest: " + (b.side === "over" ? "Over " : "Under ") + fline(b.line) + " in " + gameName(b.game_id) + " becomes a bet if Fliff offers " + fline(b.max_line) + (b.side === "over" ? " or lower." : " or higher.");
   }
+  function budgetPlan(budget) {   // the desk decides whether and where; the budget decides how much
+    var v = NIGHT ? String(NIGHT.verdict).toUpperCase() : "PASS", factor = v === "BET" ? 1 : v === "LIGHT" ? 0.5 : 0;
+    var items = (((S.allocations || {}).reference || {}).items || []).filter(function (r) { return !state.off[r.ref] && item(r.ref); });
+    var tot = items.reduce(function (t, r) { return t + (r.stake || 0); }, 0), step = state.fliffMin || 0.25;
+    var spend = Math.floor(budget * factor / step + 1e-9) * step;
+    if (!items.length || !tot || spend < step - 1e-9) return { verdict: v, factor: factor, spend: 0, rows: [], step: step, tooSmall: !!items.length && factor > 0 };
+    var alloc = items.map(function (r) { var raw = spend * r.stake / tot; return { r: r, raw: raw, amt: Math.floor(raw / step + 1e-9) * step }; });
+    var used = alloc.reduce(function (t, a) { return t + a.amt; }, 0);
+    alloc.slice().sort(function (a, b) { return (b.raw - b.amt) - (a.raw - a.amt); }).forEach(function (a) { if (spend - used >= step - 1e-9) { a.amt += step; used += step; } });
+    var rows = [];
+    alloc.forEach(function (a) { if (a.amt >= step - 1e-9) { var it = item(a.r.ref); it.stake = Math.round(a.amt * 100) / 100; it.toWin = it.stake * (it.dec - 1); rows.push(it); } });
+    rows.sort(function (a, b) { return b.stake - a.stake; });
+    return { verdict: v, factor: factor, step: step, rows: rows, spend: rows.reduce(function (t, x) { return t + x.stake; }, 0) };
+  }
+  var simpleRows = [];
   function renderSimple() {
     if (!$("view-simple")) return;
-    var B = state.bankroll, u = state.unit, rows = (current && current.rows) || [], v = NIGHT ? String(NIGHT.verdict).toUpperCase() : "PASS", nG = (S.games || []).length;
-    var stale = S.date && S.date < usToday();
+    var budget = state.budget, nG = (S.games || []).length, stale = S.date && S.date < usToday();
     var day = S.date ? new Date(S.date + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }) : "";
     $("sDate").textContent = day + " · " + nG + " game" + (nG === 1 ? "" : "s") + (gen ? " · updated " + gen.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "") + (stale ? " · this is an older slate; today's usually posts by late morning" : "");
-    if (document.activeElement !== $("sBank")) $("sBank").value = B;
-    var canTen = u > 0.1 + 1e-9;
-    $("sUnit").innerHTML = "Bets come in " + usd(u) + " steps." + (canTen ? " <button type='button' class='btn ghost sm' id='sTen'>Use $0.10 steps</button>" : "");
+    if (document.activeElement !== $("sBudget")) $("sBudget").value = budget;
+    var plan = budgetPlan(budget), rows = plan.rows; simpleRows = rows;
+    $("sUnit").innerHTML = "Fliff bets in " + usd(plan.step) + " steps." + (plan.step > 0.1 + 1e-9 ? " <button type='button' class='btn ghost sm' id='sTen'>Use $0.10 steps</button>" : "");
     if ($("sTen")) $("sTen").addEventListener("click", useTen);
-    var staked = rows.reduce(function (t, x) { return t + x.stake; }, 0), nT = Object.keys(BETS).filter(function (k) { return BETS[k].kind === "total"; }).length / 2;
+    var nT = Math.round(Object.keys(BETS).filter(function (k) { return BETS[k].kind === "total"; }).length / 2);
     if (rows.length) {
-      $("sHead").textContent = rows.length === 1 ? "One bet tonight." : rows.length + " bets tonight.";
-      $("sSub").textContent = "Put " + usd(staked) + " of your " + usd(B) + " on Fliff. If every bet loses, you're down " + usd(staked) + ".";
+      $("sHead").textContent = plan.verdict === "LIGHT" ? (rows.length === 1 ? "A light night: one small bet." : "A light night: " + rows.length + " small bets.") : (rows.length === 1 ? "One bet tonight." : rows.length + " bets tonight.");
+      $("sSub").textContent = "Put " + usd(plan.spend) + " of your " + usd(budget) + " budget on Fliff" + (plan.verdict === "LIGHT" ? " (the edges are thin, so we use only half)" : "") + ". If every bet loses, you're down " + usd(plan.spend) + ".";
+    } else if (plan.tooSmall) {
+      $("sHead").textContent = "Budget too small tonight.";
+      $("sSub").textContent = "There is a bet tonight, but " + (plan.factor < 1 ? "half of " : "") + usd(budget) + " is less than Fliff's " + usd(plan.step) + " minimum bet. Raise the budget or use $0.10 steps.";
     } else {
       $("sHead").textContent = "No bets tonight.";
-      $("sSub").textContent = (v === "PASS" || !IDS.length ? "None of tonight's " + Math.round(nT) + " game totals is a good enough bet once we're cautious about our model." : "There are small edges tonight, but at " + usd(B) + " a " + usd(u) + " bet is too big a share to take them.") + closestMiss();
+      $("sSub").textContent = "Keep your " + usd(budget) + ". None of tonight's " + nT + " game totals has enough edge once we're cautious about our model." + closestMiss();
     }
     $("sBets").innerHTML = rows.map(function (x) {
       var what, when = "", ins = "";
@@ -763,25 +781,22 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
       else { var b = BETS[x.id]; what = "<b>" + esc((b.side === "over" ? "Over " : "Under ") + fline(b.line)) + "</b> · " + esc(gameName(b.game_id)); when = " · " + clockTime(b.tip); ins = b.max_line != null ? " · only at " + fline(b.max_line) + (b.side === "over" ? " or lower" : " or higher") : ""; }
       return "<div class='easy-bet'><div class='easy-amt'>" + usd(x.stake) + "</div><div>" + what + "<div class='easy-meta'>Odds " + am(x.price) + " · wins " + usd(x.toWin) + when + ins + "</div><details><summary>Why?</summary><p>" + esc(simpleWhy(x)) + "</p></details></div></div>";
     }).join("") + (rows.length ? "<button type='button' class='btn' id='sPlaced'>I placed these bets</button>" : "");
-    if ($("sPlaced")) $("sPlaced").addEventListener("click", function () { $("savePlaced").click(); $("sPlaced").textContent = "Saved. Results fill in after the games."; });
-    // PrizePicks in one answer
-    var pp = "<h2>PrizePicks</h2>", share = state.ppMin / B;
+    if ($("sPlaced")) $("sPlaced").addEventListener("click", function () { if (placeRows(simpleRows)) $("sPlaced").textContent = "Saved. Results fill in after the games."; });
+    // PrizePicks: the slip, paid from what is left of tonight's budget
+    var left = Math.max(0, budget - plan.spend), pp = "<h2>PrizePicks</h2>", kindOf = function (t) { return String(t).replace(/\d+$/, ""); };
+    var good = PK ? (PK.slips || []).filter(function (x) { return (x.verdict === "play" || x.verdict === "check_lines") && reachable(x) && (x.ev_shrunk || 0) > 0; }).sort(function (a, b) { return (b.ev_shrunk || 0) - (a.ev_shrunk || 0); }) : [];
     if (!PK || !(PK.legs || []).length) pp += "<p>Nothing to play tonight.</p>";
-    else if (share > 0.10 + 1e-9) pp += "<p>Skip for now. The " + usd(state.ppMin) + " minimum entry is " + pct(share, 0) + " of your bankroll, too much on one slip. It starts to make sense around " + usd(state.ppMin * 10) + ".</p>";
+    else if (!good.length) pp += "<p>Skip tonight. No slip has a real edge.</p>";
     else {
-      var kindOf = function (t) { return String(t).replace(/\d+$/, ""); };
-      var good = (PK.slips || []).filter(function (x) { if ((x.verdict !== "play" && x.verdict !== "check_lines") || !reachable(x)) return false; var n = (x.legs || []).length, pay = payVec(kindOf(x.type), n), d = x.p_dist_shrunk || x.p_dist || []; return pay && d.length && slipMath(d, pay, state.ppMin, B).g > 0; })
-        .sort(function (a, b) { return (b.ev_shrunk || 0) - (a.ev_shrunk || 0); });
-      if (!good.length) pp += "<p>Skip tonight. No slip has a real edge.</p>";
-      else {
-        var x = good[0], n = x.legs.length, kind = kindOf(x.type), pay = payVec(kind, n);
-        pp += "<p>One slip worth a " + usd(state.ppMin) + " entry: <b>" + (kind === "power" ? "Power " + n + "</b> (all " + n + " must hit, pays " + pay[n] + "×)" : "Flex " + n + "</b> (pays " + pay[n] + "× if all hit, less with a miss)") + ".</p><ul>" +
-          x.legs.map(function (id) { var l = PKBY[id]; if (!l) return ""; var t = takeText(l); return "<li>" + esc(l.player + " " + l.side + " " + fline(l.line) + " " + (STATS[l.stat] || l.stat)) + (x.verdict === "check_lines" && t !== "—" ? " <span class='easy-meta'>(only if PrizePicks shows " + esc(t.replace(/^line ≤ (.*)$/, "$1 or lower").replace(/^line ≥ (.*)$/, "$1 or higher")) + ")</span>" : "") + "</li>"; }).join("") + "</ul>";
-      }
+      var x = good[0], n = x.legs.length, kind = kindOf(x.type), pay = payVec(kind, n) || [];
+      pp += "<p>Best slip: <b>" + (kind === "power" ? "Power " + n + "</b> (all " + n + " must hit, pays " + pay[n] + "×)" : "Flex " + n + "</b> (pays " + pay[n] + "× if all hit, less with a miss)") + ".</p><ul>" +
+        x.legs.map(function (id) { var l = PKBY[id]; if (!l) return ""; var t = takeText(l); return "<li>" + esc(l.player + " " + l.side + " " + fline(l.line) + " " + (STATS[l.stat] || l.stat)) + (x.verdict === "check_lines" && t !== "—" ? " <span class='easy-meta'>(only if PrizePicks shows " + esc(t.replace(/^line ≤ (.*)$/, "$1 or lower").replace(/^line ≥ (.*)$/, "$1 or higher")) + ")</span>" : "") + "</li>"; }).join("") + "</ul>" +
+        "<p class='easy-meta' style='margin-top:8px'>" + (left >= state.ppMin - 1e-9 ? "Worth the " + usd(state.ppMin) + " minimum entry from what's left of your budget (" + usd(left) + ")." : "It needs a " + usd(state.ppMin) + " entry and your budget has " + usd(left) + " left, so skip it or raise tonight's budget.") + "</p>";
     }
     $("sPP").innerHTML = pp;
     var mine = summarize(loadPlaced());
-    $("sFoot").innerHTML = (mine.n ? "Your record so far: " + mine.w + "–" + mine.l + ", " + (mine.pnl >= 0 ? "up " : "down ") + usd(Math.abs(mine.pnl)) + ". " : "") + "The desk re-prices a few times a day. Tables, game details and the full track record are in the full desk.";
+    $("sFoot").innerHTML = "You choose how much to risk; the desk chooses whether and where. Keeping a night's budget to about a tenth of what you've set aside means one bad night can't hurt much. " +
+      (mine.n ? "Your record so far: " + mine.w + "–" + mine.l + ", " + (mine.pnl >= 0 ? "up " : "down ") + usd(Math.abs(mine.pnl)) + ". " : "") + "Tables, game details and the full track record are in the full desk.";
   }
   function nTotalsPriced() { return Object.keys(BETS).filter(function (k) { return BETS[k].kind === "total"; }).length; }
   function renderDesk() {
@@ -875,7 +890,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
         "<div class='small muted'>" + c[2] + "</div></article>";
     }).join("");
   }
-  $("sBank").addEventListener("input", function () { var v = Number(this.value); if (this.value !== "" && v > 0) { state.bankroll = v; store.set("jg.bankroll", v); $("bankroll").value = v; state.fixed = {}; renderDesk(); } });
+  $("sBudget").addEventListener("input", function () { var v = Number(this.value); if (this.value !== "" && v >= 0) { this.removeAttribute("aria-invalid"); state.budget = v; store.set("jg.budget", v); renderSimple(); } else this.setAttribute("aria-invalid", "true"); });
   $("bankroll").addEventListener("input", function () { var v = Number(this.value);
     if (this.value !== "" && v > 0) { this.removeAttribute("aria-invalid"); state.bankroll = v; store.set("jg.bankroll", v); state.fixed = {}; renderDesk(); }
     else { this.setAttribute("aria-invalid", "true"); $("atBank").textContent = "Enter a bankroll above $0. Still showing tonight at " + usd(state.bankroll) + "."; } });
@@ -894,12 +909,16 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   function loadPlaced() { try { return JSON.parse(store.get("jg.placed") || "[]"); } catch (e) { return []; } }
   function savePlaced(arr) { store.set("jg.placed", JSON.stringify(arr)); }
   function legRecord(l) { return { game_id: l.game_id, kind: l.kind, side: l.side, line: l.line, player_id: l.player_id || null, stat: l.stat || null, dec: l.dec, label: l.label }; }
-  $("savePlaced").addEventListener("click", function () {
-    var rows = (current || {}).rows || []; if (!rows.length) return;
+  function placeRows(rows) {
+    if (!rows.length) return 0;
     var arr = loadPlaced().filter(function (e) { return !(e.date === S.date && e.type !== "pickem"); });
     rows.forEach(function (x) { arr.push({ id: S.date + "|" + x.id, date: S.date, ref: x.id, kind: x.kind, type: x.type, label: x.type === "parlay" ? x.legs.map(function (l) { return l.label; }).join(" + ") : x.label, price: x.price, dec: x.dec, p: x.p, stake: x.stake, legs: x.legs.map(legRecord), placed_at: new Date().toISOString() }); });
-    savePlaced(arr); $("savePlaced").textContent = "Saved " + rows.length + " bets"; setTimeout(function () { $("savePlaced").textContent = "I placed these bets"; }, 1800);
-    gradeAll().then(renderOur);
+    savePlaced(arr); gradeAll().then(renderOur);
+    return rows.length;
+  }
+  $("savePlaced").addEventListener("click", function () {
+    var n = placeRows((current || {}).rows || []); if (!n) return;
+    $("savePlaced").textContent = "Saved " + n + " bets"; setTimeout(function () { $("savePlaced").textContent = "I placed these bets"; }, 1800);
   });
   function settleLeg(leg, day) {
     var g = day.games[leg.game_id]; if (!g) return null;

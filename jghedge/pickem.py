@@ -664,8 +664,11 @@ def build_pickem_block(legs: list[dict], prop_sims: dict[str, dict], source: str
         stand_in = proxy or any(by_id.get(i, {}).get("line_source") == "dk" for i in x.get("legs", []))
         if stand_in:
             x["verdict_if_lines_match"] = x["verdict"]
+            # a leg with no take-it line can never be confirmed in the app, so the slip is not playable
+            reachable = all((by_id.get(i, {}).get("more_if_at_most") if by_id.get(i, {}).get("side") == "more"
+                             else by_id.get(i, {}).get("less_if_at_least")) is not None for i in x.get("legs", []))
             if x["verdict"] == "play":          # only would-be plays are worth a line check
-                x["verdict"] = "check_lines"
+                x["verdict"] = "check_lines" if reachable else "skip"
         out["notes"].append("PrizePicks lines were not available to the server, so these legs use DraftKings' main line "
                             "as a stand-in. A slip is only worth playing where PrizePicks posts a line at or better than each "
                             "leg's take-it threshold (More if the line is at most X, Less if at least Y). Type the app's "

@@ -640,10 +640,14 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
           (openWhy[k] ? "<tr class='why'><td colspan='7'><div class='whywrap'>" + whyTotal(b) + "</div></td></tr>" : ""); }).join("") + "</tbody>";
     stackify($("board"), [0, 6]); bindWhy($("board"), renderBoard);
   }
+  function reachable(x) {   // on stand-in nights every leg needs a take-it line, or the slip can never be confirmed in the app
+    if (x.verdict !== "check_lines") return true;
+    return (x.legs || []).every(function (id) { var l = PKBY[id]; return l && (l.side === "more" ? l.more_if_at_most != null : l.less_if_at_least != null); });
+  }
   function pkAnswer(B) {
     if (!PK) return { short: "PrizePicks: no board", long: "No PrizePicks block in this build." };
     var slips = PK.slips || [], kindOf = function (t) { return String(t).replace(/\d+$/, ""); };
-    var good = slips.filter(function (x) { if (x.verdict !== "play" && x.verdict !== "check_lines") return false; var n = (x.legs || []).length, pay = payVec(kindOf(x.type), n), d = x.p_dist_shrunk || x.p_dist || []; return pay && d.length && state.ppMin < B && slipMath(d, pay, state.ppMin, B).g > 0; });
+    var good = slips.filter(function (x) { if ((x.verdict !== "play" && x.verdict !== "check_lines") || !reachable(x)) return false; var n = (x.legs || []).length, pay = payVec(kindOf(x.type), n), d = x.p_dist_shrunk || x.p_dist || []; return pay && d.length && state.ppMin < B && slipMath(d, pay, state.ppMin, B).g > 0; });
     if (!good.length) {
       var why = !slips.length ? "no slip clears the break-even tonight" : state.ppMin >= 0.1 * B ? "the " + usd(state.ppMin) + " minimum entry is " + pct(state.ppMin / B, 0) + " of the bankroll, so even a slip with an edge leaves the bankroll smaller over time" : "no slip grows a bankroll of this size";
       return { short: "PrizePicks: pass", long: "Pass at " + usd(B) + ": " + why + "." };
@@ -654,7 +658,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   }
   function renderPkSummary() {
     var el = $("pkSummary"); if (!el) return;
-    var ans = pkAnswer(state.bankroll), best = PK ? (PK.slips || []).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); })[0] : null;
+    var ans = pkAnswer(state.bankroll), best = PK ? (PK.slips || []).filter(reachable).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); })[0] : null;
     el.innerHTML = "<div class='pksum'><div class='row1'><h3 style='margin:0'>PrizePicks tonight</h3>" + (PK ? "<span class='small muted'>" + (!(PK.legs || []).length ? "no player legs priced (games underway or no market posted)" : (PK.mode === "check_lines" ? "DraftKings lines as stand-ins: check the app" : "live PrizePicks lines") + " · " + PK.legs.length + " legs priced") + "</span>" : "") + "</div>" +
       "<p style='margin:0'>" + esc(ans.long) + "</p>" + (best ? "<p class='small muted' style='margin:0'>" + (PK.mode === "check_lines" ? "Best slip if PrizePicks posts the take-it lines: " : "Best slip: ") + esc(best.type) + " · " + best.legs.map(function (id) { var l = PKBY[id]; if (!l) return ""; var t = takeText(l); return esc(l.player + " " + l.side + " " + (STATS[l.stat] || l.stat)) + " " + (PK.mode === "check_lines" && t !== "—" ? "(" + esc(t) + ")" : fline(l.line)); }).join(" · ") + " · " + (best.ev_shrunk == null ? "" : (1 + best.ev_shrunk).toFixed(2) + "× per $1 conservative" + (PK.mode === "check_lines" ? " at the DraftKings lines, more at the take-it lines" : "")) + "</p>" : "") +
       "<div><a class='btn ghost sm' href='#pickem' style='text-decoration:none'>Open PrizePicks →</a></div></div>";
@@ -681,7 +685,9 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     $("tierBox").innerHTML = "<span>Sizing</span><div class='t'><b>" + esc(t.label) + "</b><span>" + Math.round(t.units) + " units of " + usd(u) + " · stakes " + r.k + "× Kelly on the conservative edge · at most " + pct(PER_BET_CAP, 0) + " per bet and " + pct(NIGHT_CAP, 0) + " per night</span></div>" +
       (t.units >= 100 && isBet() ? "<label class='optin'><input type='checkbox' id='optIn'" + (state.optIn ? " checked" : "") + (light ? " disabled" : "") + "> <span>Opt in to " + OPT_IN_K + "× Kelly. " + esc(POL.opt_in_warning || "Raises the median season from about +18% to about +30% but the chance of a 50% drawdown from about 0% to about 13%.") + (light ? " Offered on BET nights only." : "") + "</span></label>"
        : "<span class='small' style='text-transform:none;letter-spacing:0;font-weight:400'>" + "The tier is bankroll ÷ unit: under 25 units 0.5× Kelly (aggressive while small, as chosen), 25–100 units 0.35×, 100+ units 0.25× with 0.5× as a BET-night opt-in. A smaller unit can move you to a steadier tier." + (t.label === "tiny" ? " Under 25 units the desk can rarely place a bet; see the note below." : "") + "</span>") +
+      (u > 0.1 + 1e-9 ? "<span class='small' style='text-transform:none;letter-spacing:0;font-weight:400'><button type='button' class='btn ghost sm' id='use10'>Switch to $0.10 units</button> " + (state.fliffMin > 0.1 + 1e-9 ? "Units below Fliff's smallest bet (" + usd(state.fliffMin) + ") are greyed out; this button sets both to $0.10, so use it only if Fliff accepts $0.10 bets." : "") + "</span>" : "") +
       "<span class='small' style='text-transform:none;letter-spacing:0;font-weight:400'>Platform minimums are assumptions (Fliff " + usd(state.fliffMin) + ", PrizePicks " + usd(state.ppMin) + "); edit them if your app shows something else.</span>";
+    if ($("use10")) $("use10").addEventListener("click", function () { state.fliffMin = Math.min(state.fliffMin, 0.1); store.set("jg.fliffmin", state.fliffMin); $("fliffMin").value = state.fliffMin; state.unit = 0.1; store.set("jg.unit", 0.1); fillUnits(); state.fixed = {}; renderDesk(); });
     if ($("optIn")) $("optIn").addEventListener("change", function () { state.optIn = this.checked; store.set("jg.optin", state.optIn ? "1" : "0"); state.fixed = {}; renderDesk(); });
     var rows = Object.keys(r.stakes).map(function (id) { var it = item(id); it.stake = r.stakes[id]; it.toWin = it.stake * (it.dec - 1); return it; });
     IDS.forEach(function (id) { if (!r.stakes[id]) { var it = item(id); if (it && (state.off[id] || it.evs > 0)) { it.stake = 0; it.toWin = 0; it.offRow = true; rows.push(it); } } });
@@ -700,8 +706,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     if (small) {
       var canTen = u > 0.1 + 1e-9 && u / B > 0.02;
       $("smallNote").innerHTML = esc("At " + usd(B) + " one " + usd(u) + " unit is " + pct(u / B, 1) + " of the bankroll" + (u / B > 0.02 ? ": too big to size small edges, so the desk often passes. In the replay, $10 grew more often with $0.10 units." : ".")) +
-        (canTen ? " <button type='button' class='btn ghost sm' id='use10'>Use $0.10 units</button>" + (state.fliffMin > 0.1 + 1e-9 ? " <span class='small'>(this also sets Fliff's smallest bet to $0.10; only do it if Fliff accepts $0.10 bets)</span>" : "") : "");
-      if ($("use10")) $("use10").addEventListener("click", function () { state.fliffMin = Math.min(state.fliffMin, 0.1); store.set("jg.fliffmin", state.fliffMin); $("fliffMin").value = state.fliffMin; state.unit = 0.1; store.set("jg.unit", 0.1); fillUnits(); state.fixed = {}; renderDesk(); });
+        (canTen ? " Use the “Switch to $0.10 units” button above." : "");
     }
     $("fliffSrc").textContent = "prices are DraftKings' via ESPN; bet the number shown or better on Fliff";
     if (!rows.length) {
@@ -945,7 +950,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   }
   function renderPickemSlips() {
     if (!PK) { $("pkSlips").innerHTML = "<div class='empty'>No suggested slips in this build.</div>"; return; }
-    var ranked = (PK.slips || []).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); });
+    var ranked = (PK.slips || []).filter(reachable).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); });
     var slips = [], seenType = {};
     var overlap = function (a, b) { var n = a.legs.filter(function (x) { return b.legs.indexOf(x) >= 0; }).length; return n / Math.min(a.legs.length, b.legs.length); };
     ranked.forEach(function (x) { if (slips.length < 3 && !seenType[x.type] && slips.every(function (y) { return overlap(x, y) < 0.5; })) { slips.push(x); seenType[x.type] = 1; } });
@@ -1126,7 +1131,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     var W = 420, H = 240, l = 52, r = 14, t = 12, b = 30, n = series[0].pts.length;
     var mn = Math.min(0, Math.min.apply(null, all.map(function (d) { return d.v; }))), mx = Math.max(0.01, Math.max.apply(null, all.map(function (d) { return d.v; })));
     var x = function (i) { return l + i / Math.max(n - 1, 1) * (W - l - r); }, y = function (v) { return H - b - (v - mn) / (mx - mn) * (H - t - b); };
-    var g = "<line class='grid' x1='" + l + "' x2='" + (W - r) + "' y1='" + y(0) + "' y2='" + y(0) + "'/><text x='" + (l - 6) + "' y='" + (y(0) + 4) + "' text-anchor='end'>" + fmtY(0) + "</text><text x='" + (l - 6) + "' y='" + (y(mx) + 4) + "' text-anchor='end'>" + fmtY(mx) + "</text>" + (mn < 0 ? "<text x='" + (l - 6) + "' y='" + (y(mn) + 4) + "' text-anchor='end'>" + fmtY(mn) + "</text>" : "");
+    var g = "<line class='grid' x1='" + l + "' x2='" + (W - r) + "' y1='" + y(0) + "' y2='" + y(0) + "'/><text x='" + (l - 6) + "' y='" + (y(0) + 4) + "' text-anchor='end'>" + fmtY(0) + "</text><text x='" + (l - 6) + "' y='" + (y(mx) + 4) + "' text-anchor='end'>" + fmtY(mx) + "</text>" + (mn < 0 && y(mn) - y(0) > 14 ? "<text x='" + (l - 6) + "' y='" + (y(mn) + 4) + "' text-anchor='end'>" + fmtY(mn) + "</text>" : "");
     series.forEach(function (s, si) { var path = s.pts.map(function (d, i) { return (i ? "L" : "M") + x(i).toFixed(1) + " " + y(d.v).toFixed(1); }).join(" "); if (si === 0) g += "<path class='area' d='" + path + " L" + x(s.pts.length - 1) + " " + y(0) + " L" + x(0) + " " + y(0) + "Z'/>"; g += "<path class='" + s.cls + "' d='" + path + "'/>"; var e = s.pts[s.pts.length - 1]; g += "<circle class='mark' cx='" + x(s.pts.length - 1) + "' cy='" + y(e.v) + "' r='4'/>"; });
     var p0 = series[0].pts; g += "<text x='" + l + "' y='" + (H - 8) + "'>" + p0[0].d + "</text><text x='" + (W - r) + "' y='" + (H - 8) + "' text-anchor='end'>" + p0[p0.length - 1].d + "</text>";
     p0.forEach(function (d, i) { g += "<rect class='hit' data-i='" + i + "' x='" + (x(i) - 6) + "' y='" + t + "' width='12' height='" + (H - t - b) + "'/>"; });

@@ -120,7 +120,8 @@ def test_pickem_line_table_thresholds():
 
 def test_pickem_proxy_slips_need_line_checks():
     from jghedge import pickem
-    leg = lambda i, p: {"id": f"l{i}", "player_id": str(i), "line_source": "dk", "p_side_shrunk": p}
+    leg = lambda i, p: {"id": f"l{i}", "player_id": str(i), "line_source": "dk", "p_side_shrunk": p,
+                        "side": "more", "more_if_at_most": 1.5}
     import numpy as np
     legs = [leg(i, 0.6) for i in range(3)]
     sims = {str(i): {"_plays": np.ones(400, bool)} for i in range(3)}
@@ -134,6 +135,16 @@ def test_pickem_proxy_slips_need_line_checks():
         pickem.hit_matrix, pickem.enumerate_slips = orig_hm, orig_en
     assert out["mode"] == "check_lines"
     assert out["slips"][0]["verdict"] == "check_lines" and out["slips"][0]["verdict_if_lines_match"] == "play"
+    # a leg with no take-it line can never be confirmed in the app: the slip is skipped, not offered
+    legs[1]["more_if_at_most"] = None
+    try:
+        pickem.hit_matrix = lambda legs, sims: np.ones((len(legs), 400), dtype=np.uint8)
+        pickem.enumerate_slips = lambda *a, **k: [{"id": "s1", "type": "power2", "legs": ["l0", "l1"], "verdict": "play"}]
+        out = pickem.build_pickem_block(legs, sims, source="dk_proxy")
+    finally:
+        pickem.hit_matrix, pickem.enumerate_slips = orig_hm, orig_en
+    assert out["slips"][0]["verdict"] == "skip" and out["slips"][0]["verdict_if_lines_match"] == "play"
+    assert len(out["notes"]) == len(set(out["notes"]))
 
 
 if __name__ == "__main__":

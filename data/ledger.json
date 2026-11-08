@@ -1242,5 +1242,249 @@
   "key": "flex5:401909945-pk-4711294-ast-1.5-more+401909946-pk-4433136-blk-1.5-more+401909947-pk-4431671-ast-2.5-more+401909948-pk-4278104-fg3m-2.5-more+401909951-pk-5142620-reb-2.5-more",
   "recorded_at": "2026-11-08T09:24:23+00:00",
   "run_label": "opener"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Jaden McDaniels More 2.5 Ast + Klay Thompson Less 3.5 3PM + Ryan Rollins Less 3.5 Ast + Ace Bailey More 1.5 Ast + Davion Mitchell Less 2.5 Reb",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0761,
+  "ev": 0.3882,
+  "ev_shrunk": 0.2032,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909947-pk-4431671-ast-2.5-more",
+    "game_id": "401909947",
+    "kind": "pickem",
+    "label": "Jaden McDaniels More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4431671",
+    "player": "Jaden McDaniels",
+    "p_final": 0.5946,
+    "matchup": "UTAH @ MIN",
+    "tip": "2026-11-09T00:00Z"
+   },
+   {
+    "id": "401909951-pk-6475-fg3m-3.5-less",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Klay Thompson Less 3.5 3PM",
+    "side": "less",
+    "line": 3.5,
+    "stat": "fg3m",
+    "player_id": "6475",
+    "player": "Klay Thompson",
+    "p_final": 0.5926,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909949-pk-4591725-ast-3.5-less",
+    "game_id": "401909949",
+    "kind": "pickem",
+    "label": "Ryan Rollins Less 3.5 Ast",
+    "side": "less",
+    "line": 3.5,
+    "stat": "ast",
+    "player_id": "4591725",
+    "player": "Ryan Rollins",
+    "p_final": 0.5909,
+    "matchup": "BOS @ MIL",
+    "tip": "2026-11-09T01:00Z"
+   },
+   {
+    "id": "401909947-pk-4873138-ast-1.5-more",
+    "game_id": "401909947",
+    "kind": "pickem",
+    "label": "Ace Bailey More 1.5 Ast",
+    "side": "more",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "4873138",
+    "player": "Ace Bailey",
+    "p_final": 0.5889,
+    "matchup": "UTAH @ MIN",
+    "tip": "2026-11-09T00:00Z"
+   },
+   {
+    "id": "401909951-pk-4278053-reb-2.5-less",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Davion Mitchell Less 2.5 Reb",
+    "side": "less",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "4278053",
+    "player": "Davion Mitchell",
+    "p_final": 0.5878,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909947-pk-4431671-ast-2.5-more+401909947-pk-4873138-ast-1.5-more+401909949-pk-4591725-ast-3.5-less+401909951-pk-4278053-reb-2.5-less+401909951-pk-6475-fg3m-3.5-less",
+  "recorded_at": "2026-11-08T19:58:17+00:00",
+  "run_label": "morning"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-8-flex5",
+  "type": "pickem",
+  "label": "Duncan Robinson Less 2.5 Ast + Jaime Jaquez Jr. More 2.5 Ast + Jaden McDaniels More 2.5 Ast + Ace Bailey More 1.5 Ast + Jeremiah Fears Less 1.5 3PM",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0756,
+  "ev": 0.3912,
+  "ev_shrunk": 0.1915,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909946-pk-3157465-ast-2.5-less",
+    "game_id": "401909946",
+    "kind": "pickem",
+    "label": "Duncan Robinson Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "3157465",
+    "player": "Duncan Robinson",
+    "p_final": 0.5992,
+    "matchup": "LAL @ DET",
+    "tip": "2026-11-08T23:00Z"
+   },
+   {
+    "id": "401909949-pk-4432848-ast-2.5-more",
+    "game_id": "401909949",
+    "kind": "pickem",
+    "label": "Jaime Jaquez Jr. More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4432848",
+    "player": "Jaime Jaquez Jr.",
+    "p_final": 0.5977,
+    "matchup": "BOS @ MIL",
+    "tip": "2026-11-09T01:00Z"
+   },
+   {
+    "id": "401909947-pk-4431671-ast-2.5-more",
+    "game_id": "401909947",
+    "kind": "pickem",
+    "label": "Jaden McDaniels More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4431671",
+    "player": "Jaden McDaniels",
+    "p_final": 0.5946,
+    "matchup": "UTAH @ MIN",
+    "tip": "2026-11-09T00:00Z"
+   },
+   {
+    "id": "401909947-pk-4873138-ast-1.5-more",
+    "game_id": "401909947",
+    "kind": "pickem",
+    "label": "Ace Bailey More 1.5 Ast",
+    "side": "more",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "4873138",
+    "player": "Ace Bailey",
+    "p_final": 0.5889,
+    "matchup": "UTAH @ MIN",
+    "tip": "2026-11-09T00:00Z"
+   },
+   {
+    "id": "401909950-pk-5144091-fg3m-1.5-less",
+    "game_id": "401909950",
+    "kind": "pickem",
+    "label": "Jeremiah Fears Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "5144091",
+    "player": "Jeremiah Fears",
+    "p_final": 0.5873,
+    "matchup": "NO @ LAC",
+    "tip": "2026-11-09T02:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909946-pk-3157465-ast-2.5-less+401909947-pk-4431671-ast-2.5-more+401909947-pk-4873138-ast-1.5-more+401909949-pk-4432848-ast-2.5-more+401909950-pk-5144091-fg3m-1.5-less",
+  "recorded_at": "2026-11-08T19:58:17+00:00",
+  "run_label": "morning"
  }
 ]

@@ -237,7 +237,7 @@ def fliff_instruction(b: dict) -> str:
             txt += f"; skip {'above' if side == 'over' else 'below'} {mx:g}"
         return txt
     if b.get("kind") == "parlay":
-        return f"{b.get('label')} at {ptxt} or better; skip if any leg moved past its max line"
+        return f"{b.get('label')} at {ptxt} or better; skip if any leg moved past its worst line"
     return f"{b.get('label')} at {ptxt} or better"
 
 

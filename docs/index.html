@@ -78,7 +78,8 @@ p { margin: 0; }
 .v-pass .state { color: var(--ink-2); } .v-light .state { color: var(--warn); } .v-bet .state { color: var(--good); }
 .verdict .headline { font-size: 16px; max-width: 70ch; }
 .verdict .chips { display: flex; flex-wrap: wrap; gap: 6px 8px; }
-.chip { font: 500 12px var(--f-mono); padding: 3px 9px; border-radius: 999px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink-2); white-space: nowrap; }
+.chip { font: 500 12px var(--f-mono); padding: 3px 9px; border-radius: 999px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink-2); white-space: nowrap; max-width: 100%; }
+@media (max-width: 640px) { .chip { white-space: normal; border-radius: 10px; } }
 .chip.warn { border-color: var(--warn); color: var(--warn); }
 .chip.good { border-color: var(--good); color: var(--good); }
 .verdict .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px 24px; }
@@ -216,9 +217,12 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   .whybtn { font: inherit; font-size: 12px; color: var(--accent); background: none; border: 1px solid var(--rule); border-radius: 999px; padding: 1px 9px; cursor: pointer; margin-left: 6px; white-space: nowrap; }
   .whybtn[aria-expanded="true"] { background: var(--panel-2); }
   tr.why > td { background: var(--panel-2); padding: 12px 14px 14px; white-space: normal; }
+  #replayChart, #ledgerChart { max-width: 620px; }
   .whywrap { position: sticky; left: 14px; max-width: min(1100px, calc(100vw - 64px)); }
   @media (max-width: 640px) {
     header.mast { position: static; }
+    .mast .row { padding-block: 10px 2px; } .mast .meta { font-size: 12px; } #shareBtn { display: none; }
+    a.golink { display: inline-block; padding: 6px 0; }
     .whybtn { padding: 5px 12px; font-size: 13px; }
     table.stack thead { display: none; }
     table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; }
@@ -277,7 +281,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     <p class="atbank" id="atBank"></p>
     <div class="panel controls">
       <label class="field" for="bankroll">Bankroll<div class="money"><span>$</span><input id="bankroll" type="number" inputmode="decimal" min="1" step="1" value="10"></div></label>
-      <label class="field" for="unit">Fliff unit<select id="unit"></select></label>
+      <label class="field" for="unit">Fliff unit<select id="unit" title="Units below Fliff's smallest bet are greyed out; lower the smallest bet first if Fliff allows it"></select></label>
       <label class="field" for="fliffMin">Fliff smallest bet<div class="money sm"><span>$</span><input id="fliffMin" type="number" inputmode="decimal" min="0.01" step="0.05" value="0.25"></div></label>
       <label class="field" for="ppMin">PrizePicks min entry<div class="money sm"><span>$</span><input id="ppMin" type="number" inputmode="decimal" min="0.5" step="0.5" value="5"></div></label>
       <div class="field wide tierbox" id="tierBox"></div>
@@ -383,7 +387,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
       <h3>Shrinkage: betting half the edge the model claims</h3>
       <p>Across 821 settled replay bets the model predicted +9.7% and realised +6.6%; on totals alone, +6.3% predicted against +3.4% realised. The desk therefore prices every total and parlay as if the true edge were half the model's (s = 0.5, a fixed setting chosen from the replay; it is not refit automatically) and gives props zero weight (s = 0): fitted on one season and tested on the next, the prop model made the market's price worse, not better. Every number you see on the ticket, from the win probability to the stake, is the shrunk one; the raw figure sits beneath it.</p>
       <h3>Sizing tiers and the growth gate</h3>
-      <p>Stakes are whole units. The Kelly fraction depends on how many units the bankroll holds: under 25 units ("tiny") the bank cannot express a sensible stake and the desk asks for a smaller unit; 25 to 100 units ("small") bets singles and two-leg parlays at 0.35× Kelly on the shrunk edge; 100 units and above ("standard") uses 0.25×, with 0.5× as an opt-in that roughly doubles the chance of a 50% drawdown in a season (about 13% versus about 0%). No bet exceeds 5% of the bankroll and no night exceeds 10%. Before anything is staked it must pass the growth gate: one unit of it must raise the expected log of the bankroll at the shrunk probability. B<sub>min</sub> on the ticket is the smallest bankroll at which one unit of that bet passes; below it the bet is a coin flip with a fee, however good the edge looks.</p>
+      <p>Stakes are whole units. The Kelly fraction depends on how many units the bankroll holds: under 25 units ("tiny") stakes 0.5× Kelly, but one unit is so large a share that few bets pass the growth gate, so the desk suggests a smaller unit; 25 to 100 units ("small") bets singles and two-leg parlays at 0.35× Kelly on the shrunk edge; 100 units and above ("standard") uses 0.25×, with 0.5× as an opt-in that roughly doubles the chance of a 50% drawdown in a season (about 13% versus about 0%). No bet exceeds 5% of the bankroll and no night exceeds 10%. Before anything is staked it must pass the growth gate: one unit of it must raise the expected log of the bankroll at the shrunk probability. B<sub>min</sub> on the ticket is the smallest bankroll at which one unit of that bet passes; below it the bet is a coin flip with a fee, however good the edge looks.</p>
       <h3>Two platforms, two jobs</h3>
       <p><b>Fliff</b> takes the game bets: totals and cross-game parlays of totals, where the replayed edge lives. Each row carries our fair line and the worst line to accept at -110 ("Over 228.5 or better; skip above 229.5"), because the number you are offered will differ from the number we priced. <b>PrizePicks</b> takes the player legs. A pick-em slip is not a bet against a price; it is a fixed payout multiple for getting k of n picks right, so the only thing that matters is the probability of each leg at the posted line. The desk anchors each player's simulated distribution to the DraftKings market median, reads P(more) and P(less) at the PrizePicks line (or at the DraftKings line, flagged as a proxy, when PrizePicks is unreachable), shrinks the edge by half, and evaluates slips against the break-even probability of each payout table. The slip builder computes the exact hit-count distribution of any combination from the joint simulation draws (20,000 per game), so correlated legs (same player, same game) are priced correctly rather than assumed independent. The payout table and minimum entry are assumptions until confirmed in the app; both are editable.</p>
       <h3>Data points</h3>
@@ -421,7 +425,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
       <div class="share" id="sharePanel"></div>
       <h3>House rules</h3>
       <ul>
-        <li>Bet the number shown or better. If the line has moved past the max line, skip the bet.</li>
+        <li>Bet the number shown or better. If the line has moved past the worst line, skip the bet.</li>
         <li>Lines come from one book. Shopping the same bet across books is the cheapest edge there is.</li>
         <li>Late scratches change everything. The desk refreshes before tip; check the injury report and the lineup flag.</li>
         <li>Passing is a position. A night with no bet is not a night the desk failed.</li>
@@ -526,7 +530,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   function fillUnits() {
     var sel = $("unit"), cur = state.unit; sel.innerHTML = "";
     var opts = UNITS.slice(); if (opts.indexOf(state.fliffMin) < 0) opts.push(state.fliffMin); if (opts.indexOf(cur) < 0) opts.push(cur); opts.sort(function (a, b) { return a - b; });
-    opts.forEach(function (u) { var o = document.createElement("option"); o.value = String(u); o.textContent = usd(u) + (u < state.fliffMin - 1e-9 ? " (below min)" : ""); o.disabled = u < state.fliffMin - 1e-9; sel.appendChild(o); });
+    opts.forEach(function (u) { var o = document.createElement("option"); o.value = String(u); o.textContent = usd(u) + (u < state.fliffMin - 1e-9 ? "" : ""); o.disabled = u < state.fliffMin - 1e-9; sel.appendChild(o); });
     if (cur < state.fliffMin - 1e-9) { state.unit = state.fliffMin; }
     sel.value = String(state.unit);
   }
@@ -572,7 +576,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     if ((fl.lineup_uncertainty || []).length) chips.push("<span class='chip warn'>GTD starters: " + fl.lineup_uncertainty.map(function (g) { var G = GAMES[g]; return G ? esc(G.away.abbr + "@" + G.home.abbr) : esc(g); }).join(", ") + "</span>");
     if (moved.length) chips.push("<span class='chip warn'>" + moved.length + " line" + (moved.length > 1 ? "s" : "") + " moved past our number</span>");
     else if (LN && (P.ids || []).length && !isPass()) chips.push("<span class='chip good'>lines still at or better than priced</span>");
-    var li = function (a) { return (a || []).map(function (s) { return "<li>" + esc(s) + "</li>"; }).join(""); };
+    var li = function (a) { return (a || []).map(function (s) { return "<li>" + esc(String(s).replace(/max line/g, "worst line")) + "</li>"; }).join(""); };
     var movedList = moved.map(function (id) { var m = MOVED[id], b = BETS[id]; return "<li>" + esc(b ? b.label : id) + ": priced at " + fline(m.line_then) + ", now " + fline(m.line_now) + " — skip</li>"; }).join("");
     el.innerHTML = "<div class='head'><span class='state'>" + esc(v) + "</span><span class='headline'>" + esc(NIGHT.headline || "") + "</span></div>" +
       "<div class='chips'>" + chips.join("") + "</div>" +
@@ -607,7 +611,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     var md = g.model || {}, m = g.market || {}, h = g.home, a = g.away, w = md.w_model_total, ctx = md.total_context || 0, st = totalStatus(b);
     var g1 = growth1u(pShrunk(b), b.dec, state.bankroll, state.unit), side = b.side === "over" ? "over" : "under";
     var c1 = "<div><h4>How we got our total</h4>" + dl([["Our model alone", num(md.total_model, 1)], ["Market's implied total", num(md.total_market, 1)], ["Weight on our model", pct(w, 0)], ["Late-season adjustment", sgn(ctx, 1)], ["Blended total (average)", num(md.total_final, 1)], ["Our line (50/50 point)", fline(b.fair_line)]]) + "</div>";
-    var c2 = "<div><h4>The teams</h4>" + dl([["Projected score", md.total_final == null ? "—" : esc(a.abbr) + " " + Math.round((md.total_final - md.margin_final) / 2) + " – " + Math.round((md.total_final + md.margin_final) / 2) + " " + esc(h.abbr)], ["Game pace", num(md.pace, 1)],
+    var c2 = "<div><h4>The teams</h4>" + dl([["Projected score (average)", md.total_final == null ? "—" : esc(a.abbr) + " " + Math.round((md.total_final - md.margin_final) / 2) + " – " + Math.round((md.total_final + md.margin_final) / 2) + " " + esc(h.abbr)], ["Game pace", num(md.pace, 1)],
       ["Off / def rating, " + esc(a.abbr), num(a.adj_o, 1) + " / " + num(a.adj_d, 1)], ["Off / def rating, " + esc(h.abbr), num(h.adj_o, 1) + " / " + num(h.adj_d, 1)],
       ["Schedule", esc(a.abbr) + " " + restTxt(a) + "; " + esc(h.abbr) + " " + restTxt(h), 1], ["Missing, " + esc(a.abbr), absences(a), 1], ["Missing, " + esc(h.abbr), absences(h), 1]]) + "</div>";
     var c3 = "<div><h4>The price</h4>" + dl([["Line now / opened", fline(m.total) + " / " + fline(m.open_total)], ["Price over / under", am(m.over_price) + " / " + am(m.under_price)], [b.side === "over" ? "Highest line to take" : "Lowest line to take", fline(b.max_line)],
@@ -658,8 +662,8 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
   function renderPkSummary() {
     var el = $("pkSummary"); if (!el) return;
     var ans = pkAnswer(state.bankroll), best = PK ? (PK.slips || []).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); })[0] : null;
-    el.innerHTML = "<div class='pksum'><div class='row1'><h3 style='margin:0'>PrizePicks tonight</h3>" + (PK ? "<span class='small muted'>" + (PK.mode === "check_lines" ? "DraftKings lines as stand-ins: check the app" : "live PrizePicks lines") + " · " + (PK.legs || []).length + " legs priced</span>" : "") + "</div>" +
-      "<p style='margin:0'>" + esc(ans.long) + "</p>" + (best ? "<p class='small muted' style='margin:0'>" + (PK.mode === "check_lines" ? "Best slip if PrizePicks posts the take-it lines: " : "Best slip: ") + esc(best.type) + " · " + best.legs.map(function (id) { var l = PKBY[id]; return l ? esc(l.player + " " + l.side + " " + fline(l.line) + " " + (STATS[l.stat] || l.stat)) : ""; }).join(" · ") + " · " + (best.ev_shrunk == null ? "" : (1 + best.ev_shrunk).toFixed(2) + "× per $1 (shrunk)") + "</p>" : "") +
+    el.innerHTML = "<div class='pksum'><div class='row1'><h3 style='margin:0'>PrizePicks tonight</h3>" + (PK ? "<span class='small muted'>" + (!(PK.legs || []).length ? "no player legs priced (games underway or no market posted)" : (PK.mode === "check_lines" ? "DraftKings lines as stand-ins: check the app" : "live PrizePicks lines") + " · " + PK.legs.length + " legs priced") + "</span>" : "") + "</div>" +
+      "<p style='margin:0'>" + esc(ans.long) + "</p>" + (best ? "<p class='small muted' style='margin:0'>" + (PK.mode === "check_lines" ? "Best slip if PrizePicks posts the take-it lines: " : "Best slip: ") + esc(best.type) + " · " + best.legs.map(function (id) { var l = PKBY[id]; if (!l) return ""; var t = takeText(l); return esc(l.player + " " + l.side + " " + (STATS[l.stat] || l.stat)) + " " + (PK.mode === "check_lines" && t !== "—" ? "(" + esc(t) + ")" : fline(l.line)); }).join(" · ") + " · " + (best.ev_shrunk == null ? "" : (1 + best.ev_shrunk).toFixed(2) + "× per $1 conservative" + (PK.mode === "check_lines" ? " at the DraftKings lines, more at the take-it lines" : "")) + "</p>" : "") +
       "<div><a class='btn ghost sm' href='#pickem' style='text-decoration:none'>Open PrizePicks →</a></div></div>";
     if ($("pkCtx")) $("pkCtx").innerHTML = "Sized for a <b>" + usd(state.bankroll) + "</b> bankroll and a <b>" + usd(state.ppMin) + "</b> minimum entry (change them on <a href='#desk'>Tonight</a>). " + esc(ans.long);
   }
@@ -843,7 +847,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
             ["Profit", '<span class="' + (sm.pnl >= 0 ? "pos" : "neg") + '">' + usd(sm.pnl) + "</span>", "on " + usd(sm.staked) + " staked"], ["Return", sgn(sm.staked ? sm.pnl / sm.staked * 100 : 0) + "%", "per dollar staked"]].map(tile).join("");
   }
   function betTable(arr) {
-    if (!arr.length) return "<tbody><tr><td class='muted'>Nothing logged yet. After you bet, press “I placed these bets” on Tonight or “Record this slip” on PrizePicks; results fill in once the games are final.</td></tr></tbody>";
+    if (!arr.length) return "<tbody><tr><td class='muted'>Nothing logged yet. After you bet, press “I placed these bets” (it appears under the Fliff ticket on nights with stakes) or “Record this slip” on PrizePicks; results fill in once the games are final.</td></tr></tbody>";
     return "<thead><tr><th>Date</th><th>Bet</th><th class='n'>Odds</th><th class='n'>Stake</th><th class='n'>P/L</th><th>Result</th></tr></thead><tbody>" +
       arr.slice().sort(function (a, b) { return a.date < b.date ? 1 : -1; }).slice(0, 150).map(function (e) { var r = e.result || "pending"; return "<tr><td class='mono'>" + e.date + "</td><td>" + (e.type === "parlay" ? "<span class='pill parlay'>Parlay</span> " : e.type === "pickem" ? "<span class='pill prop'>PrizePicks</span> " : "") + esc(e.label) + (e.by ? "<span class='sub'>logged by " + esc(e.by) + "</span>" : "") + "</td><td class='n'>" + (e.type === "pickem" ? esc(e.slip_type || "") : am(e.price)) + "</td><td class='n'>" + usd(e.stake) + "</td><td class='n " + ((e.pnl || 0) > 0 ? "pos" : (e.pnl || 0) < 0 ? "neg" : "") + "'>" + (e.pnl == null ? "—" : usd(e.pnl)) + "</td><td><span class='pill " + (r === "win" ? "win" : r === "loss" ? "loss" : "") + "'>" + r + "</span></td></tr>"; }).join("") + "</tbody>";
   }
@@ -936,7 +940,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
           (openWhy["l:" + l.id] ? "<tr class='why'><td colspan='11'><div class='whywrap'>" + whyLeg(l) + "</div></td></tr>" : "");
       }).join("") + "</tbody>";
     if (PKLEGS.length > 12) { var mb = document.getElementById("pkMore"); if (!mb) { mb = document.createElement("button"); mb.id = "pkMore"; mb.type = "button"; mb.className = "btn ghost sm"; mb.style.marginTop = "8px"; $("pkLegs").parentNode.insertAdjacentElement("afterend", mb); mb.addEventListener("click", function () { pk.showAll = !pk.showAll; renderPickemLegs(); }); } mb.textContent = pk.showAll ? "Show top 12 legs" : "Show all " + PKLEGS.length + " legs"; }
-    $("pkLegNote").textContent = "Type the line PrizePicks shows and the leg is re-priced from its table; the side flips if the new line favours the other one. Take it if = the worst posted line at which our side still hits 60% or more (validated: legs priced this way at 60–65% hit 66% on 589 historical line moves). Conservative p pulls the raw probability halfway to the 2-pick Power break-even (legs already below it are left alone); the slip builder shrinks toward the break-even of the slip type you pick. One leg per player.";
+    $("pkLegNote").textContent = "Type the line PrizePicks shows and the leg is re-priced from its table; the side flips if the new line favours the other one. Take it if = the worst posted line at which our side still hits 60% or more (validated on DraftKings props, since no PrizePicks archive exists: legs priced this way at 60–65% hit 66% over 589 historical line moves). Conservative p pulls the raw probability halfway to the 2-pick Power break-even (legs already below it are left alone); the slip builder shrinks toward the break-even of the slip type you pick. One leg per player.";
     stackify($("pkLegs"), [1]); bindWhy($("pkLegs"), renderPickemLegs);
     $("pkLegs").querySelectorAll("input[data-pk]").forEach(function (c) { c.addEventListener("change", function () { var id = c.dataset.pk, l = PKBY[id]; if (c.checked) { var dup = pk.ticked.some(function (x) { return PKBY[x] && PKBY[x].player_id === l.player_id; }); if (dup) { c.checked = false; return; } pk.ticked.push(id); } else pk.ticked = pk.ticked.filter(function (x) { return x !== id; }); renderPickemLegs(); renderPickemCustom(); }); });
     $("pkLegs").querySelectorAll("input[data-pkline]").forEach(function (inp) { inp.addEventListener("change", function () { var v = Number(inp.value); if (!isNaN(v)) pk.edited[inp.dataset.pkline] = v; if (!pAt(PKBY[inp.dataset.pkline]).ok) pk.ticked = pk.ticked.filter(function (x) { return x !== inp.dataset.pkline; }); renderPickemLegs(); renderPickemCustom(); }); });
@@ -955,9 +959,9 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
       var dS = s.p_dist_shrunk || dist, gv = dS.length && state.ppMin < state.bankroll ? slipMath(dS, pay, state.ppMin, state.bankroll).g : null;
       return "<article class='card" + (v === "play" ? " gold" : "") + "'><div class='tag'><span>" + esc(s.type) + " · " + n + " picks</span><span class='pill " + esc(v) + "'>" + esc(v === "check_lines" ? "check lines" : v) + "</span></div>" +
         "<div class='big'>" + (s.ev_shrunk == null ? "—" : (1 + s.ev_shrunk).toFixed(2) + "×") + " <span class='small muted' style='font-family:var(--f-body);font-weight:400'>expected payout per $1, conservative" + (s.ev_mult != null ? " (raw " + s.ev_mult.toFixed(2) + "×)" : "") + (v === "check_lines" ? ", at the DraftKings lines" : "") + "</span></div>" +
-        "<ol>" + legs.map(function (l) { return "<li>" + esc(legLabel(l)) + " <span class='mono muted'>" + pct(l.p_side_shrunk) + "</span><span class='sub'>" + (l.line_source === "dk" ? "<span class='pill q'>DK proxy</span> " : "") + esc(l.matchup) + (v === "check_lines" ? " · take if " + (l.side === "more" ? (l.more_if_at_most != null ? "More ≤ " + fline(l.more_if_at_most) : "line ≤ " + fline(l.line)) : (l.less_if_at_least != null ? "Less ≥ " + fline(l.less_if_at_least) : "line ≥ " + fline(l.line))) : "") + "</span></li>"; }).join("") + "</ol>" +
+        "<ol>" + legs.map(function (l) { return "<li>" + esc(legLabel(l)) + " <span class='mono muted'>" + pct(l.p_side_shrunk) + "</span><span class='sub'>" + (l.line_source === "dk" ? "<span class='pill q'>DK proxy</span> " : "") + esc(l.matchup) + (v === "check_lines" ? " · take if " + takeText(l) : "") + "</span></li>"; }).join("") + "</ol>" +
         (v === "check_lines" ? "<div class='small' style='color:var(--brass)'>Stand-in lines: play only if PrizePicks posts every leg at its take-it number or better; otherwise type the app's lines into the table and re-check.</div>" : "") +
-        (dist.length ? distBar(dist, pay) : "") +
+        (dS.length ? distBar(dS, pay) : "") +
         "<div class='stats'><span>All hit <b>" + pct(dS.length ? dS[dS.length - 1] : null) + "</b> <span class='muted'>(raw " + pct(pAll) + ")</span></span><span>EV <b>" + sgn((s.ev || 0) * 100) + "%</b></span><span>Shrunk EV <b class='" + ((s.ev_shrunk || 0) >= 0 ? "pos" : "neg") + "'>" + sgn((s.ev_shrunk || 0) * 100) + "%</b></span><span>Growth at " + usd(state.ppMin) + " on " + usd(state.bankroll) + " <b class='" + (gv > 0 ? "pos" : "neg") + "'>" + (gv == null ? "—" : sgn(gv * 100, 2) + "%") + "</b></span></div>" +
         (gv != null && gv <= 0 ? "<div class='small muted'>At " + usd(state.bankroll) + " a " + usd(state.ppMin) + " entry is too big a share: even with this edge, the swings leave the bankroll smaller over time. Skip it at this size.</div>" : "") +
         "<div><button class='btn ghost sm' type='button' data-use='" + esc(s.id) + "'>Load into custom slip</button></div></article>";
@@ -993,8 +997,9 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
       var beT = beFor(kind + n);
       if (!ok) out += "<div class='banner'>A ticked leg's typed line is outside its price table; untick it.</div>";
       else {
-        var dRaw = joint ? hitDist(ids, false) : pbDist(ids.map(function (id) { return legP(PKBY[id], false); }));
-        var dShr = joint ? hitDist(ids, true, beT) : pbDist(ids.map(function (id) { return legP(PKBY[id], true, beT); }));
+        var same = joint ? (PK.slips || []).filter(function (x) { return x.type === kind + n && x.legs.length === n && x.legs.every(function (id) { return ids.indexOf(id) >= 0; }) && x.p_dist && x.p_dist_shrunk; })[0] : null;
+        var dRaw = same ? same.p_dist : joint ? hitDist(ids, false) : pbDist(ids.map(function (id) { return legP(PKBY[id], false); }));
+        var dShr = same ? same.p_dist_shrunk : joint ? hitDist(ids, true, beT) : pbDist(ids.map(function (id) { return legP(PKBY[id], true, beT); }));
         var e = Math.max(entry, 0.01), mRaw = slipMath(dRaw, pay, e, B), mShr = slipMath(dShr, pay, e, B);
         var beAll = beFor(kind + n);
         customState = { ids: ids, kind: kind, n: n, pay: pay, entry: entry, dist: dShr, ev: mRaw.ev, evs: mShr.ev, g: mShr.g };
@@ -1069,7 +1074,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
         "<span>" + esc(h.abbr) + " spread <span class='muted'>(info)</span></span><span class='n'>" + sgn(m.spread_home) + " <span class='muted'>" + am(m.spread_home_price) + "</span></span><span class='n'>" + (md.margin_final == null ? "—" : sgn(-md.margin_final)) + "</span>" +
         "<span>Total <span class='muted'>(our line)</span></span><span class='n'>" + (m.total == null ? "—" : m.total) + "</span><span class='n'>" + (tot && tot.fair_line != null ? num(tot.fair_line, 1) : md.total_final == null ? "—" : md.total_final.toFixed(1)) + "</span>" +
         "<span>" + esc(h.abbr) + " win <span class='muted'>(info)</span></span><span class='n'>" + pct(mlh ? mlh.p_market : null) + "</span><span class='n'>" + pct(md.p_home_win) + "</span>" +
-        "<span>Score</span><span class='n'>—</span><span class='n'>" + (md.total_final ? Math.round((md.total_final - md.margin_final) / 2) + "–" + Math.round((md.total_final + md.margin_final) / 2) : "—") + "</span>" +
+        "<span>Score <span class='muted'>(avg)</span></span><span class='n'>—</span><span class='n'>" + (md.total_final ? Math.round((md.total_final - md.margin_final) / 2) + "–" + Math.round((md.total_final + md.margin_final) / 2) : "—") + "</span>" +
         "<span>Opened</span><span class='n'>" + sgn(m.open_spread_home) + " / " + (m.open_total == null ? "—" : m.open_total) + "</span><span class='n'></span></div>" +
         "<p class='small muted' style='margin-top:8px'>Model alone: " + byTeam(md.margin_model, h, a) + " (ratings " + byTeam(md.margin_ratings, h, a) + ", Elo " + byTeam(md.margin_elo, h, a) + "), total " + (md.total_model == null ? "—" : md.total_model) + ". Schedule " + sgn(md.sit_margin) + ", injuries " + sgn(md.avail_margin) + " pts to " + esc(h.abbr) + ". Weight on our model: totals " + pct(md.w_model_total, 0) + (g.hours_to_tip != null ? " (built " + num(Math.max(g.hours_to_tip, 0), 1) + " h before tip; " + pct(W_EARLY, 0) + " six hours out, 0% at tip)" : "") + "; spreads " + pct(md.w_model_margin, 0) + " (information only).</p></div>" +
         "<div><h3>Matchup</h3>" + kv + "</div>" +
@@ -1096,9 +1101,9 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     var g = $("fGame").value, st = $("fStat").value, sd = $("fSide").value, q = $("fName").value.trim().toLowerCase(), pos = $("fPos").checked;
     var rows = PROPS.filter(function (p) { return (!g || p.game_id === g) && (!st || p.stat === st) && (!sd || p.side === sd) && (!q || (p.player || "").toLowerCase().indexOf(q) >= 0) && (!pos || p.ev > 0); }).sort(function (x, y) { return y.ev - x.ev; }).slice(0, 250);
     $("props").innerHTML = "<thead><tr><th>Player</th><th>Prop</th><th class='n'>Odds</th><th class='n'>Proj.</th><th class='n'>Min</th><th class='n'>J&amp;G prob</th><th class='n'>No-vig</th><th class='n'>Model EV</th><th>PrizePicks</th></tr></thead><tbody>" +
-      (rows.length ? rows.map(function (p) { var pkl = PKLEGS.filter(function (l) { return String(l.player_id) === String(p.player_id) && l.stat === p.stat; })[0]; return "<tr><td>" + esc(p.player) + "<span class='sub'>" + esc(p.team) + " · " + esc(p.matchup) + "</span></td><td>" + (p.side === "over" ? "Over " : "Under ") + p.line + " " + STATS[p.stat] + "</td><td class='n'>" + am(p.price) + "</td><td class='n'>" + (p.proj == null ? "—" : p.proj.toFixed(1)) + "</td><td class='n'>" + (p.exp_min == null ? "—" : p.exp_min.toFixed(0)) + "</td><td class='n'>" + pct(p.p_final) + "</td><td class='n'>" + pct(p.p_market) + "</td><td class='n muted'>" + sgn(p.ev * 100) + "%</td><td>" + (pkl ? "<a href='#pickem' class='small' data-openleg='" + esc(pkl.id) + "'>" + esc(pkl.side) + " " + fline(pkl.line) + " leg</a>" + ((pkl.side === "more") !== (p.side === "over") && pkl.line === p.line ? "<span class='sub'>the market leans the other way</span>" : "") : "<span class='muted small'>—</span>") + "</td></tr>"; }).join("")
+      (rows.length ? rows.map(function (p) { var pkl = PKLEGS.filter(function (l) { return String(l.player_id) === String(p.player_id) && l.stat === p.stat; })[0]; return "<tr><td>" + esc(p.player) + "<span class='sub'>" + esc(p.team) + " · " + esc(p.matchup) + "</span></td><td>" + (p.side === "over" ? "Over " : "Under ") + p.line + " " + STATS[p.stat] + "</td><td class='n'>" + am(p.price) + "</td><td class='n'>" + (p.proj == null ? "—" : p.proj.toFixed(1)) + "</td><td class='n'>" + (p.exp_min == null ? "—" : p.exp_min.toFixed(0)) + "</td><td class='n'>" + pct(p.p_final) + "</td><td class='n'>" + pct(p.p_market) + "</td><td class='n muted'>" + sgn(p.ev * 100) + "%</td><td>" + (pkl ? "<a href='#pickem' class='small' data-openleg='" + esc(pkl.id) + "'>" + esc(pkl.side) + " " + fline(pkl.line) + " leg</a>" + ((pkl.side === "more") !== (p.side === "over") && pkl.line === p.line ? "<span class='sub'>PrizePicks side follows the market; our prop model (not used) leans the other way</span>" : "") : "<span class='muted small'>—</span>") + "</td></tr>"; }).join("")
         : "<tr><td colspan='9' class='muted'>No props match these filters.</td></tr>") + "</tbody>";
-    $("propsNote").textContent = "Showing " + rows.length + " of " + PROPS.length + " priced props (the 400 best by model EV are published). Model EV is shown for information only: out of sample it does not predict results, so no prop is staked at a price. The PrizePicks column opens the market-anchored leg, with its numbers, on the PrizePicks tab.";
+    $("propsNote").textContent = "Showing " + rows.length + " of the " + PROPS.length + " props published tonight (the best by model EV; " + ((S.counts || {}).bets_priced || PROPS.length).toLocaleString() + " bets were priced in all). Model EV is shown for information only: out of sample it does not predict results, so no prop is staked at a price. The PrizePicks column opens the market-anchored leg, with its numbers, on the PrizePicks tab.";
   }
   ["fGame", "fStat", "fSide", "fName", "fPos"].forEach(function (id) { $(id).addEventListener("input", renderProps); });
   $("props").addEventListener("click", function (e) { var a = e.target.closest && e.target.closest("[data-openleg]"); if (!a) return; var id = a.dataset.openleg; openWhy["l:" + id] = true; pk.showAll = true; renderPickemLegs();
@@ -1177,7 +1182,7 @@ textarea.code { width: 100%; min-height: 90px; font: 12px var(--f-mono); border:
     if (seasons.length) txt += "Replaying the whole nightly pipeline on past nights at the morning lines, ¼ Kelly from $1,000: " + seasons.map(function (k) { var r = RP[k], y = Number(k); return (y - 1) + "–" + String(y).slice(2) + " " + usd(r.end_bankroll) + " (" + sgn((r.stake_weighted_roi || 0) * 100) + "% on money staked, worst drawdown " + pct(r.max_drawdown, 0) + ")"; }).join("; ") + ". Realised return on those bets was about two-thirds of what the model predicted, so the desk assumes only half, a margin of safety. Results vary by a hundred dollars or more between runs with different random draws, so expect similar swings in real life, and treat the replay as optimistic where its settings were fit on the same seasons.";
     $("methodEvidence").textContent = txt;
   }
-  $("sharePanel").innerHTML = REPO ? "<span><b>Share:</b></span><span class='mono'>" + esc(JG.raw_url || "") + "</span><button class='btn ghost sm' type='button' id='copyLink'>Copy link</button><span class='muted'>Shows the latest published slate; the desk re-prices four times a day." + (JG.pages_url ? " Once GitHub Pages is on, the shorter address " + esc(JG.pages_url) + " works too." : "") + "</span>" : "";
+  $("sharePanel").innerHTML = REPO ? "<span><b>Share:</b></span><span class='mono'>" + esc(JG.raw_url || "") + "</span><button class='btn ghost sm' type='button' id='copyLink'>Copy link</button><span class='muted'>Shows the latest published slate; the desk re-prices four times a day. Bankroll and unit settings stay on each viewer's own device." + (JG.pages_url ? " Once GitHub Pages is on, the shorter address " + esc(JG.pages_url) + " works too." : "") + "</span>" : "";
   if ($("copyLink")) $("copyLink").addEventListener("click", function () { copyText(JG.raw_url || "", $("copyLink"), "Copy link"); });
   if (JG.raw_url) { $("shareBtn").hidden = false; $("shareBtn").addEventListener("click", function () { copyText(JG.pages_url || JG.raw_url, $("shareBtn"), "Copy share link"); }); }
 

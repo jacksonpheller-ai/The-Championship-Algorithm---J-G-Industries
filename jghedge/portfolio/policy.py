@@ -519,7 +519,7 @@ def would_change(verdict: str, bets: list[dict], score: float, flags: dict | Non
     h = flags.get("hours_to_first_tip")
     if h is not None and h < 1.5:
         out.append(f"First tip in {float(h):.1f} h: lines may already have moved; re-check each bet against its "
-                   "max line before placing.")
+                   "worst line before placing.")
     if verdict == "BET":
         out.append(f"BET holds while the reference ticket's shrunk expected profit stays at or above "
                    f"{_pct(thresholds['bet'], 2)} of bankroll; it has {_pct(score - thresholds['bet'], 2)} of room.")

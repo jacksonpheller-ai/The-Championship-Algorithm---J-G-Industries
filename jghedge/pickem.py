@@ -670,6 +670,7 @@ def build_pickem_block(legs: list[dict], prop_sims: dict[str, dict], source: str
                             "as a stand-in. A slip is only worth playing where PrizePicks posts a line at or better than each "
                             "leg's take-it threshold (More if the line is at most X, Less if at least Y). Type the app's "
                             "lines into the table to re-price.")
+    out["notes"] = list(dict.fromkeys(out["notes"]))   # the stand-in note is added once per slip above
     out["mode"] = "check_lines" if proxy else "live_lines"
     out["slips"] = _round(slips)
     n_play = sum(1 for x in slips if x["verdict"] == "play")

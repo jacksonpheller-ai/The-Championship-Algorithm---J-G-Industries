@@ -551,8 +551,11 @@ def reasons(verdict: str, rows: list[dict], score: float, n_bets: int, bankroll:
     flags = flags or {}
     t = tiers(bankroll, unit)
     positive = sum(1 for r in rows if (r.get("shrunk_ev") or 0) > 0)
-    out = [f"{n_bets} of {len(rows)} priced bets ({positive} with positive shrunk edge) clear the growth gate "
-           f"at the $100 / $0.50 reference.",
+    gate = (f"{n_bets} of the {len(rows)} totals and parlays that passed the edge filter ({positive} with a positive "
+            f"conservative edge) clear the growth gate at the $100 / $0.50 reference." if rows else
+            "No total or parlay passed the edge filter tonight (each needs a conservative edge of at least the "
+            "floor before it is sized), so nothing reaches the growth gate.")
+    out = [gate,
            f"Reference ticket shrunk expected profit: {_pct(score, 3)} of bankroll (PASS below "
            f"{_pct(thresholds['light'], 3)}, BET from {_pct(thresholds['bet'], 3)}).",
            f"Reference tier: {t['label']} ({t['units']:.0f} units of {_money(unit)} on {_money(bankroll)}); "

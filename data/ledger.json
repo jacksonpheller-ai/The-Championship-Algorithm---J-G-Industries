@@ -1116,10 +1116,13 @@
     "tip": "2026-11-09T02:00Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909949-pk-4066354-fg3m-2.5-less+401909949-pk-4432848-ast-3.5-less+401909951-pk-4065732-fg3m-1.5-more+401909951-pk-5142620-reb-2.5-more+401909951-pk-6475-ast-1.5-more",
   "recorded_at": "2026-11-08T09:24:23+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": 1.0,
+  "hits": 4,
+  "graded": "2026-11-09T10:11:06+00:00"
  },
  {
   "date": "2026-11-08",
@@ -1238,10 +1241,13 @@
     "tip": "2026-11-09T00:00Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909945-pk-4711294-ast-1.5-more+401909946-pk-4433136-blk-1.5-more+401909947-pk-4431671-ast-2.5-more+401909948-pk-4278104-fg3m-2.5-more+401909951-pk-5142620-reb-2.5-more",
   "recorded_at": "2026-11-08T09:24:23+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": 9.0,
+  "hits": 5,
+  "graded": "2026-11-09T10:11:06+00:00"
  },
  {
   "date": "2026-11-08",
@@ -1360,10 +1366,13 @@
     "tip": "2026-11-09T02:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909947-pk-4431671-ast-2.5-more+401909947-pk-4873138-ast-1.5-more+401909949-pk-4591725-ast-3.5-less+401909951-pk-4278053-reb-2.5-less+401909951-pk-6475-fg3m-3.5-less",
   "recorded_at": "2026-11-08T19:58:17+00:00",
-  "run_label": "morning"
+  "run_label": "morning",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-09T10:11:06+00:00"
  },
  {
   "date": "2026-11-08",
@@ -1482,10 +1491,13 @@
     "tip": "2026-11-09T02:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909946-pk-3157465-ast-2.5-less+401909947-pk-4431671-ast-2.5-more+401909947-pk-4873138-ast-1.5-more+401909949-pk-4432848-ast-2.5-more+401909950-pk-5144091-fg3m-1.5-less",
   "recorded_at": "2026-11-08T19:58:17+00:00",
-  "run_label": "morning"
+  "run_label": "morning",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-09T10:11:06+00:00"
  },
  {
   "date": "2026-11-08",
@@ -1604,10 +1616,13 @@
     "tip": "2026-11-09T02:00Z"
    }
   ],
-  "result": null,
+  "result": "push",
   "key": "flex5:401909949-pk-4432848-ast-2.5-more+401909949-pk-4591725-ast-2.5-more+401909950-pk-4869780-ast-2.5-less+401909951-pk-3064440-ast-3.5-less+401909951-pk-6475-fg3m-2.5-more",
   "recorded_at": "2026-11-08T23:59:13+00:00",
-  "run_label": "pretip"
+  "run_label": "pretip",
+  "units": -0.6,
+  "hits": 3,
+  "graded": "2026-11-09T10:11:06+00:00"
  },
  {
   "date": "2026-11-08",
@@ -1726,10 +1741,13 @@
     "tip": "2026-11-09T00:00Z"
    }
   ],
-  "result": null,
+  "result": "push",
   "key": "flex5:401909947-pk-4431671-ast-2.5-more+401909949-pk-4432848-ast-2.5-more+401909950-pk-4066648-ast-1.5-less+401909951-pk-3064440-ast-3.5-less+401909951-pk-6475-fg3m-2.5-more",
   "recorded_at": "2026-11-08T23:59:13+00:00",
-  "run_label": "pretip"
+  "run_label": "pretip",
+  "units": -0.6,
+  "hits": 3,
+  "graded": "2026-11-09T10:11:06+00:00"
  },
  {
   "date": "2026-11-08",
@@ -1848,10 +1866,13 @@
     "tip": "2026-11-09T02:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909950-pk-2991139-stl-1.5-more+401909950-pk-4702352-reb-2.5-less+401909951-pk-3059319-reb-3.5-less+401909951-pk-4066261-ast-3.5-less+401909951-pk-6475-fg3m-3.5-less",
   "recorded_at": "2026-11-09T01:44:34+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-09T10:11:06+00:00"
  },
  {
   "date": "2026-11-08",
@@ -1970,9 +1991,256 @@
     "tip": "2026-11-09T02:00Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909950-pk-4702352-reb-2.5-less+401909950-pk-5144091-reb-4.5-less+401909951-pk-4065732-fg3m-1.5-more+401909951-pk-5142620-fg3m-2.5-more+401909951-pk-6475-ra-3.5-more",
   "recorded_at": "2026-11-09T01:44:34+00:00",
-  "run_label": "afternoon"
+  "run_label": "afternoon",
+  "units": 1.0,
+  "hits": 4,
+  "graded": "2026-11-09T10:11:06+00:00"
+ },
+ {
+  "date": "2026-11-09",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Ty Jerome More 2.5 Reb + Oso Ighodaro More 2.5 Ast + Trae Young More 1.5 3PM + Ziaire Williams Less 1.5 3PM + Jaylen Wells Less 1.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0786,
+  "ev": 0.4185,
+  "ev_shrunk": 0.2188,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909955-pk-4065733-reb-2.5-more",
+    "game_id": "401909955",
+    "kind": "pickem",
+    "label": "Ty Jerome More 2.5 Reb",
+    "side": "more",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "4065733",
+    "player": "Ty Jerome",
+    "p_final": 0.5962,
+    "matchup": "MEM @ TOR",
+    "tip": "2026-11-10T00:30Z"
+   },
+   {
+    "id": "401909958-pk-4601023-ast-2.5-more",
+    "game_id": "401909958",
+    "kind": "pickem",
+    "label": "Oso Ighodaro More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4601023",
+    "player": "Oso Ighodaro",
+    "p_final": 0.5962,
+    "matchup": "SA @ PHX",
+    "tip": "2026-11-10T02:00Z"
+   },
+   {
+    "id": "401909954-pk-4277905-fg3m-1.5-more",
+    "game_id": "401909954",
+    "kind": "pickem",
+    "label": "Trae Young More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4277905",
+    "player": "Trae Young",
+    "p_final": 0.5941,
+    "matchup": "WSH @ DET",
+    "tip": "2026-11-10T00:00Z"
+   },
+   {
+    "id": "401909952-pk-4433137-fg3m-1.5-less",
+    "game_id": "401909952",
+    "kind": "pickem",
+    "label": "Ziaire Williams Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4433137",
+    "player": "Ziaire Williams",
+    "p_final": 0.5926,
+    "matchup": "LAL @ ATL",
+    "tip": "2026-11-10T00:00Z"
+   },
+   {
+    "id": "401909955-pk-5112087-ast-1.5-less",
+    "game_id": "401909955",
+    "kind": "pickem",
+    "label": "Jaylen Wells Less 1.5 Ast",
+    "side": "less",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "5112087",
+    "player": "Jaylen Wells",
+    "p_final": 0.5926,
+    "matchup": "MEM @ TOR",
+    "tip": "2026-11-10T00:30Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909952-pk-4433137-fg3m-1.5-less+401909954-pk-4277905-fg3m-1.5-more+401909955-pk-4065733-reb-2.5-more+401909955-pk-5112087-ast-1.5-less+401909958-pk-4601023-ast-2.5-more",
+  "recorded_at": "2026-11-09T10:10:57+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-09",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Collin Gillespie More 1.5 3PM + Nickeil Alexander-Walker Less 3.5 3PM + Ty Jerome More 2.5 Reb + Oso Ighodaro More 2.5 Ast + Duncan Robinson Less 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0778,
+  "ev": 0.4258,
+  "ev_shrunk": 0.2141,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909958-pk-4278585-fg3m-1.5-more",
+    "game_id": "401909958",
+    "kind": "pickem",
+    "label": "Collin Gillespie More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4278585",
+    "player": "Collin Gillespie",
+    "p_final": 0.5972,
+    "matchup": "SA @ PHX",
+    "tip": "2026-11-10T02:00Z"
+   },
+   {
+    "id": "401909952-pk-4278039-fg3m-3.5-less",
+    "game_id": "401909952",
+    "kind": "pickem",
+    "label": "Nickeil Alexander-Walker Less 3.5 3PM",
+    "side": "less",
+    "line": 3.5,
+    "stat": "fg3m",
+    "player_id": "4278039",
+    "player": "Nickeil Alexander-Walker",
+    "p_final": 0.5962,
+    "matchup": "LAL @ ATL",
+    "tip": "2026-11-10T00:00Z"
+   },
+   {
+    "id": "401909955-pk-4065733-reb-2.5-more",
+    "game_id": "401909955",
+    "kind": "pickem",
+    "label": "Ty Jerome More 2.5 Reb",
+    "side": "more",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "4065733",
+    "player": "Ty Jerome",
+    "p_final": 0.5962,
+    "matchup": "MEM @ TOR",
+    "tip": "2026-11-10T00:30Z"
+   },
+   {
+    "id": "401909958-pk-4601023-ast-2.5-more",
+    "game_id": "401909958",
+    "kind": "pickem",
+    "label": "Oso Ighodaro More 2.5 Ast",
+    "side": "more",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4601023",
+    "player": "Oso Ighodaro",
+    "p_final": 0.5962,
+    "matchup": "SA @ PHX",
+    "tip": "2026-11-10T02:00Z"
+   },
+   {
+    "id": "401909954-pk-3157465-ast-2.5-less",
+    "game_id": "401909954",
+    "kind": "pickem",
+    "label": "Duncan Robinson Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "3157465",
+    "player": "Duncan Robinson",
+    "p_final": 0.5926,
+    "matchup": "WSH @ DET",
+    "tip": "2026-11-10T00:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909952-pk-4278039-fg3m-3.5-less+401909954-pk-3157465-ast-2.5-less+401909955-pk-4065733-reb-2.5-more+401909958-pk-4278585-fg3m-1.5-more+401909958-pk-4601023-ast-2.5-more",
+  "recorded_at": "2026-11-09T10:10:57+00:00",
+  "run_label": "opener"
  }
 ]

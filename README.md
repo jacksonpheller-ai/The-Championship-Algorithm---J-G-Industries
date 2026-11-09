@@ -71,24 +71,33 @@ The page has five tabs: **Tonight**, **Games**, **Player props**, **Record** and
 11. **Lines and logs.** `jghedge/data/lines.py` appends this run's snapshot (opener, morning, pretip, afternoon) and reports which qualifying bets have moved past their max line; the DraftKings prop board is logged (`data/props_log/`) so the under lean can be measured.
 12. **Record.** Reference ticket recorded before tip and graded nightly with CLV; your placed bets graded in the page; shared record via issues; growth grid refreshed from the replay.
 
-## Evidence (walk-forward, no future information)
+## Evidence (what it shows and what it does not)
 
 Game model vs the closing line, final-margin RMSE: 2024-25 14.01 vs 13.73, 2025-26 14.33 vs 14.06 (the market wins).
 
-Full nightly pipeline replayed on every past night at that morning's opening lines, with only pre-tip information, under the current policy (totals and cross-game parlays of totals, shrinkage s = 0.5, growth gate, PASS nights skipped, adaptive tiers), props and pick'em excluded (no clean historical lines), averaged over two random seeds (`data/replay_open.json`; the pre-rebuild run is kept in `data/replay_open_prev.json`):
+Full nightly pipeline replayed on every past night at the stored opening lines, with the lines, results and rosters known before tip, under the current policy (totals and cross-game parlays of totals, shrinkage s = 0.5, growth gate, PASS nights skipped, adaptive tiers), props and pick'em excluded (no clean historical lines), averaged over two random seeds (`data/replay_open.json`). Re-run on 2026-11-09 with the refit parameters after the code-review fixes; the last column is the same replay (same parameters and seeds) on the code before them:
 
-| Season | Nights bet / nights | Bets | ROI on money staked | $1,000 became (seed 1 / seed 2) | Worst drawdown | Before the rebuild | $10, $0.10 units | $10, $0.50 units |
+| Season | Nights bet / nights | Bets | ROI on money staked | $1,000 became (seed 1 / seed 2) | Worst drawdown | Before the 11-09 fixes | $10, $0.10 units | $10, $0.50 units |
 |---|---|---|---|---|---|---|---|---|
-| 2023-24 | 47.5 / 162 | 353 | +1.8% | $1,024 ($1,098 / $950) | 17% | $1,157, DD 27% | $10.20 | $9.50 |
-| 2024-25 | 45 / 167 | 275 | +23.1% | $1,301 ($1,366 / $1,235) | 8% | $1,518, DD 17% | $12.96 | $15.41 |
-| 2025-26 | 53 / 168 | 336 | +22.0% | $1,323 ($1,360 / $1,287) | 14% | $958, DD 41% | $13.01 | $9.90 |
-| 2026-27 (to date) | 8.5 / 17 | 59.5 | +9.1% | $1,018 ($1,019 / $1,017) | 3% | $1,018, DD 7% | $10.20 | $9.72 |
+| 2023-24 | 51 / 162 | 375 | +4.3% | $1,065 ($1,118 / $1,013) | 19% | $1,035, 355 bets, DD 16% | $10.29 | $9.72 |
+| 2024-25 | 45 / 167 | 293.5 | +20.0% | $1,279 ($1,317 / $1,241) | 8% | $1,328, 277 bets, DD 7% | $12.95 | $16.02 |
+| 2025-26 | 64.5 / 168 | 405.5 | +23.4% | $1,450 ($1,556 / $1,344) | 15% | $1,353, 328.5 bets, DD 14% | $13.80 | $9.82 |
+| 2026-27 (to date) | 7.5 / 19 | 53 | +5.2% | $1,009 ($1,020 / $999) | 4% | $1,018, 63 bets, DD 4% | $10.19 | $9.72 |
 
-**Read this table with care.** The late-season totals adjustment and the pass threshold were chosen by looking at these same seasons, so the improvement over the old policy is partly in-sample (the table uses the adjustment at its held-out size, +1.2 points). The honest out-of-sample evidence is 2026-27 to date (17 nights, +9.1% on staked, $1,018) and, from now on, the live ledger. The policy bets on roughly a third of nights; most of the drawdown reduction comes from passing and from the growth gate.
+The simulator fix removed a 0.4-point tilt toward Unders, so the replay now bets more Overs and fewer Unders (1,135 Overs and 129 Unders across both seeds, against 970 and 184). The three full seasons end at $3,795 in total against $3,716 before: no difference beyond seed noise (two seeds of one season differ by up to $210).
 
-Player props: on 1,754 pre-tip DraftKings lines this season, overs hit 44.9% against a 49.0% implied rate; the calibrated blend returned +5.2% on 97 held-out bets. Small sample.
+**Read this table with care. None of it is out-of-sample.**
 
-What this means: the repeatable edges are game totals (best at the opening line, which is why a run now prices the evening before), late-season overs, and PrizePicks lines that lag the sportsbook. Spreads and moneylines lost in two of three replayed seasons and are no longer bet. Edges are small, and single seasons swing by hundreds of dollars on a $1,000 bankroll from luck alone (re-running a season with different random draws moves the result by $50–150). A $10 bankroll compounds the same percentages with far lumpier stakes: in the replays, $10 with $0.10 units ended each season between $10.20 and $13.01, and with $0.50 units between $9.50 and $15.41, because a $0.50 unit is 5% of $10 and the desk could place it on only a handful of nights.
+- **The parameters saw these nights.** `backtest` fits the final parameters (blend weights, error tables, late-season term) on every season at once, including the 2026-27 nights, and the replay then prices those same nights with them. The EV floor, the shrink and the pass threshold were chosen on this same four-season replay. Earlier versions of this file called the 2026-27 row "the honest out-of-sample evidence"; it is not.
+- **Every bet is assumed filled at the stored opening line.** On the desk's first live opener night (2026-11-08) its own first look was already 2 to 3 points off that line in 4 of 7 games. An opener the desk cannot bet is not an edge. (That run started seven hours late; on-time runs should be closer.)
+- **The opening-line study behind "+1.75 pts of CLV at a 3-pt signal" had lineup look-ahead.** `backtest.open_line_study` strips the who-actually-played adjustment from the spread signal but not from the totals signal, so it overstates what a pre-game model can see.
+- **Thin nights have not paid.** In this replay, totals on BET nights returned +10.5% per $1 (841 bets), on LIGHT nights -0.7% (423 bets), and on the thinnest betting nights (score 0.05-0.10%) -2.1% (260 bets). That supports passing; it also says the LIGHT tier has been roughly break-even.
+
+The only test the method has not already seen is the live ledger (Record tab).
+
+Player props: on 8,009 pre-game DraftKings lines (Jan-Nov 2026), overs hit 45.4% against a 48.8% no-vig price (see "Under lean" above). The stacked prop model returned +5.2% on 97 held-out bets in the earlier, smaller sample; props at a sportsbook price are not bet.
+
+What this means: the candidate edges are game totals near the opening line, late-season overs, and PrizePicks picks on the Less side where PrizePicks posts the sportsbook's line. Spreads and moneylines lost in two of three replayed seasons and are not bet. Edges are small and unproven live, and single seasons swing by hundreds of dollars on a $1,000 bankroll from luck alone. A $10 bankroll compounds the same percentages with far lumpier stakes: in the replays, $10 with $0.10 units ended each season between $10.19 and $13.80, and with $0.50 units between $9.72 and $16.02.
 
 Reports: `data/backtest_report.json`, `data/prop_backtest.json`, `data/replay_open.json`.
 
@@ -127,6 +136,19 @@ tests/         test_core, test_policy, test_pickem, test_context, test_pipeline;
 - **Odds API** bookmaker keys (`fliff`, `prizepicks` under `us_dfs`) and credit costs were written from memory and are checked against the first live response.
 - **Shrinkage s = 0.5** is a floor estimated from the published replay seed (seed-averaged ~0.45); **s = 0** on sportsbook props and **s = 0.5** on PrizePicks legs (one-sided: a leg below break-even is never pulled up) are provisional until the live ledger grades them; s is a fixed setting, not refit automatically. The pick'em market-anchored probabilities have no historical validation (no PrizePicks line archive).
 - The late-season total adjustment was found on 2023-26 and checked on 2021-23 (direction held, size about half); it cannot be tested live until March.
+
+## Code review of 2026-11-09
+
+Three independent reviews of the engine. **Fixed** (each reproduced first, each with a test): the simulator's 0.4-point tilt toward Unders; back-to-backs missed by evening runs; "not expected to play" read as "expected to play"; pick'em slips priced from the luckiest of ~6,500 combinations on shared draws (now exact); a did-not-play valued three different ways (now one void rule everywhere); single-team slips; the under lean double-counted on combos anchored through components; reference-ticket caps applied per run instead of per night; closing-line value graded against the desk's last snapshot instead of the close; a 0.4x Flex payout graded as a push; the prop log overwritten by each run; a "line moved past our number" flag that could never fire; the lineup-uncertainty cap ignoring parlay stake.
+
+**Found and not fixed yet:**
+
+- Player minutes are not reconciled to 240 per team: on one slate expected minutes ran 227 to 299 per team, which inflates the information-only prop projections and feeds the injury adjustment to team ratings (small on totals: the model carries at most 30% of the total).
+- A questionable player's own chance of sitting raises their projection for the games they do play (information-only props; pick'em needs 90% to play and is anchored to the sportsbook).
+- The "2-leg parlays only below 100 units" limit is computed but not enforced when a ticket is sized; it only affects the $10 replay columns.
+- The dated slate archive (`docs/data/slates/<date>.json`) holds only the last run's un-tipped games.
+- The late-season +2.5 starts at a team's 80th game, not its 79th.
+- The workflow's `git pull --rebase -X theirs` would drop a ledger row pushed by someone else while a job is running.
 
 ## House rules
 

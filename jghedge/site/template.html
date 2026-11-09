@@ -99,6 +99,17 @@ label.field { display: grid; gap: 6px; font-size: 12px; color: var(--ink-2); fon
 .bet ul .c { color: var(--ink-2); font-size: 13px; }
 .plat { font: 600 10px var(--f-body); letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink-2); vertical-align: 2px; margin-right: 6px; }
 .plat.pp { border-color: var(--brass); color: var(--brass); background: var(--brass-bg); }
+.bet.off { border-left-color: var(--rule); } .bet.off .amt { color: var(--ink-3); }
+.bet .skipline { font-size: 14px; color: var(--ink-2); }
+.chk { display: grid; border: 1px solid var(--rule); border-radius: var(--r); margin: 4px 0; }
+.chkrow { display: grid; grid-template-columns: minmax(0, 1fr) 84px 118px; gap: 4px 12px; align-items: center; padding: 7px 10px; border-top: 1px solid var(--rule); border-left: 3px solid var(--rule); }
+.chkrow:first-child { border-top: 0; }
+.chkrow.m-good { border-left-color: var(--good); } .chkrow.m-ok { border-left-color: var(--warn); } .chkrow.m-bad { border-left-color: var(--bad); }
+.chkrow .who { font-size: 15px; min-width: 0; } .chkrow .c { display: block; font-size: 12px; color: var(--ink-3); }
+.chkrow .lin { display: grid; gap: 2px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); } .chkrow .lin input { width: 76px; }
+.chkrow .pc { font: 500 15px var(--f-mono); text-align: right; } .chkrow .pc .c { font-family: var(--f-body); }
+.chkrow.m-bad .pc .c { color: var(--bad); } .chkrow.m-good .pc .c { color: var(--good); }
+@media (max-width: 520px) { .chkrow { grid-template-columns: 76px minmax(0, 1fr); } .chkrow .who { grid-column: 1 / -1; } .chkrow .pc { text-align: left; } }
 @media (max-width: 520px) { .bet { grid-template-columns: 1fr; } .bet .amt small { display: inline; margin-left: 8px; } }
 details.why > summary { cursor: pointer; color: var(--accent); font-size: 14px; list-style: none; }
 details.why > summary::before { content: "▸ "; } details.why[open] > summary::before { content: "▾ "; }
@@ -338,12 +349,12 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <p>The desk does one thing: it finds bets that win more often than their price assumes, and tells you how much of tonight's amount to put on each. Most nights that is very little, and some nights it is nothing.</p>
 
       <h2>1. What happens each day</h2>
-      <p>The desk runs four times a day: about 9:30 pm Eastern the night before (at the opening lines, where the totals edge has been largest), 10:40 am, 3:40 pm and 5:15 pm. Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times and prices every bet. Around 4:20 am it grades the night before.</p>
+      <p>The desk is scheduled to run every two hours. In the evening it prices the next day's slate at the opening lines, where the totals edge has been largest; through the day it re-prices as lines and injury news move. Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times, prices every bet and grades any finished night. GitHub, which runs the schedule, often starts jobs hours late, so the Tonight tab says how old the lines are and warns when they are stale. Games that have tipped drop off the page by your device's clock.</p>
 
       <h2>2. Where the edge comes from</h2>
       <ul>
         <li><b>Game totals, on Fliff.</b> Our points projection disagrees with the posted total early enough (before the line settles) to beat the price. This is the edge with a track record: the whole method has been replayed on three full past seasons using only what was known before each game.</li>
-        <li><b>Player picks, on PrizePicks.</b> PrizePicks pays the same multiple whatever the odds. When a sportsbook prices one side of a player line at, say, −178, that side hits about 60% of the time, but PrizePicks pays it like any other pick. We take the sportsbook's price as the truth and look for PrizePicks lines that are as easy or easier.</li>
+        <li><b>Player picks, on PrizePicks.</b> PrizePicks pays the same multiple whatever the odds. When a sportsbook prices one side of a player line at, say, −178, that side hits about 60% of the time, but PrizePicks pays it like any other pick. We start from the sportsbook's price, correct it for the one bias we can measure (overs hit less often than priced, so "Less" is where most of the edge is), and look for PrizePicks lines that are as easy or easier.</li>
       </ul>
       <p>Everything else is priced but not bet. Spreads and moneylines lost money in two of three replayed seasons. Our own player projections, tested on a season they hadn't seen, made the sportsbook's price worse, so they are shown for reference and never used.</p>
 
@@ -360,7 +371,8 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <h2>4. How a player pick is priced</h2>
       <ol>
         <li>Each player's minutes and stat line are simulated inside the game simulation (pace, blowouts, who else is out).</li>
-        <li>That spread of outcomes is re-centred on DraftKings' line and price, so at DraftKings' line our chance equals the sportsbook's own chance with the bookmaker's margin removed.</li>
+        <li>That spread of outcomes is re-centred on DraftKings' line and price, so at DraftKings' line our chance starts from the sportsbook's own chance with the bookmaker's margin removed.</li>
+        <li><b>The under lean.</b> Sportsbook overs hit less often than their price says. On 8,009 past DraftKings lines they hit 3.4 points less (2.8 in 2025–26 and 4.9 so far in 2026–27; the same direction in every month and every stat), and correcting for it on one season improved the forecasts on the other. So <span id="mLean">3.0</span> points are moved from More to Less before a pick is priced. The figure blends that history with the desk's own log of this season's lines. A More pick the sportsbook prices at 59% is treated as about 56%; a Less pick at 59% as about 62%.</li>
         <li>The chance is then read at PrizePicks' line. When PrizePicks' board can't be read (it blocks the server most nights), DraftKings' line stands in: compare with the app, or type the app's line and the page re-prices the pick.</li>
         <li>The chance is compared with the break-even: 57.7% a pick for a 2-pick Power, about 54% for a 5- or 6-pick Flex.</li>
         <li>Slips: the chance of each number of hits is counted from the joint simulations, so two picks from the same game are priced together rather than assumed independent.</li>
@@ -372,7 +384,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <p>Across 821 replayed bets the model expected +9.7% and made +6.6%; on totals it expected +6.3% and made +3.4%. So every edge is cut in half before anything is decided. A total the model gives 56% at −110 (which needs 52.4%) is treated as 54.2%. PrizePicks picks are cut halfway toward their break-even the same way. Every chance on this page is the cut one.</p>
 
       <h2>6. The night's call</h2>
-      <p>The desk scores the night by the cut expected profit of its own ticket ($100 bankroll, 50¢ bets, a quarter of the Kelly stake). Below 0.05% it is a <b>pass</b>: nothing earns its risk, and the desk stakes nothing on games even if one total still shows an edge (the row says so). From 0.05% to 0.15% it is a <b>light</b> night: thin edges. From 0.15% it is a <b>bet</b> night.</p>
+      <p>The desk scores the night by the cut expected profit of its own ticket ($100 bankroll, 50¢ bets, a quarter of the Kelly stake). Below 0.05% it is a <b>pass</b>: nothing earns its risk, and the desk stakes nothing on games even if one total still shows an edge (the row says so). The replay backs this: totals bet on the thinnest betting nights (a score of 0.05–0.10%) returned about −3% per $1 over 280 replayed bets (two random seeds), against about +13% on bet nights, so a night thinner still is not worth chasing. From 0.05% to 0.15% it is a <b>light</b> night: thin edges. From 0.15% it is a <b>bet</b> night.</p>
 
       <h2 id="split">7. How your nightly amount is split</h2>
       <ol>
@@ -465,14 +477,24 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
                 ppMin: Number(store.get("jg.ppmin")) || (PK && PK.min_entry) || 5, off: {} };
   Object.keys(MOVED).forEach(function (id) { if (MOVED[id].still_ok === false) state.off[id] = true; });   // moved past our number: never staked
   Object.keys(PARLAYS).forEach(function (id) { if ((PARLAYS[id].legs || []).some(function (l) { return state.off[l]; })) state.off[id] = true; });
+  // the device clock: a game that has tipped can no longer be bet, whatever the slate says
+  var NOW = Date.now();
+  function started(tip) { var t = Date.parse(tip); return !isNaN(t) && t <= NOW; }
+  function isOff(id) { if (state.off[id]) return true; var b = BETS[id]; if (b) return started(b.tip); var q = PARLAYS[id]; return !!q && (q.legs || []).some(function (l) { return isOff(l); }); }
+  function agoText(d) { var m = Math.max(0, Math.round((NOW - d.getTime()) / 60000)); return m < 60 ? m + " min ago" : m < 2160 ? (m / 60).toFixed(m < 600 ? 1 : 0).replace(/\.0$/, "") + " h ago" : Math.round(m / 1440) + " days ago"; }
 
   // ---------------------------------------------------------------- header, freshness
   var gen = S.generated ? new Date(S.generated) : null;
   var nGames = (S.games || []).length;
   $("meta").textContent = S.date ? (nGames + " game" + (nGames === 1 ? "" : "s") + " · updated " + (gen ? gen.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "")) : "No slate loaded";
   $("foot").textContent = "J&G Hedging Co. · engine v" + (S.version || "1") + " · " + ((S.counts || {}).bets_priced || 0).toLocaleString() + " bets priced from " + (S.n_sims || 0).toLocaleString() + " simulations per game · research tool, not financial advice.";
-  if (S.date && S.date < usToday()) { $("fresh").hidden = false; $("fresh").textContent = "This is the slate for " + S.date + ". Today's lines usually post by late morning; the desk prices at about 9:30 pm the night before, 10:40 am, 3:40 pm and 5:15 pm Eastern. Reload later."; }
-  else if (!S.date || !nGames) { $("fresh").hidden = false; $("fresh").textContent = "No games are left to bet on this slate."; }
+  function freshBanner() {   // what the reader should know about the age of these numbers
+    var el = $("fresh"), live = (S.games || []).some(function (g) { return !started(g.tip); }), txt = "";
+    if (!S.date || !nGames) txt = "No games are left to bet on this slate.";
+    else if (!live) txt = (S.date < usToday() ? "This is the slate for " + S.date + ". " : "Every game on this slate has tipped off. ") + "The next slate is priced at the opening lines the evening before and again through the day. Reload later.";
+    else if (gen && NOW - gen.getTime() > 4 * 3600 * 1000) txt = "These lines were priced " + agoText(gen) + ". Lines and injury news move during the day, so check Fliff's number against each bet's worst line, or reload later for a fresh run.";
+    el.hidden = !txt; el.textContent = txt;
+  }
 
   // ---------------------------------------------------------------- routing
   var VIEWS = ["tonight", "games", "props", "record", "method"], ALIAS = { simple: "tonight", desk: "tonight", pickem: "props", glossary: "method" }, lastView = null;
@@ -525,7 +547,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     for (var step = 0; step < 2000 && total < capTot; step++) {
       var best = -1, bestGain = 0;
       for (var i = 0; i < n; i++) {
-        if (state.off[IDS[i]] || units[i] >= capEach || !gate[i]) continue;
+        if (isOff(IDS[i]) || units[i] >= capEach || !gate[i]) continue;
         var sf = 0; for (var j = 0; j < n; j++) sf += COV[i][j] * f[j];
         var gain = du * (MU[i] - sf / k) - du * du * COV[i][i] / (2 * k);
         if (gain > bestGain) { bestGain = gain; best = i; }
@@ -539,7 +561,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function gameWeights() {
     if (VERDICT === "PASS") return {};
     var w = {}, items = (((S.allocations || {}).reference || {}).items) || [];
-    items.forEach(function (r) { if (r && r.stake > 0 && !state.off[r.ref] && item(r.ref)) w[r.ref] = r.stake; });
+    items.forEach(function (r) { if (r && r.stake > 0 && !isOff(r.ref) && item(r.ref)) w[r.ref] = r.stake; });
     if (!Object.keys(w).length) { var t = refTicket(); Object.keys(t).forEach(function (id) { w[id] = t[id]; }); }
     return w;
   }
@@ -591,7 +613,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function slipKind(t) { return String(t).replace(/\d+$/, ""); }
   function bestSlip() {
     if (!PK) return null;
-    var c = (PK.slips || []).filter(function (x) { return (x.verdict === "play" || x.verdict === "check_lines") && reachable(x) && (x.ev_shrunk || 0) > 0 && payVec(slipKind(x.type), (x.legs || []).length) && x.legs.every(function (id) { return PKBY[id]; }); });
+    var c = (PK.slips || []).filter(function (x) { return (x.verdict === "play" || x.verdict === "check_lines") && reachable(x) && (x.ev_shrunk || 0) > 0 && payVec(slipKind(x.type), (x.legs || []).length) && x.legs.every(function (id) { return PKBY[id] && !started(PKBY[id].tip); }); });
     c.sort(function (a, b) { return ((a.verdict === "play" ? 0 : 1) - (b.verdict === "play" ? 0 : 1)) || ((b.growth_at_min_entry_per_100 || 0) - (a.growth_at_min_entry_per_100 || 0)) || ((b.ev_shrunk || 0) - (a.ev_shrunk || 0)); });
     return c[0] || null;
   }
@@ -605,6 +627,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function worstText(b) { return b.max_line == null ? "" : fline(b.max_line) + (b.side === "over" ? " or lower" : " or higher"); }
   function gameStatus(b) {
     var e = evS(b), mv = MOVED[b.id], gap = lineGap(b);
+    if (started(b.tip)) return { s: "none", tag: "Started", act: "Tipped off at " + clockTime(b.tip) + "." };
     if (mv && mv.still_ok === false) return { s: "none", tag: "Moved", act: "The line moved from " + fline(mv.line_then) + " to " + fline(mv.line_now) + ", past our number. Skip." };
     if (b.eligible && e >= MIN_EV_S - 1e-9) return { s: "edge", tag: "Edge", act: VERDICT === "PASS"
       ? "Has an edge, but the desk passes on the night: with so little to bet, the night's expected profit is under its bar. If you bet it anyway, only at " + worstText(b) + "."
@@ -615,6 +638,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     return { s: "none", tag: "None", act: away };
   }
   function pickStatus(l) {
+    if (started(l.tip)) return { s: "none", tag: "Started", act: "" };
     var p = legP(l, false); if (p == null) return { s: "none", tag: "Re-price", act: "The typed line is outside this pick's price table." };
     var beats = Object.keys(BE).filter(function (k) { return p > BE[k]; }).sort(function (a, b) { return BE[a] - BE[b]; });
     var t = takeText(l);
@@ -668,11 +692,51 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   }
 
   // ---------------------------------------------------------------- tonight: the amount, the plan, the edge map
+  function slipNow(s) {   // a suggested slip at the lines on screen: the server's numbers until a line is typed, then re-priced from each pick's table
+    var ids = s.legs, n = ids.length, kind = slipKind(s.type), pay = payVec(kind, n) || new Array(n + 1).fill(0), beT = beFor(s.type);
+    var edited = ids.some(function (id) { return pk.edited[id] != null && pk.edited[id] !== PKBY[id].line; });
+    var ok = ids.every(function (id) { return pAt(PKBY[id]).ok; }), dist = null, ev = null, g = null;
+    if (!edited) {   // untouched: the server's joint-simulation numbers and its verdict stand
+      dist = s.p_dist_shrunk || s.p_dist || null; ev = s.ev_shrunk != null ? s.ev_shrunk : (dist ? slipMath(dist, pay).ev : null);
+      return { edited: false, ok: ok, dist: dist, ev: ev, g: null, pay: pay, n: n, kind: kind, be: beT, good: ok && (s.verdict === "play" || s.verdict === "check_lines") && ev > 0 };
+    }
+    if (ok) { dist = pbDist(ids.map(function (id) { return legP(PKBY[id], true, beT); })); ev = slipMath(dist, pay).ev; var f = state.ppMin / 100; g = 0; dist.forEach(function (q, k) { g += q * Math.log(Math.max(1e-9, 1 + (pay[k] - 1) * f)); }); }
+    // typed lines are live lines, so the desk's live rule applies: positive after the cut, and worth its swings at the minimum entry on a $100 reference
+    return { edited: true, ok: ok, dist: dist, ev: ev, g: g, pay: pay, n: n, kind: kind, be: beT, good: !!dist && ev > 0 && g > 0 };
+  }
+  function pickMark(l, be) {   // one pick inside a slip, at the line on screen
+    var raw = legP(l, false), t = takeLine(l), line = curLine(l);
+    if (raw == null) return { cls: "bad", text: "outside the table" };
+    if (t != null && (legSide(l) === "more" ? line <= t : line >= t)) return { cls: "good", text: "clear take" };
+    return raw > be ? { cls: "ok", text: "above break-even" } : { cls: "bad", text: "below break-even" };
+  }
+  function slipCard(pp, cl) {
+    var s = pp.slip, c = pp.calc, n = c.n, legs = s.legs.map(function (id) { return PKBY[id]; }), pay = c.pay;
+    var wins = []; for (var k = n; k >= 0; k--) if (pay[k]) wins.push(usd(state.ppMin * pay[k]) + " for " + k + (k === n ? " of " + n : ""));
+    var verdict = !c.ok ? "A typed line is outside that pick's table. Fix it, or reset the lines."
+      : c.good ? (cl ? "If the app shows these lines and offers each pick on this side, enter it: it returns " : "Enter it: at these lines it returns ") + (1 + c.ev).toFixed(2) + "× per $1 after the safety cut." + (c.dist ? " All " + n + " hit " + pct(c.dist[n]) + " of the time." : "")
+      : c.ev > 0 ? "Skip it: positive on average (" + (1 + c.ev).toFixed(2) + "× per $1) but too swingy for a " + usd(state.ppMin) + " entry."
+      : "Skip it: at these lines it returns " + (1 + c.ev).toFixed(2) + "× per $1.";
+    var rows = legs.map(function (l) { var m = pickMark(l, c.be), pr = legP(l, true, c.be);
+      return "<div class='chkrow m-" + m.cls + "'><div class='who'><b>" + esc(l.player) + "</b> " + esc((legSide(l) === "more" ? "More " : "Less ") + (STATS[l.stat] || l.stat)) + "<span class='c'>" + esc(l.team) + " · " + clockTime(l.tip) + (l.line_source === "dk" && pk.edited[l.id] == null ? " · sportsbook line" : "") + "</span></div>" +
+        "<label class='lin'>Line<input class='cell' type='number' step='0.5' value='" + curLine(l) + "' data-slipline='" + esc(l.id) + "' aria-label='PrizePicks line for " + esc(l.player) + "'></label>" +
+        "<div class='pc'>" + (pr == null ? "—" : pct(pr)) + "<span class='c'>" + esc(m.text) + "</span></div></div>"; }).join("");
+    return "<article class='bet pp" + (pp.skip ? " off" : "") + "'><div class='amt'>" + (pp.skip ? "Skip" : usd(pp.stake)) + "<small>" + (pp.skip ? "no entry" : "minimum entry") + "</small></div><div class='body'>" +
+      "<div class='what'><span class='plat pp'>PrizePicks</span><b>" + esc(slipName(s.type)) + "</b> · " + esc(slipPays(c.kind, n)) + "</div>" +
+      "<div class='cond'>" + (cl ? "<b>Check each line in the PrizePicks app.</b> Type any line that differs and the slip is re-priced." : "Lines from PrizePicks' board. If the app shows a different number, type it.") + " " + usd(state.ppMin) + " pays " + wins.join(", ") + ".</div>" +
+      "<div class='chk'>" + rows + "</div>" +
+      "<div class='" + (c.good ? "edgeline" : "skipline") + "'>" + esc(verdict) + (c.edited ? " <button type='button' class='whybtn' id='slipReset'>Reset lines</button>" : "") + "</div>" +
+      "<details class='why'><summary>Why</summary><p>Each pick's chance starts from the sportsbook's own price for that side, with the bookmaker's margin removed" + (PK.lean && PK.lean.value ? " and " + (PK.lean.value * 100).toFixed(1) + " points moved from More to Less (sportsbook overs have hit less often than priced)" : "") + ". It is then read at the line in the box and cut halfway toward the slip's break-even (" + pct(c.be) + " a pick). " +
+      (cl ? "PrizePicks' board couldn't be read tonight, so the boxes start at the sportsbook's lines; a pick is a clear take when our side reaches 60%. If PrizePicks doesn't offer a pick on that side, the slip can't be entered as shown: build another on the Player props tab. " : "") + "<a href='#props'>Every pick →</a></p></details></div></article>";
+  }
   function plan(A) {
     var fv = VERDICT === "BET" ? 1 : VERDICT === "LIGHT" ? 0.5 : VERDICT === "PASS" ? 0 : 0.5;   // no verdict in the build: treat as light
     var stepC = Math.max(1, Math.round((state.fliffMin > 0 ? state.fliffMin : 0.25) * 100));
     var out = { amount: A, factor: fv, step: stepC / 100, rows: [], pp: null, ppWhy: "", gameWhy: "", slip: bestSlip() };
-    if (out.slip) { if (A > 0 && state.ppMin <= 0.5 * A + 1e-9) out.pp = { slip: out.slip, stake: state.ppMin }; else out.ppWhy = A > 0 ? "a slip has an edge, but its " + usd(state.ppMin) + " minimum entry is more than half of " + usd(A) : ""; }
+    if (out.slip && A > 0) {
+      if (state.ppMin > 0.5 * A + 1e-9) out.ppWhy = "a slip has an edge, but its " + usd(state.ppMin) + " minimum entry is more than half of " + usd(A);
+      else { var calc = slipNow(out.slip); out.pp = { slip: out.slip, calc: calc, skip: !calc.good, stake: calc.good ? state.ppMin : 0 }; }
+    }
     var restC = Math.max(0, Math.round(A * 100) - (out.pp ? Math.round(out.pp.stake * 100) : 0));
     var w = gameWeights(), ids = Object.keys(w), tot = ids.reduce(function (t, id) { return t + w[id]; }, 0);
     if (ids.length && tot > 0 && fv > 0) {
@@ -687,37 +751,45 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     }
     out.nGameCandidates = ids.length;
     out.games = out.rows.reduce(function (t, x) { return t + x.stake; }, 0);
-    out.total = out.games + (out.pp ? out.pp.stake : 0);
+    out.total = out.games + (out.pp ? out.pp.stake : 0);   // a skipped slip stakes 0
     out.keep = Math.max(0, A - out.total);
     return out;
   }
-  function edgeTotals() { return (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(function (b) { return b && gameStatus(b).s === "edge"; }); }
+  function edgeTotals() { return (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(function (b) { return b && gameStatus(b).s === "edge"; }); }   // started games are never "edge"
   function closestMiss() {
     var best = null;
-    (S.games || []).forEach(function (g) { var b = bestTotal(g.id); if (!b) return; var gap = lineGap(b); if (gap != null && gap > 0 && gap <= 4 && (!best || gap < best.gap)) best = { b: b, gap: gap }; });
+    (S.games || []).forEach(function (g) { var b = bestTotal(g.id); if (!b || started(b.tip)) return; var gap = lineGap(b); if (gap != null && gap > 0 && gap <= 4 && (!best || gap < best.gap)) best = { b: b, gap: gap }; });
     return best ? "Closest: " + (best.b.side === "over" ? "Over " : "Under ") + fline(best.b.line) + " in " + gameName(best.b.game_id) + " becomes a bet at " + worstText(best.b) + "." : "";
   }
   function slipPays(kind, n) { var pay = payVec(kind, n) || []; if (kind === "power") return "pays " + pay[n] + "× if " + (n === 2 ? "both hit" : "all " + n + " hit"); var t = []; for (var k = n; k >= 0; k--) if (pay[k]) t.push(pay[k] + "× for " + k + (k === n ? " of " + n : "")); return "pays " + t.join(", "); }
-  var lastPlan = null;
-  function renderTonight() {
+  var lastPlan = null, tonightBusy = false;
+  function renderTonight() {   // replacing the plan blurs a focused line box, which can fire its change handler mid-render
+    if (tonightBusy) { setTimeout(renderTonight, 0); return; }
+    tonightBusy = true; try { drawTonight(); } finally { tonightBusy = false; }
+  }
+  function drawTonight() {
+    NOW = Date.now(); freshBanner();
     var A = state.amount, pl = plan(A); lastPlan = pl;
     var day = S.date ? new Date(S.date + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }) : "";
-    $("tDate").textContent = (day ? day + " · " : "") + nGames + " game" + (nGames === 1 ? "" : "s") + (gen ? " · updated " + gen.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "") + (VERDICT ? " · the desk's call: " + VERDICT.toLowerCase() : "");
+    $("tDate").textContent = (day ? day + " · " : "") + nGames + " game" + (nGames === 1 ? "" : "s") + (gen ? " · priced " + agoText(gen) : "") + (VERDICT ? " · the desk's call: " + VERDICT.toLowerCase() : "");
     $("answer").dataset.verdict = VERDICT || "";
-    var nG = pl.rows.length, cl = pl.pp && pl.pp.slip.verdict === "check_lines";
+    var nG = pl.rows.length, cl = !!pl.pp && pl.pp.slip.verdict === "check_lines" && !pl.pp.calc.edited, ppOn = !!pl.pp && !pl.pp.skip;
+    var liveGames = (S.games || []).filter(function (g) { return !started(g.tip); }).length;
     var head, sub = [];
     if (!(A > 0)) { head = "Enter tonight's amount."; sub.push("Type how much you want to bet tonight and the desk splits it across the bets with an edge."); }
-    else if (nG || pl.pp) {
-      var parts = []; if (nG) parts.push(nG === 1 ? "one game bet" : nG + " game bets"); if (pl.pp) parts.push("a PrizePicks slip" + (cl ? " (if the lines match)" : ""));
+    else if (nG || ppOn) {
+      var parts = []; if (nG) parts.push(nG === 1 ? "one game bet" : nG + " game bets"); if (ppOn) parts.push("a PrizePicks slip" + (cl ? " (check the lines)" : ""));
       head = (VERDICT === "LIGHT" && nG ? "A light night: " : "Tonight: ") + parts.join(" and ") + ".";
       head = head.charAt(0).toUpperCase() + head.slice(1);
       sub.push("Bet " + usd(pl.total) + " of your " + usd(A) + (pl.keep > 0.004 ? " and keep " + usd(pl.keep) : "") + ". If every bet loses, you're down " + usd(pl.total) + ".");
       if (VERDICT === "LIGHT" && nG) sub.push("The game edges are thin, so they get half of the amount.");
-    } else { head = "No bets tonight."; sub.push("Keep your " + usd(A) + "."); }
-    if (A > 0) {
-      if (!nG) { if (VERDICT === "PASS" || !pl.nGameCandidates) { var nT = (S.games || []).filter(function (g) { return bestTotal(g.id); }).length; var ed = edgeTotals();
+    } else if (nGames && !liveGames) { head = "Tonight's games have started."; sub.push("Nothing on this slate can still be bet. Keep your " + usd(A) + "."); }
+    else { head = "No bets tonight."; sub.push("Keep your " + usd(A) + "."); }
+    if (A > 0 && (liveGames || !nGames)) {
+      if (!nG) { if (VERDICT === "PASS" || !pl.nGameCandidates) { var nT = (S.games || []).filter(function (g) { return !started(g.tip) && bestTotal(g.id); }).length; var ed = edgeTotals();
           sub.push(!nT ? "No game totals are posted yet." : ed.length ? "The desk passes on games: " + (ed.length === 1 ? "one total has an edge (" : ed.length + " totals have an edge (") + ed.map(function (b) { return (b.side === "over" ? "Over " : "Under ") + fline(b.line) + " in " + gameName(b.game_id) + ", " + sgn(evS(b) * 100) + "%"; }).join("; ") + "), but with so little to bet the night's expected profit is under the desk's bar, so it stakes nothing. " + (ed.length === 1 ? "It is" : "They are") + " marked Edge below." : "None of tonight's " + nT + " game totals has enough edge after the safety cut. " + closestMiss()); } else if (pl.gameWhy) sub.push("There are game bets, but " + pl.gameWhy + "."); }
       if (!pl.pp) sub.push(pl.ppWhy ? "PrizePicks: " + pl.ppWhy + "." : PK && PKLEGS.length ? "PrizePicks: no slip clears its break-even tonight." : "");
+      else if (pl.pp.skip) sub.push("PrizePicks: at the lines you typed the slip is not worth entering.");
     }
     $("tHead").textContent = head; $("tSub").textContent = sub.filter(Boolean).join(" ");
     var html = pl.rows.map(function (x) {
@@ -733,16 +805,11 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       ed = "We give it " + pct(x.ps) + "; at " + am(b.price) + " it needs " + pct(1 / b.dec) + ". Edge " + sgn(x.evs * 100) + "% per $1.";
       return card(x.stake, "", what, cond, ed, "Our total for this game is " + fline(b.fair_line) + " points against Fliff's " + fline(b.line) + ". The model gives the " + (b.side === "over" ? "over" : "under") + " " + pct(b.p_final) + "; after cutting that edge in half to be safe, " + pct(x.ps) + ". <a href='#games/" + esc(b.game_id) + "'>Every number for this game →</a>", true);
     }).join("");
-    if (pl.pp) {
-      var s = pl.pp.slip, n = s.legs.length, kind = slipKind(s.type), legs = s.legs.map(function (id) { return PKBY[id]; });
-      var dS = s.p_dist_shrunk || s.p_dist || [];
-      html += card(pl.pp.stake, "minimum entry", "<span class='plat pp'>PrizePicks</span><b>" + esc(slipName(s.type)) + "</b> · " + esc(slipPays(kind, n)),
-        (cl ? "<b>Only if PrizePicks shows every pick at these lines or better:</b>" : "Picks:") + "<ul>" + legs.map(function (l) { var t = takeText(l); return "<li><b>" + esc(l.player) + "</b> " + esc((legSide(l) === "more" ? "More " : "Less ") + (STATS[l.stat] || l.stat)) + ", " + (cl && pk.edited[l.id] == null ? (t ? "line " + esc(t) : "") : "line " + fline(curLine(l))) + " <span class='c'>" + esc(l.team) + " · " + clockTime(l.tip) + "</span></li>"; }).join("") + "</ul>",
-        "Chance all " + n + " hit: " + pct(dS.length ? dS[dS.length - 1] : null) + ". Expected back " + (1 + (s.ev_shrunk || 0)).toFixed(2) + "× per $1 after the safety cut" + (cl ? " at the sportsbook's lines; more at the lines above" : "") + ".",
-        (cl ? "PrizePicks' board couldn't be read tonight, so these chances use the sportsbook's lines. Each pick is a clear take (60%+) at the line shown or better; if any line in the app is worse, skip the slip, or type the app's lines on the Player props tab and the page re-prices them. " : "") + "Each pick's chance comes from the sportsbook's own price for that side. <a href='#props'>Every pick →</a>", true);
-    }
+    if (pl.pp) html += slipCard(pl.pp, cl);
     $("plan").innerHTML = html;
-    $("planActs").hidden = !(nG || pl.pp);
+    $("plan").querySelectorAll("input[data-slipline]").forEach(function (inp) { inp.addEventListener("change", function () { var id = inp.dataset.slipline, v = Number(inp.value); if (inp.value !== "" && !isNaN(v)) pk.edited[id] = v; else delete pk.edited[id]; renderPickRows(); renderBuilder(); renderTonight(); }); });
+    if ($("slipReset")) $("slipReset").addEventListener("click", function () { pl.pp.slip.legs.forEach(function (id) { delete pk.edited[id]; }); renderPickRows(); renderBuilder(); renderTonight(); });
+    $("planActs").hidden = !(nG || ppOn);
     $("logPlan").hidden = !REPO;
     if (REPO) $("logPlan").href = REPO + "/issues/new?title=" + encodeURIComponent("Bets " + S.date) + "&body=" + encodeURIComponent(planText(pl, true));
     renderEdgeMap(); renderChecklist(pl);
@@ -752,10 +819,10 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       "<details class='why'><summary>Why</summary><p>" + (whyHtml ? why : esc(why)) + "</p></details></div></article>";
   }
   function renderEdgeMap() {
-    var gs = (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(Boolean).sort(function (x, y) { return evS(y) - evS(x); });
+    var gs = (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(Boolean).sort(function (x, y) { return (started(x.tip) - started(y.tip)) || (evS(y) - evS(x)); });
     $("mapGames").innerHTML = gs.length ? "<div class='elist'>" + gs.map(function (b) { return gameRow(b, false); }).join("") + "</div>" : "<div class='empty'>No game totals are posted for this slate yet.</div>";
-    if (!PK || !PKLEGS.length) { $("mapPropsNote").textContent = ""; $("mapProps").innerHTML = "<div class='empty'>No player picks priced (games underway, or no sportsbook props posted yet).</div>"; return; }
-    var ranked = PKLEGS.slice().sort(function (a, b) { return (legP(b, true) || 0) - (legP(a, true) || 0); });
+    var ranked = PKLEGS.filter(function (l) { return !started(l.tip); }).sort(function (a, b) { return (legP(b, true) || 0) - (legP(a, true) || 0); });
+    if (!PK || !ranked.length) { $("mapPropsNote").textContent = ""; $("mapProps").innerHTML = "<div class='empty'>" + (PKLEGS.length ? "Every game with a priced pick has tipped off." : "No player picks priced (no sportsbook props posted yet).") + "</div>"; return; }
     var nE = ranked.filter(function (l) { return pickStatus(l).s === "edge"; }).length, nC = ranked.filter(function (l) { return pickStatus(l).s === "close"; }).length;
     $("mapPropsNote").textContent = nE + " of " + ranked.length + " picks beat every slip's break-even and " + nC + " more beat only the bigger Flex slips" + (PK.mode === "check_lines" ? ", at the sportsbook's lines: PrizePicks' board couldn't be read, so check its lines in the app." : ".") + " Top 8:";
     $("mapProps").innerHTML = "<div class='elist'>" + ranked.slice(0, 8).map(function (l) { return pickRow(l, false); }).join("") + "</div>";
@@ -763,30 +830,30 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function renderChecklist(pl) {
     var li = [], fl = (NIGHT && NIGHT.flags) || {};
     if (pl.rows.length) li.push("On Fliff, bet each total only at the line shown or better. If Fliff's line is past the worst line, skip that bet.");
-    if (pl.pp && pl.pp.slip.verdict === "check_lines") li.push("PrizePicks' board couldn't be read tonight. Open the app and check every pick's line before entering the slip.");
+    if (pl.pp && pl.pp.slip.verdict === "check_lines") li.push("PrizePicks' board couldn't be read tonight. Open the app, type any line that differs into the slip above, and make sure each pick is offered on the side shown.");
     var moved = Object.keys(MOVED).filter(function (id) { return MOVED[id].still_ok === false; });
     if (moved.length) li.push("Moved past our number since it was priced (skip): " + moved.map(function (id) { var b = BETS[id]; return (b ? b.label : id) + " " + fline(MOVED[id].line_then) + " → " + fline(MOVED[id].line_now); }).join("; ") + ".");
     if ((fl.lineup_uncertainty || []).length) li.push("Starters listed as game-time decisions in " + fl.lineup_uncertainty.map(function (g) { var G = GAMES[g]; return G ? G.away.abbr + "@" + G.home.abbr : g; }).join(", ") + ". A late scratch changes the total; later runs re-price.");
     ((NIGHT && NIGHT.would_change) || []).filter(function (w) { return !/^GTD/.test(w); }).slice(0, 2).forEach(function (w) { li.push(String(w).replace(/max line/g, "worst line")); });
-    if (fl.hours_to_first_tip != null && fl.hours_to_first_tip >= 0) li.push("Priced " + num(fl.hours_to_first_tip, 1) + " h before the first tip" + (S.run_label ? " (" + S.run_label + " run)" : "") + ". The desk re-prices at about 10:40 am, 3:40 pm and 5:15 pm Eastern.");
+    if (fl.hours_to_first_tip != null && fl.hours_to_first_tip >= 0) li.push("Priced " + num(fl.hours_to_first_tip, 1) + " h before the first tip" + (S.run_label ? " (" + S.run_label + " run)" : "") + ". The desk is scheduled to re-price every two hours.");
     li.push("Only bet money you can afford to lose. Help: 1-800-GAMBLER.");
     $("checkList").innerHTML = li.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
   }
   function planText(pl, json) {
     var head = "J&G Hedging Co. — " + S.date + " (tonight's amount " + usd(pl.amount) + (VERDICT ? ", call " + VERDICT : "") + ")";
     var lines = pl.rows.map(function (x) { return "• Fliff " + (x.type === "parlay" ? "PARLAY: " + x.legs.map(function (l) { return l.label + " " + am(l.price); }).join(" + ") : x.label + " " + am(x.price) + (x.maxLine != null ? " (only at " + worstText(BETS[x.id]) + ")" : "")) + " — " + usd(x.stake) + " to win " + usd(x.toWin); });
-    var slip = pl.pp ? slipRecord(pl.pp.slip, pl.pp.stake) : null;
-    if (slip) lines.push("• PrizePicks " + slipName(slip.slip_type) + " — " + usd(slip.stake) + ": " + slip.legs.map(function (l) { return l.label; }).join(" + ") + (pl.pp.slip.verdict === "check_lines" ? " (only at these lines or better)" : ""));
+    var slip = pl.pp && !pl.pp.skip ? slipRecord(pl.pp.slip, pl.pp.stake, pl.pp.calc) : null;
+    if (slip) lines.push("• PrizePicks " + slipName(slip.slip_type) + " — " + usd(slip.stake) + ": " + slip.legs.map(function (l) { return l.label; }).join(" + ") + (pl.pp.slip.verdict === "check_lines" && !pl.pp.calc.edited ? " (sportsbook lines; check the app)" : ""));
     if (!json) return head + "\n" + lines.join("\n");
     var bets = pl.rows.map(function (x) { return { ref: x.id, stake: x.stake, dec: x.dec, price: x.price, label: x.type === "parlay" ? x.legs.map(function (l) { return l.label; }).join(" + ") : x.label, legs: x.legs.map(legRecord) }; });
     if (slip) bets.push({ ref: slip.ref, type: "pickem", slip_type: slip.slip_type, payouts: PAY, stake: slip.stake, dec: slip.dec, price: null, label: slip.label, legs: slip.legs });
     return head + "\n" + lines.join("\n") + "\n\n```json\n" + JSON.stringify({ date: S.date, bankroll: null, amount: pl.amount, profile: "nightly amount", bets: bets }) + "\n```";
   }
-  function slipRecord(s, stake) {   // a suggested slip as you'd enter it: on stand-in nights, at the clear-take lines
-    var cl = s.verdict === "check_lines", n = s.legs.length, kind = slipKind(s.type), pay = payVec(kind, n) || [];
-    var legs = s.legs.map(function (id) { var l = PKBY[id], line = pk.edited[id] != null ? pk.edited[id] : cl && takeLine(l) != null ? takeLine(l) : l.line, side = legSide(l);
+  function slipRecord(s, stake, calc) {   // a suggested slip as entered: the sides and lines on screen
+    var n = s.legs.length, pay = payVec(slipKind(s.type), n) || [];
+    var legs = s.legs.map(function (id) { var l = PKBY[id], line = curLine(l), side = legSide(l);
       return { game_id: l.game_id, kind: "prop", side: side === "more" ? "over" : "under", line: line, player_id: l.player_id, stat: l.stat, dec: 1, label: (l.player || "") + " " + side + " " + fline(line) + " " + (STATS[l.stat] || l.stat) }; });
-    var dS = s.p_dist_shrunk || s.p_dist || [];
+    var dS = (calc && calc.dist) || s.p_dist_shrunk || s.p_dist || [];
     return { ref: "pk-" + s.type, slip_type: s.type, stake: stake, dec: pay[n], p: dS[n], payout: pay, legs: legs, label: "PrizePicks " + s.type + ": " + legs.map(function (l) { return l.label; }).join(" + ") };
   }
   function setAmount(v) { state.amount = v; store.set("jg.amount", v); renderTonight(); }
@@ -802,19 +869,19 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   $("copyPlan").addEventListener("click", function () { if (lastPlan) copyText(planText(lastPlan, false), $("copyPlan"), "Copy"); });
   $("placed").addEventListener("click", function () {
     if (!lastPlan) return; var n = placeRows(lastPlan.rows);
-    if (lastPlan.pp) { recordSlip(slipRecord(lastPlan.pp.slip, lastPlan.pp.stake)); n++; }
+    if (lastPlan.pp && !lastPlan.pp.skip) { recordSlip(slipRecord(lastPlan.pp.slip, lastPlan.pp.stake, lastPlan.pp.calc)); n++; }
     if (n) { $("placed").textContent = "Saved " + n + (n === 1 ? " bet" : " bets") + ". Results fill in after the games."; setTimeout(function () { $("placed").textContent = "I placed these bets"; }, 2500); }
   });
 
   // ---------------------------------------------------------------- games tab
   function renderGames() {
-    var gs = (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(Boolean).sort(function (x, y) { return evS(y) - evS(x); });
+    var gs = (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(Boolean).sort(function (x, y) { return (started(x.tip) - started(y.tip)) || (evS(y) - evS(x)); });
     $("gameRows").innerHTML = gs.length ? "<div class='elist'>" + gs.map(function (b) { return gameRow(b, true); }).join("") + "</div>" : "<div class='empty'>No game totals are posted for this slate yet.</div>";
     bindWhy($("gameRows"), renderGames);
     var ps = (S.parlays || []).slice().sort(function (a, b) { return parlayEvS(b) - parlayEvS(a); });
     $("parlayWrap").hidden = !ps.length;
     $("parlayRows").innerHTML = ps.length ? "<div class='elist'>" + ps.map(function (q) {
-      var legs = (q.legs || []).map(function (l) { return BETS[l]; }).filter(Boolean), p = parlayPShrunk(q), need = 1 / q.dec, e = parlayEvS(q), off = state.off[q.id];
+      var legs = (q.legs || []).map(function (l) { return BETS[l]; }).filter(Boolean), p = parlayPShrunk(q), need = 1 / q.dec, e = parlayEvS(q), off = isOff(q.id);
       var s = off ? "none" : e >= MIN_EV_S ? "edge" : e > 0 ? "close" : "none";
       return "<article class='erow s-" + s + "'><div class='what'><b>" + legs.length + "-leg parlay</b> · " + am(q.american) + "<span class='sub'>" + legs.map(function (l) { return esc(l.label); }).join(" + ") + "</span></div>" + meter(p, [need], pct(p) + " · needs " + pct(need)) +
         "<div class='side'><span class='tag " + s + "'>" + (off ? "Moved" : s === "edge" ? "Edge" : s === "close" ? "Close" : "None") + "</span><span class='edgen " + (e >= 0 ? "pos" : "neg") + "'>edge " + sgn(e * 100) + "%</span></div></article>";
@@ -835,10 +902,10 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       (openWhy[k] ? "<div class='whypanel'>" + whyLeg(l, raw) + "</div>" : "") + "</article>";
   }
   function whyLeg(l, raw) {
-    var c1 = "<div><h4>The sportsbook's price</h4>" + dl([["DraftKings line", fline(l.dk_line)], ["Odds over / under", am(l.dk_over_price) + " / " + am(l.dk_under_price)], ["Chance of over, margin removed", pct(l.p_over_mkt)], ["Median it implies", num(l.market_median, 1)]]) + "</div>";
+    var c1 = "<div><h4>The sportsbook's price</h4>" + dl([["DraftKings line", fline(l.dk_line)], ["Odds over / under", am(l.dk_over_price) + " / " + am(l.dk_under_price)], ["Chance of over, margin removed", pct(l.p_over_mkt)], ["After the under lean", l.p_over_anchor != null ? pct(l.p_over_anchor) + " over" : "—"], ["Median we use", num(l.market_median, 1)]]) + "</div>";
     var c2 = "<div><h4>At the line you see</h4>" + dl([["Line", fline(curLine(l))], ["Our side", legSide(l) === "more" ? "More" : "Less", 1], ["Chance (raw)", pct(raw)], ["Chance (after the cut)", pct(legP(l, true))], ["2-pick Power needs", pct(beFor("power2"))], ["Clear take", takeText(l) || "—", 1]]) + "</div>";
     var c3 = "<div><h4>The player</h4>" + dl([["Expected minutes", num(l.exp_min, 0)], ["Plays tonight", pct(l.play_prob, 0)], ["Our projection (not used)", num(l.proj, 1)]]) + "</div>";
-    var note = "The chance comes from the sportsbook: the simulated spread of this player's " + esc(STATS[l.stat] || l.stat) + " is re-centred so that at DraftKings' line it matches DraftKings' own price (median " + num(l.market_median, 1) + "), then read at the line above. " +
+    var note = "The chance comes from the sportsbook: the simulated spread of this player's " + esc(STATS[l.stat] || l.stat) + " is re-centred so that at DraftKings' line it matches DraftKings' own price" + (l.lean ? ", less " + (l.lean * 100).toFixed(1) + " points on the over because sportsbook overs have hit less often than priced" : "") + " (median " + num(l.market_median, 1) + "), then read at the line above. " +
       (l.line_source === "dk" ? "PrizePicks' board couldn't be read, so DraftKings' line stands in; type PrizePicks' line to re-price. " : "") + "<a href='#games/" + esc(l.game_id) + "'>This game →</a>";
     return "<div class='whygrid'>" + c1 + c2 + c3 + "</div><p class='whynote'>" + note + "</p>";
   }
@@ -849,11 +916,11 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   }
   function drawPickRows() {
     if (!PK) { $("pkRows").innerHTML = "<div class='empty'>No PrizePicks data in this build.</div>"; $("pkMore").hidden = true; return; }
-    if (!PKLEGS.length) { $("pkRows").innerHTML = "<div class='empty'>No player picks priced tonight (needs a sportsbook line, a 90%+ chance of playing and 12+ expected minutes).</div>"; $("pkMore").hidden = true; return; }
-    var ranked = PKLEGS.slice().sort(function (a, b) { return (legP(b, true) || 0) - (legP(a, true) || 0); });
+    var ranked = PKLEGS.filter(function (l) { return !started(l.tip); }).sort(function (a, b) { return (legP(b, true) || 0) - (legP(a, true) || 0); });
+    if (!ranked.length) { $("pkRows").innerHTML = "<div class='empty'>" + (PKLEGS.length ? "Every game with a priced pick has tipped off." : "No player picks priced tonight (needs a sportsbook line, a 90%+ chance of playing and 12+ expected minutes).") + "</div>"; $("pkMore").hidden = true; return; }
     var shown = ranked.filter(function (l, i) { return pk.showAll || i < 15 || pk.ticked.indexOf(l.id) >= 0 || pk.edited[l.id] != null; });
     $("pkRows").innerHTML = "<div class='elist'>" + shown.map(function (l) { return pickRow(l, true); }).join("") + "</div>";
-    $("pkMore").hidden = PKLEGS.length <= 15; $("pkMore").textContent = pk.showAll ? "Show the top 15" : "Show all " + PKLEGS.length + " picks";
+    $("pkMore").hidden = ranked.length <= 15; $("pkMore").textContent = pk.showAll ? "Show the top 15" : "Show all " + ranked.length + " picks";
     bindWhy($("pkRows"), renderPickRows);
     $("pkRows").querySelectorAll("input[data-pk]").forEach(function (c) { c.addEventListener("change", function () { var id = c.dataset.pk, l = PKBY[id]; if (c.checked) { if (pk.ticked.some(function (x) { return PKBY[x] && PKBY[x].player_id === l.player_id; })) { c.checked = false; return; } pk.ticked.push(id); } else pk.ticked = pk.ticked.filter(function (x) { return x !== id; }); renderPickRows(); renderBuilder(); }); });
     $("pkRows").querySelectorAll("input[data-pkline]").forEach(function (inp) { inp.addEventListener("change", function () { var id = inp.dataset.pkline, v = Number(inp.value); if (inp.value !== "" && !isNaN(v)) pk.edited[id] = v; else delete pk.edited[id]; if (!pAt(PKBY[id]).ok) pk.ticked = pk.ticked.filter(function (x) { return x !== id; }); renderPickRows(); renderBuilder(); renderEdgeMap(); }); });
@@ -865,7 +932,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     if (!PK) { $("pkSlips").innerHTML = "<div class='empty'>No PrizePicks data in this build.</div>"; return; }
     $("pkBanner").hidden = PK.mode !== "check_lines";
     $("pkBanner").textContent = "PrizePicks' board couldn't be read tonight, so every line below is the sportsbook's (DraftKings). PrizePicks often posts a different number: compare in the app, or type its line into a pick and the chance is re-priced.";
-    var ranked = (PK.slips || []).filter(reachable).filter(function (x) { return x.legs.every(function (id) { return PKBY[id]; }); }).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); });
+    var ranked = (PK.slips || []).filter(reachable).filter(function (x) { return x.legs.every(function (id) { return PKBY[id] && !started(PKBY[id].tip); }); }).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); });
     var slips = [], overlap = function (a, b) { return a.legs.filter(function (x) { return b.legs.indexOf(x) >= 0; }).length / Math.min(a.legs.length, b.legs.length); };
     ranked.forEach(function (x) { if (slips.length < 3 && slips.every(function (y) { return y.type !== x.type && overlap(x, y) < 0.5; })) slips.push(x); });
     ranked.forEach(function (x) { if (slips.length < 3 && slips.indexOf(x) < 0 && slips.every(function (y) { return overlap(x, y) < 0.5; })) slips.push(x); });
@@ -1099,6 +1166,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     $("mW").textContent = pct(W_EARLY, 0); $("mFloor").textContent = pct(MIN_EV_S, 1);
     var ctx = (S.context || {}).params || {}; if (ctx.late_adj != null) $("mLate").textContent = String(ctx.late_adj); if (ctx.very_late_adj != null) $("mLate2").textContent = String(ctx.very_late_adj);
     $("mPpMin").textContent = usd(state.ppMin); $("mFlMin").textContent = usd(state.fliffMin);
+    if (PK && PK.lean && PK.lean.value != null) $("mLean").textContent = (PK.lean.value * 100).toFixed(1);
     $("fliffMin").value = state.fliffMin; $("ppMin").value = state.ppMin;
     $("payNote").textContent = "PrizePicks payouts assumed: Power " + Object.keys(PAY.power || {}).map(function (k) { return k + "-pick " + PAY.power[k] + "×"; }).join(", ") + "; Flex " + Object.keys(PAY.flex || {}).map(function (k) { return k + "-pick " + PAY.flex[k].join("/") + "×"; }).join(", ") + " (all hit / one miss / two misses).";
   }
@@ -1110,6 +1178,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   $("pkEntry").value = state.ppMin;
   renderMethod(); renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); renderRecord(); renderOur(); gradeAll().then(renderOur);
   window.addEventListener("hashchange", route); route();
-  window.JG_DEBUG = { state: state, plan: plan, hitDist: hitDist, settlePickem: settlePickem, SIMS: SIMS, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) { renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); } });
+  window.JG_DEBUG = { state: state, plan: plan, slipNow: slipNow, hitDist: hitDist, settlePickem: settlePickem, SIMS: SIMS, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
 })();
 </script>

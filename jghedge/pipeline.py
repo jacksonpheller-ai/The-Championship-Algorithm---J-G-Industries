@@ -21,7 +21,7 @@ import pandas as pd
 from . import BRAND, __version__
 from . import growth as growth_mod
 from . import pickem
-from .config import (CURRENT_SEASON, DATA_DIR, FLIFF_MIN_BET, PICKEM_MIN_ENTRY, PICKEM_PAYOUTS, PROPS_REGIME,
+from .config import (CURRENT_SEASON, DATA_DIR, FLIFF_MIN_BET, PICKEM_LEAN, PICKEM_MIN_ENTRY, PICKEM_PAYOUTS, PROPS_REGIME,
                      REF_BANKROLL, REF_UNIT, RUN_LABEL_HOURS_ET, SITE_DATA, load_params)
 from .data import espn, history, oddsapi, prizepicks
 from .data import lines as lines_mod
@@ -143,6 +143,19 @@ def game_context(eng, home: str, away: str, day, season: int, season_type, kill:
     return {"home_gp": ctx.games_played(eng.tg, home, day, season), "away_gp": ctx.games_played(eng.tg, away, day, season),
             "season_type": season_type, "home_winpct": ctx.team_winpct(eng.tg, home, day, season),
             "away_winpct": ctx.team_winpct(eng.tg, away, day, season), "kill": kill}
+
+
+def pickem_lean(regime: dict | None, params: dict | None = None) -> dict:
+    """Points moved from P(more) to P(less) when a pick is priced (config.PICKEM_LEAN): the prior blended
+    with the rolling live under lean of the logged DraftKings board by line count, clipped to [0, max].
+    The live sample only counts once props_regime has enough graded lines to report a lean."""
+    p = {**PICKEM_LEAN, **(params or {})}
+    live, n = (regime or {}).get("lean"), int((regime or {}).get("n") or 0)
+    est = float(p["prior"])
+    if live is not None and n > 0:
+        est = (p["prior"] * p["prior_n"] + float(live) * n) / (p["prior_n"] + n)
+    return {"value": round(float(min(max(est, 0.0), p["max"])), 4), "prior": float(p["prior"]), "prior_n": int(p["prior_n"]),
+            "live": live, "live_n": n if live is not None else 0}
 
 
 # ------------------------------------------------------------------ props regime
@@ -684,6 +697,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
 
     # ----------------------------------------------------------- pick'em (PrizePicks)
     pickem_block = pickem.empty_block(notes=["Props disabled for this run."])
+    lean = pickem_lean(regime)
     pk_source, pk_notes = "dk_proxy", []
     if pp_err:
         pk_notes.append(f"PrizePicks board unavailable: {pp_err}; DraftKings lines used as the proxy.")
@@ -723,7 +737,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                                                       team_of={pid: t[2] for pid, t in team_players.items()})
                 pp_game = [r for r in pp_game if r.get("player_id")]
             legs = pickem.build_legs([t[0] for t in team_players.values()], {pid: t[1] for pid, t in team_players.items()},
-                                     plines, pp_game, {"s": policy.shrink_factor("pickem"), "payouts": PICKEM_PAYOUTS},
+                                     plines, pp_game, {"s": policy.shrink_factor("pickem"), "payouts": PICKEM_PAYOUTS,
+                                                       "lean": lean["value"]},
                                      game=gmeta)
             if pk_source == "oddsapi_prizepicks":
                 for l in legs:
@@ -748,6 +763,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                                                  s=policy.shrink_factor("pickem"), notes=pk_notes,
                                                  max_sim_legs=MAX_PICKEM_LEGS, bankroll_ref=REF_BANKROLL)
     pickem_block["props_regime"] = regime["regime"]
+    pickem_block["lean"] = lean
     # pick'em status joins the nightly verdict as a reason (it never raises the Fliff score)
     pk_legs = pickem_block.get("legs", [])
     if pickem_block.get("mode") == "check_lines" and pk_legs:

@@ -25,17 +25,25 @@ function render(slate) {
 let failures = 0, checks = 0;
 function assert(cond, msg) { checks++; if (!cond) { failures++; console.log("FAIL:", msg); } else console.log("ok:", msg); }
 const TABS = ["tonight", "games", "props", "record", "method"];
+// The page uses the device clock (games that have tipped are dropped, old lines are flagged), so each page is
+// opened at a fixed time: by default the moment its slate was priced.
+async function openAt(browser, opts, slate, offsetHours) {
+  const page = await browser.newPage(opts);
+  if (slate && slate.generated) await page.clock.setFixedTime(new Date(new Date(slate.generated).getTime() + (offsetHours || 0) * 3600 * 1000));
+  return page;
+}
 
 (async () => {
   const fixture = readJson(path.join(ROOT, "tests/fixtures/latest_sample.json"));
   const real = readJson(path.join(ROOT, "docs/data/latest.json"));
   const pages = { fixture: render(fixture), real: render(real), empty: render({}) };
+  const slates = { fixture, real, empty: {} };
   for (const k of Object.keys(pages)) fs.writeFileSync(path.join(OUT, k + ".html"), pages[k]);
   const browser = await chromium.launch();
   for (const name of Object.keys(pages)) {
     const file = "file://" + path.join(OUT, name + ".html");
     const errs = [];
-    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, colorScheme: "dark" });
+    const phone = await openAt(browser, { viewport: { width: 390, height: 844 }, colorScheme: "dark" }, slates[name]);
     phone.on("pageerror", (e) => errs.push(String(e))); phone.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
     for (const v of TABS) {
       await phone.goto(file + "#" + v); await phone.waitForTimeout(250);
@@ -55,7 +63,7 @@ const TABS = ["tonight", "games", "props", "record", "method"];
     assert(errs.length === 0, name + " no console/page errors: " + JSON.stringify(errs));
     await phone.close();
     for (const scheme of ["light", "dark"]) {
-      const p = await browser.newPage({ viewport: { width: 1280, height: 900 }, colorScheme: scheme });
+      const p = await openAt(browser, { viewport: { width: 1280, height: 900 }, colorScheme: scheme }, slates[name]);
       if (name !== "empty") {
         await p.goto(file + "#tonight"); await p.waitForTimeout(500);
         await p.screenshot({ path: path.join(OUT, name + "_tonight_" + scheme + ".png"), fullPage: true });
@@ -66,7 +74,7 @@ const TABS = ["tonight", "games", "props", "record", "method"];
     }
   }
   // ---- functional checks against the fixture
-  const p = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const p = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
   const perr = []; p.on("pageerror", (e) => perr.push(String(e)));
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#tonight"); await p.waitForTimeout(400);
   assert(await p.evaluate(() => document.getElementById("answer").dataset.verdict) === String(fixture.night.verdict).toUpperCase(), "answer carries the night's call (" + fixture.night.verdict + ")");
@@ -100,6 +108,22 @@ const TABS = ["tonight", "games", "props", "record", "method"];
   const planCards = await p.evaluate(() => document.querySelectorAll("#plan .bet").length);
   const expect = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return x.rows.length + (x.pp ? 1 : 0); });
   assert(planCards === expect, "Tonight shows one card per planned bet (" + planCards + ")");
+  // the slip on Tonight is checked against the app in place: a much harder line turns it into a skip, reset restores it
+  {
+    const slipIds = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return x.pp ? x.pp.slip.legs : []; });
+    if (slipIds.length) {
+      assert(await p.evaluate(() => document.querySelectorAll("#plan .bet.pp input[data-slipline]").length) === slipIds.length, "the slip card has a line box for every pick (" + slipIds.length + ")");
+      const leg = fixture.pickem.legs.find((l) => l.id === slipIds[0]), worse = leg.side === "more" ? leg.line + 3 : leg.line - 3;
+      const sel = "#plan input[data-slipline='" + leg.id + "']";
+      await p.fill(sel, String(worse)); await p.dispatchEvent(sel, "change"); await p.waitForTimeout(150);
+      const after = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return { skip: x.pp.skip, stake: x.pp.stake, total: x.total, off: !!document.querySelector("#plan .bet.pp.off"), acts: document.getElementById("planActs").hidden, txt: document.querySelector("#plan .bet.pp").textContent }; });
+      const calc = await p.evaluate(() => window.JG_DEBUG.slipNow(window.JG_DEBUG.plan(20).pp.slip));
+      assert(calc.edited && (calc.good ? !after.skip : after.skip && after.stake === 0 && after.off), "a typed line re-prices the slip; a slip without an edge is marked Skip and stakes nothing (" + (calc.good ? "still good" : "skip") + ")");
+      await p.click("#slipReset"); await p.waitForTimeout(150);
+      const back = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return { skip: x.pp.skip, edited: x.pp.calc.edited, stake: x.pp.stake }; });
+      assert(!back.edited && !back.skip && back.stake === 5, "Reset lines restores the suggested slip");
+    }
+  }
   // the edge map lists every game with a posted total
   const nTotals = new Set(fixture.bets.filter((b) => b.kind === "total").map((b) => b.game_id)).size;
   assert(await p.evaluate(() => document.querySelectorAll("#mapGames .erow").length) === nTotals, "edge map has one row per game with a total (" + nTotals + ")");
@@ -144,7 +168,7 @@ const TABS = ["tonight", "games", "props", "record", "method"];
     const pe = JSON.parse(JSON.stringify(fixture)); pe.night.verdict = "PASS"; pe.lines.moved = [];
     pe.bets.forEach((x) => { if (x.id === "401909940-to-u") Object.assign(x, { eligible: true, shrunk_ev: 0.028, p_shrunk: 0.54, ev: 0.056 }); if (x.id === "401909940-to-o") Object.assign(x, { eligible: false, shrunk_ev: -0.12, p_shrunk: 0.46 }); });
     fs.writeFileSync(path.join(OUT, "passedge.html"), render(pe));
-    const q = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const q = await openAt(browser, { viewport: { width: 1280, height: 900 } }, pe);
     await q.goto("file://" + path.join(OUT, "passedge.html") + "#tonight"); await q.waitForTimeout(300);
     const t = await q.evaluate(() => ({ sub: document.getElementById("tSub").textContent, rows: window.JG_DEBUG.plan(50).rows.length,
       edge: Array.from(document.querySelectorAll("#mapGames .erow.s-edge")).map((r) => r.querySelector(".act").textContent) }));
@@ -153,8 +177,27 @@ const TABS = ["tonight", "games", "props", "record", "method"];
     assert(t.edge.length === 1 && /desk passes on the night/.test(t.edge[0]) && !/^Bet /.test(t.edge[0]), "PASS night with an edge: the row is tagged Edge and explains the pass");
     await q.close();
   }
+  // ---- the clock: lines priced hours ago are flagged; once games tip nothing on them is offered
+  {
+    const late = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture, 5);
+    await late.goto("file://" + path.join(OUT, "fixture.html") + "#tonight"); await late.waitForTimeout(300);
+    const firstTip = Math.min(...fixture.games.map((g) => Date.parse(g.tip))), fiveH = Date.parse(fixture.generated) + 5 * 3600 * 1000;
+    const st = await late.evaluate(() => ({ banner: document.getElementById("fresh").hidden ? "" : document.getElementById("fresh").textContent, kicker: document.getElementById("tDate").textContent,
+      started: document.querySelectorAll("#mapGames .erow .tag").length && Array.from(document.querySelectorAll("#mapGames .erow .tag")).filter((t) => t.textContent === "Started").length }));
+    assert(/priced 5 h ago/.test(st.kicker), "five hours on, the page says the lines were priced 5 h ago (" + st.kicker.slice(-60) + ")");
+    const nStarted = fixture.games.filter((g) => Date.parse(g.tip) <= fiveH).length;
+    assert(st.started === nStarted, "games that have tipped are marked Started (" + st.started + " of " + fixture.games.length + ")");
+    if (fiveH < Math.max(...fixture.games.map((g) => Date.parse(g.tip)))) assert(/priced 5 h ago/.test(st.banner), "old lines get a warning banner while games remain");
+    await late.close();
+    const over = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture, 72);
+    await over.goto("file://" + path.join(OUT, "fixture.html") + "#tonight"); await over.waitForTimeout(300);
+    const done = await over.evaluate(() => ({ head: document.getElementById("tHead").textContent, cards: document.querySelectorAll("#plan .bet").length, total: window.JG_DEBUG.plan(100).total,
+      picks: document.querySelectorAll("#mapProps .erow").length }));
+    assert(done.cards === 0 && done.total === 0 && done.picks === 0 && /have started/.test(done.head), "after every game has tipped nothing is offered (" + done.head + ")");
+    await over.close();
+  }
   // ---- the real slate: a PASS night stakes no game bets at any amount
-  const r = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const r = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
   await r.goto("file://" + path.join(OUT, "real.html") + "#tonight"); await r.waitForTimeout(300);
   if (real.night && String(real.night.verdict).toUpperCase() === "PASS") assert(await r.evaluate(() => [10, 100, 1000].every((a) => window.JG_DEBUG.plan(a).rows.length === 0)), "real slate (PASS): no game bets at any amount");
   await r.close();

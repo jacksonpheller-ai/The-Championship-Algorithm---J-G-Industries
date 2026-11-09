@@ -385,6 +385,35 @@ def test_build_legs_hit_matrix_and_slips():
     assert empty["legs"] == [] and empty["slips"] == [] and empty["sims"]["bits"] == ""
 
 
+def test_under_lean_moves_more_to_less():
+    """config.PICKEM_LEAN: the lean comes off P(more) and goes onto P(less) at the DraftKings line,
+    the market price itself is reported unchanged, and the take-it lines follow."""
+    rng = np.random.default_rng(5)
+    n = 20000
+    players = [_player("1", "Juiced Over", {"pts": 20.0, "reb": 6.0, "ast": 5.0}),
+               _player("2", "Juiced Under", {"pts": 18.0, "reb": 5.0, "ast": 4.0})]
+    sims = {p["id"]: _sims(rng, n, {k: v for k, v in p["exp_line"].items() if k in ("pts", "reb", "ast")}) for p in players}
+    dk = [_dk("1", "ast", 4.5, -165, 130), _dk("2", "ast", 4.5, 130, -165)]     # no-vig 0.589 on the priced side
+    game = {"id": "g1", "matchup": "LAL @ DEN", "tip": "2026-11-08T02:00Z"}
+    base = {l["player_id"]: l for l in pickem.build_legs(players, sims, dk, None, {"s": 0.5}, game=game)}
+    lean = {l["player_id"]: l for l in pickem.build_legs(players, sims, dk, None, {"s": 0.5, "lean": 0.03}, game=game)}
+    for pid in ("1", "2"):
+        assert base[pid]["lean"] == 0.0 and lean[pid]["lean"] == 0.03
+        assert abs(base[pid]["p_over_mkt"] - lean[pid]["p_over_mkt"]) < 1e-12
+        assert abs(lean[pid]["p_over_anchor"] - (lean[pid]["p_over_mkt"] - 0.03)) < 1e-12
+        assert abs((base[pid]["p_more"] - lean[pid]["p_more"]) - 0.03) <= 0.011    # two anchoring tolerances
+    assert base["1"]["side"] == "more" and base["2"]["side"] == "less"
+    assert lean["1"]["p_side"] < base["1"]["p_side"] and lean["2"]["p_side"] > base["2"]["p_side"]
+    # the Less pick is a clear take (60%+) at the sportsbook's own line once the lean is in; it was not before
+    assert base["2"]["p_less"] < 0.60 <= lean["2"]["p_less"]
+    assert lean["2"]["less_if_at_least"] is not None and lean["2"]["less_if_at_least"] <= 4.5
+    assert base["2"]["less_if_at_least"] is None or base["2"]["less_if_at_least"] > 4.5
+    # the More pick falls below the 2-pick break-even, so it is no longer lifted or ranked first
+    assert lean["1"]["p_side"] < pickem.breakeven_probability("power2") < base["1"]["p_side"]
+    ranked = pickem.build_legs(players, sims, dk, None, {"s": 0.5, "lean": 0.03}, game=game)
+    assert ranked[0]["player_id"] == "2"
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

@@ -233,6 +233,16 @@ def test_policy_contract_keys_in_pipeline_blocks():
         {"a": 0.1235, "b": [1.0, None], "c": 3}
 
 
+def test_pickem_lean_blends_prior_with_live_sample():
+    prm = {"prior": 0.03, "prior_n": 4000, "max": 0.05}
+    assert pipeline.pickem_lean({"regime": "neutral", "n": 120, "lean": None}, prm)["value"] == 0.03      # too few graded lines: prior only
+    assert pipeline.pickem_lean(None, prm)["value"] == 0.03
+    got = pipeline.pickem_lean({"n": 4000, "lean": 0.05}, prm)
+    assert abs(got["value"] - 0.04) < 1e-9 and got["live_n"] == 4000 and got["live"] == 0.05               # equal weights
+    assert pipeline.pickem_lean({"n": 100000, "lean": 0.20}, prm)["value"] == 0.05                         # clipped above
+    assert pipeline.pickem_lean({"n": 100000, "lean": -0.10}, prm)["value"] == 0.0                         # overs beating their price: no lean
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

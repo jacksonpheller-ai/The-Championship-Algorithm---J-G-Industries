@@ -67,6 +67,7 @@ DEFAULT_PARAMS = {
     "tol": 0.005,               # anchoring tolerance on P(X' > dk_line)
     "be_ref": None,             # leg-level reference break-even; None -> power2's
     "strain_band": (0.6, 1.6),  # anchoring multipliers outside this are flagged
+    "lean": 0.0,                # under lean: points moved from P(more) to P(less) at the DK line (config.PICKEM_LEAN)
 }
 
 
@@ -356,10 +357,12 @@ def build_legs(players: list[dict], prop_sims: dict[str, dict], dk_props: list[d
             seed = _seed_for(pid, st)
             u = _jitter(n, seed)
             p_over, _ = novig_multiplicative(row["over"], row["under"])
-            m, c = anchor_params(np.asarray(x, dtype=float)[plays], float(row["line"]), p_over, u[plays],
+            # sportsbook overs hit less often than their no-vig price: anchor to the price minus the lean
+            p_anchor = float(min(max(p_over - float(prm["lean"]), 0.02), 0.98))
+            m, c = anchor_params(np.asarray(x, dtype=float)[plays], float(row["line"]), p_anchor, u[plays],
                                  prm["tol"], tuple(prm["strain_band"]))
             cache[st] = {"x": _transform(x, u, m, c), "m": m, "shift": c, "seed": seed, "dk": row,
-                         "p_over_mkt": p_over, "anchor": "dk", "components": None}
+                         "p_over_mkt": p_over, "p_over_anchor": p_anchor, "anchor": "dk", "components": None}
             return cache[st]
 
         for st in stats:
@@ -368,7 +371,7 @@ def build_legs(players: list[dict], prop_sims: dict[str, dict], dk_props: list[d
                 parts = [anchor_stat(x) for x in COMBOS[st]]
                 if all(parts):
                     a = {"x": sum(q["x"] for q in parts), "m": None, "shift": None, "seed": None, "dk": None,
-                         "p_over_mkt": None, "anchor": "components",
+                         "p_over_mkt": None, "p_over_anchor": None, "anchor": "components",
                          "components": [{"stat": c_st, "m": q["m"], "shift": q["shift"], "seed": q["seed"]}
                                         for c_st, q in zip(COMBOS[st], parts)]}
             if a is None:
@@ -403,7 +406,7 @@ def build_legs(players: list[dict], prop_sims: dict[str, dict], dk_props: list[d
                 "dk_line": float(dk_row["line"]) if dk_row is not None else None,
                 "dk_over_price": dk_row.get("over") if dk_row is not None else None,
                 "dk_under_price": dk_row.get("under") if dk_row is not None else None,
-                "p_over_mkt": a["p_over_mkt"],
+                "p_over_mkt": a["p_over_mkt"], "p_over_anchor": a["p_over_anchor"], "lean": float(prm["lean"]),
                 "market_median": fair_median(xa),
                 "p_more": p_more, "p_less": p_less, "p_tie": p_tie,
                 "side": side, "p_side": p_side, "p_side_shrunk": p_shr,

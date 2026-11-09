@@ -2,20 +2,18 @@
 
 A quantitative NBA betting engine and dashboard for two people and a small bankroll. Every day it prices the slate (moneylines, spreads, totals, player props), builds cross-game parlays, and splits whatever you want to bet tonight across the bets that have an edge. It records the bets you say you placed and grades them from the box scores.
 
-**Open it:** `https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/` once GitHub Pages is switched on (Settings → Pages → *Deploy from a branch* → `main`, folder `/docs`). Until then, `dist/jg-hedging-co.html` is a single file that opens in any browser with that day's data built in.
+**Open it:** `https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/` once GitHub Pages is switched on (Settings → Pages → *Deploy from a branch* → `main`, folder `/docs`). `docs/index.html` is itself a single self-contained file (that run's data is built in), so it also opens straight from disk; `python -m jghedge site` writes a copy to `dist/` locally (not committed).
 
 ## Is it updated every day?
 
 Yes, by GitHub Actions on this repository (`.github/workflows/nightly.yml`). Every pricing run records the lines it saw in `data/lines/<date>.json` under its label, so the desk can measure closing-line value and tell you when a number has moved past us.
 
-| Time (Eastern) | Label | What runs |
-|---|---|---|
-| ~9:31 pm (evening before) | `opener` | prices the next day's slate at the **opening** lines (where the totals edge lives: +1.75 pts of CLV at a 3-pt signal) |
-| ~10:41 am | `morning` | re-prices against the morning lines and injury report |
-| ~3:41 pm | `pretip` | pre-tip run for the 4-5 pm tips |
-| ~5:17 pm | `afternoon` | afternoon injury news before the main slate |
-| ~4:23 am | grade | grades last night's ledger (CLV per leg), publishes results files, ingests the shared record |
-| Mondays ~6:00 am | refit | refits every model parameter and refreshes the two-seed replay |
+| Schedule (UTC) | What runs |
+|---|---|
+| every two hours at :17 | prices the slate for the current Eastern time and grades any finished night. The snapshot label comes from the clock when the run starts: `opener` (8 pm to 6 am ET; from 6 pm it prices the **next** day's slate at the opening lines, where the totals edge lives: +1.75 pts of CLV at a 3-pt signal), `morning` (to 2 pm), `pretip` (to 5 pm), `afternoon` (to 8 pm) |
+| Mondays 11:07 | refits every model parameter and refreshes the two-seed replay |
+
+**GitHub starts scheduled jobs late.** In the repository's first days every scheduled run started 3 to 10 hours after its time (the 9:31 pm ET opener landed around 5 am, the 10:41 am run around 3 pm). The old schedule chose the task and label from *which* cron line fired, so late runs were mislabelled and the page could show lines many hours old. Now the run decides what to do from the clock, runs are scheduled every two hours so one lands in each part of the day, the page states how old its lines are (and warns past four hours), and games that have tipped drop off the page by the reader's clock. For on-time runs, trigger the workflow by hand (`workflow_dispatch`) or from an external scheduler.
 
 GitHub runs scheduled jobs only on the repository's default branch and pauses them after 60 days without a commit; the bot's own commits keep it alive. Every run also mirrors its commit to `main`, so `main` stays current whichever branch is the default (set `main` as the default in Settings → General to run everything from it). If a run ever fails, the Actions tab shows why, and `workflow_dispatch` lets you run any task (and label) by hand. Set the repository secret `ODDS_API_KEY` to add multi-book prices (Fliff's own numbers, PrizePicks lines via the `us_dfs` region); without it the desk prices from ESPN's DraftKings feed.
 
@@ -25,6 +23,7 @@ The desk tells two different apps what to do:
 
 - **Fliff — game bets.** Totals and cross-game parlays of totals, the only game markets with a measured edge. Spreads and moneylines are priced and shown but marked `info_only` (they lost in two of three replayed seasons). Each qualifying total comes with an instruction like *"Over 228.5 at -110 or better; skip above 229.5"*: the `max_line` is the worst number at which the shrunk edge still clears the 1.5% floor. Minimum wager assumed $0.25 (unverified).
 - **PrizePicks — player pick'em.** PrizePicks pays fixed multiples, so a leg is worth playing only when its true hit rate clears the break-even (57.7% for a 2-pick Power, 55.0% for 3-pick, 54.3% per leg on a 5-pick Flex). Each player's simulated stat line is **anchored to DraftKings' line and price** (the sharp number) and then priced at PrizePicks' line. When the two lines differ, that gap is the edge. Validation: on 2,866 DraftKings prop lines that moved between open and close, a distribution anchored at the closing (sharp) line and priced at the opening (stale) line predicted 60.7% for the favoured side and realised 59.0%; in the 60-65% band it predicted 62% and realised 66% (n=589). PrizePicks blocks cloud servers (HTTP 403), so the nightly job usually cannot read the board. In that case the page lists near-even DraftKings legs with **take-it thresholds** ("More if the line is 24.5 or lower") and marks every suggested slip *check lines*: open the app, type PrizePicks' line into the table, and the leg is re-priced in the browser. Pick'em is provisional until the live ledger has graded enough slips, and at a $10 bankroll the $5 minimum entry is half the bank, which the page flags.
+  - **Under lean.** Sportsbook overs hit less often than their no-vig price. On 8,009 pre-game DraftKings lines (133 games, Jan-Nov 2026) overs hit 45.4% against 48.8% priced: 3.4 points, 2.8 in 2025-26 and 4.9 in 2026-27 to date, the same sign in every month and every stat. In the band picks come from (priced side 57-62%), More sides hit 56.2% against 59.1% priced (n=521) and Less sides 61.7% against 59.2% (n=724). Fitted on either season and tested on the other, shifting the price by the lean lowered log loss (0.6836 → 0.6796; 0.6780 → 0.6774). So the anchor is the DraftKings price **minus the lean** on the over (`config.PICKEM_LEAN`: prior 3.0 points counted as 4,000 lines, blended by line count with the rolling live sample in `props_regime`, clipped to 0-5 points). A More pick priced 59% is treated as about 56%, a Less pick as about 62%; the half-edge shrink still applies on top. Caveats: one book's lines, 133 games, and whether PrizePicks offers the Less side at the sportsbook's line with the standard payout has to be checked in the app.
 
 ## The nightly verdict
 
@@ -52,7 +51,7 @@ The page has five tabs: **Tonight**, **Games**, **Player props**, **Record** and
 1. **Tonight's amount.** Type how much you want to bet tonight (it is remembered on your device). The desk splits it across the bets with an edge and you keep the rest:
    - **PrizePicks first:** if a slip has an edge and the $5 minimum entry is no more than half the amount, the slip gets the minimum entry (only the minimum: PrizePicks edges have no track record yet).
    - **Fliff with the rest:** all of it on a BET night, half on LIGHT, none on PASS, split in the proportions of the desk's reference ticket (quarter Kelly) in steps of Fliff's minimum bet.
-2. **Read the plan.** Each bet is a card: amount, the bet, the worst line to take it at, and our chance against the chance the price needs. On stand-in nights the PrizePicks card lists the line each pick needs in the app.
+2. **Read the plan.** Each bet is a card: amount, the bet, the worst line to take it at, and our chance against the chance the price needs. The PrizePicks card has a line box for every pick: type what the app shows and the slip is re-priced on the spot and marked enter or skip.
 3. **Where the edge is.** Every game total and the top player picks, each with a bar (our chance after the safety cut) and a tick (the chance the price needs), tagged Edge / Close / None. The Games and Player props tabs have every row, the numbers behind it, PrizePicks line re-pricing and a slip builder.
 4. **After you bet,** press *I placed these bets*. They are stored in your browser and graded automatically when the results files are published. *Log to shared record* opens a pre-filled GitHub issue; the nightly job grades it and closes it with the result, so both of us see one shared record. The desk's own reference ticket ($100 / $0.50, singles, parlays and up to two $5 pick'em entries) is recorded before tip and graded with closing-line value per leg.
 5. **Assumptions** (Fliff's smallest bet, PrizePicks' minimum entry) are editable at the bottom of How it works.
@@ -115,7 +114,7 @@ jghedge/
 data/          4 seasons of games (gzipped), BBRef snapshots, fitted params, ledgers, reports,
                lines/<date>.json, props_log/<date>.json, growth_grid.json, replay_open.json (+ _prev)
 docs/          GitHub Pages site, data/latest.json, data/results/<date>.json
-dist/          single-file dashboard
+dist/          local copy of the single-file dashboard (not committed)
 tests/         test_core, test_policy, test_pickem, test_context, test_pipeline; run_all.py
 ```
 

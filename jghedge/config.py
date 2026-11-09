@@ -91,6 +91,13 @@ PICKEM_PAYOUTS: dict = {"power": {2: 3.0, 3: 6.0, 4: 10.0, 5: 20.0, 6: 37.5},
                          "flex": {3: [3.0, 1.0], 4: [6.0, 1.5], 5: [10.0, 2.0, 0.4], 6: [25.0, 2.0, 0.4]}}
 PICKEM_MIN_ENTRY = 5.0
 FLIFF_MIN_BET = 0.25                # ASSUMPTION: Fliff Cash minimum wager, unverified
+# Under lean of sportsbook player props, applied to pick'em probabilities: this many points come off
+# P(more) and go onto P(less) before a pick is priced. Prior from 8,009 pre-game DraftKings lines
+# (Jan-Nov 2026, 133 games): overs hit 3.4 points less often than their no-vig price (2.8 in 2025-26,
+# 4.9 in 2026-27 to date; positive in every month and every stat). Fitted on either season and tested on
+# the other it lowered log loss (0.6836 -> 0.6796 and 0.6780 -> 0.6774). The prior counts as `prior_n`
+# lines and is blended with the rolling live sample (props_regime) by line count; clipped to [0, max].
+PICKEM_LEAN: dict = {"prior": 0.03, "prior_n": 4000, "max": 0.05}
 PROPS_REGIME: dict = {              # rolling under-lean regime flag (memo B6); assumptions, not fits
     "window_nights": 30, "min_lines": 300, "lean_under_at": 0.035, "stand_down_at": -0.02,
 }

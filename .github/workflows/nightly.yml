@@ -4,12 +4,14 @@ on:
   # Times are UTC. GitHub runs scheduled jobs only from the default branch, as the account
   # that last changed these lines; if no 'schedule' runs appear in the Actions tab, re-save
   # this file from github.com to re-register them.
+  #
+  # GitHub starts scheduled jobs late: in this repository's first days every scheduled run began
+  # 3 to 10 hours after its time. So a run decides what to do from the clock when it starts, not
+  # from which line fired: the snapshot label and the slate come from the Eastern time
+  # (jghedge.pipeline.run_label / slate_day) and every pricing run also grades finished nights.
+  # One run every two hours keeps the lines on the page a few hours old at most.
   schedule:
-    - cron: "31 2 * * *"    # 02:31 UTC (~9:31 pm ET): price tomorrow's slate at the OPENERS
-    - cron: "41 15 * * *"   # 15:41 UTC (~10:41 am ET): morning lines + injury report
-    - cron: "41 20 * * *"   # 20:41 UTC (~3:41 pm ET): pre-tip run for the 4-5 pm ET tips
-    - cron: "17 22 * * *"   # 22:17 UTC (~5:17 pm ET): afternoon injury news before the main slate
-    - cron: "23 9 * * *"    # 09:23 UTC (~4:23 am ET): grade last night's ledger
+    - cron: "17 */2 * * *"  # every two hours: price the slate for the current Eastern time, grade finished nights
     - cron: "7 11 * * 1"    # Mondays: refit the model and refresh the replay (both seeds)
   workflow_dispatch:
     inputs:
@@ -56,20 +58,12 @@ jobs:
           case "$L" in ""|opener|morning|pretip|afternoon) ;; *) echo "::error::label must be opener, morning, pretip or afternoon"; exit 1 ;; esac
           if [ -z "$T" ]; then
             case "$SCHEDULE" in
-              "23 9 * * *") T=grade ;;
               "7 11 * * 1") T=backtest ;;
               *) T=run ;;
             esac
           fi
-          if [ -z "$L" ]; then
-            case "$SCHEDULE" in
-              "31 2 * * *") L=opener ;;
-              "41 15 * * *") L=morning ;;
-              "41 20 * * *") L=pretip ;;
-              "17 22 * * *") L=afternoon ;;
-              *) L="" ;;          # manual run: the pipeline picks the label from the Eastern time
-            esac
-          fi
+          # No label unless one was typed in: the pipeline labels the snapshot from the Eastern clock,
+          # so a run that GitHub starts hours late is still labelled for the time it actually ran.
           echo "task=$T" >> "$GITHUB_OUTPUT"
           echo "label=$L" >> "$GITHUB_OUTPUT"
       - name: Refit model
@@ -93,7 +87,7 @@ jobs:
         run: |
           git config user.name "jg-desk-bot"
           git config user.email "jg-desk-bot@users.noreply.github.com"
-          git add data docs dist
+          git add data docs
           git diff --cached --quiet || git commit -m "Desk update: $TASK $LABEL $(date -u +%Y-%m-%dT%H:%MZ)"
           # another run may have pushed while this one worked: rebase onto it, keep our fresh outputs
           git pull --rebase -X theirs origin "$BRANCH" || { git rebase --abort; echo "::error::could not rebase onto $BRANCH"; exit 1; }

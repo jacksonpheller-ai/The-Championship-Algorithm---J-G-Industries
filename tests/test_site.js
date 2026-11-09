@@ -139,6 +139,20 @@ const TABS = ["tonight", "games", "props", "record", "method"];
   assert(await p.evaluate(() => !document.getElementById("view-props").hidden), "#pickem opens Player props");
   assert(perr.length === 0, "no page errors during interaction: " + JSON.stringify(perr));
   await p.close();
+  // ---- a total with an edge on a PASS night: named as an edge, not staked, and the page does not claim there is none
+  {
+    const pe = JSON.parse(JSON.stringify(fixture)); pe.night.verdict = "PASS"; pe.lines.moved = [];
+    pe.bets.forEach((x) => { if (x.id === "401909940-to-u") Object.assign(x, { eligible: true, shrunk_ev: 0.028, p_shrunk: 0.54, ev: 0.056 }); if (x.id === "401909940-to-o") Object.assign(x, { eligible: false, shrunk_ev: -0.12, p_shrunk: 0.46 }); });
+    fs.writeFileSync(path.join(OUT, "passedge.html"), render(pe));
+    const q = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await q.goto("file://" + path.join(OUT, "passedge.html") + "#tonight"); await q.waitForTimeout(300);
+    const t = await q.evaluate(() => ({ sub: document.getElementById("tSub").textContent, rows: window.JG_DEBUG.plan(50).rows.length,
+      edge: Array.from(document.querySelectorAll("#mapGames .erow.s-edge")).map((r) => r.querySelector(".act").textContent) }));
+    assert(t.rows === 0, "PASS night with an edge: no game bets staked");
+    assert(/passes on games/.test(t.sub) && !/None of tonight's/.test(t.sub), "PASS night with an edge: the summary names the edge instead of saying there is none");
+    assert(t.edge.length === 1 && /desk passes on the night/.test(t.edge[0]) && !/^Bet /.test(t.edge[0]), "PASS night with an edge: the row is tagged Edge and explains the pass");
+    await q.close();
+  }
   // ---- the real slate: a PASS night stakes no game bets at any amount
   const r = await browser.newPage({ viewport: { width: 1280, height: 900 } });
   await r.goto("file://" + path.join(OUT, "real.html") + "#tonight"); await r.waitForTimeout(300);

@@ -372,7 +372,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <p>Across 821 replayed bets the model expected +9.7% and made +6.6%; on totals it expected +6.3% and made +3.4%. So every edge is cut in half before anything is decided. A total the model gives 56% at −110 (which needs 52.4%) is treated as 54.2%. PrizePicks picks are cut halfway toward their break-even the same way. Every chance on this page is the cut one.</p>
 
       <h2>6. The night's call</h2>
-      <p>The desk scores the night by the cut expected profit of its own ticket ($100 bankroll, 50¢ bets, a quarter of the Kelly stake). Below 0.05% it is a <b>pass</b>: nothing earns its risk. From 0.05% to 0.15% it is a <b>light</b> night: thin edges. From 0.15% it is a <b>bet</b> night.</p>
+      <p>The desk scores the night by the cut expected profit of its own ticket ($100 bankroll, 50¢ bets, a quarter of the Kelly stake). Below 0.05% it is a <b>pass</b>: nothing earns its risk, and the desk stakes nothing on games even if one total still shows an edge (the row says so). From 0.05% to 0.15% it is a <b>light</b> night: thin edges. From 0.15% it is a <b>bet</b> night.</p>
 
       <h2 id="split">7. How your nightly amount is split</h2>
       <ol>
@@ -606,7 +606,9 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function gameStatus(b) {
     var e = evS(b), mv = MOVED[b.id], gap = lineGap(b);
     if (mv && mv.still_ok === false) return { s: "none", tag: "Moved", act: "The line moved from " + fline(mv.line_then) + " to " + fline(mv.line_now) + ", past our number. Skip." };
-    if (b.eligible && e >= MIN_EV_S - 1e-9) return { s: "edge", tag: "Edge", act: "Bet " + (b.side === "over" ? "Over " : "Under ") + fline(b.line) + (b.max_line != null ? "; still a bet at " + worstText(b) : "") + "." };
+    if (b.eligible && e >= MIN_EV_S - 1e-9) return { s: "edge", tag: "Edge", act: VERDICT === "PASS"
+      ? "Has an edge, but the desk passes on the night: with so little to bet, the night's expected profit is under its bar. If you bet it anyway, only at " + worstText(b) + "."
+      : "Bet " + (b.side === "over" ? "Over " : "Under ") + fline(b.line) + (b.max_line != null ? "; still a bet at " + worstText(b) : "") + "." };
     var away = gap != null && gap > 0 && gap <= 4 ? "Becomes a bet at " + worstText(b) + " (" + num(gap, 1) + " pt" + (gap === 1 ? "" : "s") + " away)." : "";
     if (e > 0) return { s: "close", tag: "Close", act: "Edge " + sgn(e * 100) + "% is under the " + pct(MIN_EV_S, 1) + " the desk requires. " + away };
     if (gap != null && gap > 0 && gap <= 1) return { s: "close", tag: "Close", act: away + " Check Fliff's number." };
@@ -689,6 +691,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     out.keep = Math.max(0, A - out.total);
     return out;
   }
+  function edgeTotals() { return (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(function (b) { return b && gameStatus(b).s === "edge"; }); }
   function closestMiss() {
     var best = null;
     (S.games || []).forEach(function (g) { var b = bestTotal(g.id); if (!b) return; var gap = lineGap(b); if (gap != null && gap > 0 && gap <= 4 && (!best || gap < best.gap)) best = { b: b, gap: gap }; });
@@ -712,7 +715,8 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       if (VERDICT === "LIGHT" && nG) sub.push("The game edges are thin, so they get half of the amount.");
     } else { head = "No bets tonight."; sub.push("Keep your " + usd(A) + "."); }
     if (A > 0) {
-      if (!nG) { if (VERDICT === "PASS" || !pl.nGameCandidates) { var nT = (S.games || []).filter(function (g) { return bestTotal(g.id); }).length; sub.push(nT ? "None of tonight's " + nT + " game totals has enough edge after the safety cut. " + closestMiss() : "No game totals are posted yet."); } else if (pl.gameWhy) sub.push("There are game bets, but " + pl.gameWhy + "."); }
+      if (!nG) { if (VERDICT === "PASS" || !pl.nGameCandidates) { var nT = (S.games || []).filter(function (g) { return bestTotal(g.id); }).length; var ed = edgeTotals();
+          sub.push(!nT ? "No game totals are posted yet." : ed.length ? "The desk passes on games: " + (ed.length === 1 ? "one total has an edge (" : ed.length + " totals have an edge (") + ed.map(function (b) { return (b.side === "over" ? "Over " : "Under ") + fline(b.line) + " in " + gameName(b.game_id) + ", " + sgn(evS(b) * 100) + "%"; }).join("; ") + "), but with so little to bet the night's expected profit is under the desk's bar, so it stakes nothing. " + (ed.length === 1 ? "It is" : "They are") + " marked Edge below." : "None of tonight's " + nT + " game totals has enough edge after the safety cut. " + closestMiss()); } else if (pl.gameWhy) sub.push("There are game bets, but " + pl.gameWhy + "."); }
       if (!pl.pp) sub.push(pl.ppWhy ? "PrizePicks: " + pl.ppWhy + "." : PK && PKLEGS.length ? "PrizePicks: no slip clears its break-even tonight." : "");
     }
     $("tHead").textContent = head; $("tSub").textContent = sub.filter(Boolean).join(" ");

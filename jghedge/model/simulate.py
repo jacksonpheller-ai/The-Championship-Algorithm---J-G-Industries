@@ -18,17 +18,51 @@ def _gauss_quantiles(sd: float) -> np.ndarray:
     return q * sd
 
 
+_CENTRE_CACHE: dict = {}
+
+
+def _balanced_centre(q: np.ndarray) -> float:
+    """The shift c for which a draw r from the quantile table `q`, less c, plus the rounding error of two
+    integer scores, is equally likely to be at least half a point up as half a point down. The tables are
+    lumpy (final scores are whole numbers against half-point lines), so the plain median can sit anywhere
+    inside a half-point step; balancing the rounded outcome is what makes an even-priced line 50/50."""
+    key = (len(q), round(float(q[0]), 6), round(float(q[-1]), 6), round(float(q.sum()), 6))
+    if key in _CENTRE_CACHE:
+        return _CENTRE_CACHE[key]
+    u = (np.arange(8001) + 0.5) / 8001
+    r = np.interp(u, QGRID, q)
+
+    def tail(x):            # P(e >= x), e the sum of two independent rounding errors uniform on (-0.5, 0.5)
+        x = np.clip(x, -1.0, 1.0)
+        return np.where(x <= 0, 1.0 - (1.0 + x) ** 2 / 2.0, (1.0 - x) ** 2 / 2.0)
+
+    def gap(c):             # P(up half a point) - P(down half a point); falls as c rises
+        return float(tail(0.5 - (r - c)).mean() - tail(0.5 + (r - c)).mean())
+
+    mid = float(np.interp(0.5, QGRID, q))
+    lo, hi = mid - 2.0, mid + 2.0
+    for _ in range(60):
+        c = (lo + hi) / 2.0
+        if gap(c) > 0:
+            lo = c
+        else:
+            hi = c
+    _CENTRE_CACHE[key] = (lo + hi) / 2.0
+    return _CENTRE_CACHE[key]
+
+
 class GameSim:
     def __init__(self, m_final: float, t_final: float, params: dict, n: int, rng: np.random.Generator):
         mq = np.asarray(params.get("margin_resid_q") or _gauss_quantiles(params["margin_sd"]), dtype=float)
         tq = np.asarray(params.get("total_resid_q") or _gauss_quantiles(params["total_sd"]), dtype=float)
         # The centres passed in are 50/50 points (the market's line and price, blended with our number),
         # but the fitted tables are centred on their MEAN, and totals are right-skewed (overtime), so the
-        # table's median sat 0.36 points low and every Under started 0.4 points of probability ahead.
-        # Centre the tables on their median: at zero model weight the simulation then returns the
-        # market's own no-vig probability (the closing total has landed over its centre 50.0% of the time).
-        mq = mq - float(np.interp(0.5, QGRID, mq))
-        tq = tq - float(np.interp(0.5, QGRID, tq))
+        # table's median sat about 0.4 points low and every Under started 0.4 points of probability ahead.
+        # Re-centre each table so that a rounded draw is as likely to finish half a point above the centre
+        # as half a point below (_balanced_centre): with no model weight the simulation then returns the
+        # market's own no-vig probability (closing totals have landed over their centre 50.0% of the time).
+        mq = mq - _balanced_centre(mq)
+        tq = tq - _balanced_centre(tq)
         rho = float(params.get("margin_total_corr", 0.0))
         z1 = rng.standard_normal(n)
         z2 = rho * z1 + np.sqrt(max(1 - rho ** 2, 0)) * rng.standard_normal(n)

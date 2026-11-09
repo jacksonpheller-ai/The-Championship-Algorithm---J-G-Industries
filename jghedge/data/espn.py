@@ -217,6 +217,12 @@ FANTASY_PLAY_PROB = {"OUT": 0.0, "O": 0.0, "OFS": 0.0, "IR": 0.0, "SUSP": 0.0, "
                      "GTD": 0.5, "Q": 0.5, "P": 0.9}
 
 
+_WILL_PLAY = re.compile(r"\bexpected to play\b|\bwill play\b|\bis probable\b|\(probable\)")
+_NEGATED = re.compile(r"\bnot\b|n['\u2019]t\b|\bunlikely\b|\bunclear\b|\bnever\b|\bwhether\b|\bif (?:he|she|they) will\b")
+_WONT_PLAY = re.compile(r"\b(?:will not|won['\u2019]t|not going to) (?:play|suit up|be available)\b")
+_NOT_EXPECTED = re.compile(r"(?:\bnot\b|n['\u2019]t\b)\s+(?:be\s+)?(?:expected|likely)\s+to\s+(?:play|suit up|be available)\b|\bunlikely to (?:play|suit up|be available)\b")
+
+
 def play_probability(item: dict, game_date: str | None = None) -> tuple[float, str, str | None]:
     """P(plays tonight) from an ESPN injury item.
 
@@ -224,7 +230,8 @@ def play_probability(item: dict, game_date: str | None = None) -> tuple[float, s
     details.fantasyStatus (OUT / GTD / OFS ...), details.returnDate and the comment wording.
     Returns (play_prob, fantasy_status, return_date). Rules (research memo B5): a player
     listed Out but fantasy GTD, or whose return date is today's game, is a 50/50; comment
-    words 'probable'/'expected to play' -> 0.9, 'doubtful' -> 0.15, 'questionable' -> 0.5,
+    words 'probable'/'expected to play' -> 0.9 unless the sentence negates them ('is not expected
+    to play' -> at most 0.15, 'will not play' -> 0.0), 'doubtful' -> 0.15, 'questionable' -> 0.5,
     'out for <this> game' -> 0.0.
     """
     status = (item.get("status") or "").strip().lower()
@@ -237,7 +244,13 @@ def play_probability(item: dict, game_date: str | None = None) -> tuple[float, s
         p = FANTASY_PLAY_PROB[fs]
     if ret and game_date and str(ret)[:10] == str(game_date)[:10] and fs not in ("OFS", "IR", "SUSP"):
         p = max(p, 0.5)
-    if "expected to play" in comment or "will play" in comment or "is probable" in comment or "(probable)" in comment:
+    # read the wording sentence by sentence: "is not expected to play" must not match "expected to play"
+    sents = [x for x in re.split(r"[.;!?]", comment) if x.strip()]
+    if any(_WONT_PLAY.search(x) for x in sents):
+        p = 0.0
+    elif any(_NOT_EXPECTED.search(x) for x in sents):
+        p = min(p, 0.15)
+    elif any(_WILL_PLAY.search(x) and not _NEGATED.search(x) for x in sents):
         p = max(p, 0.9)
     elif "doubtful" in comment:
         p = min(p, 0.15) if fs not in ("GTD",) else 0.15

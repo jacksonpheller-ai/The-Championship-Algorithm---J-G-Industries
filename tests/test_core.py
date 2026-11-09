@@ -152,6 +152,29 @@ def test_ledger_settlement():
     assert _settle_leg(leg(kind="prop", side="over", line=1.5, player_id="9", stat="pts"), games, players) == "void"
 
 
+def test_simulation_returns_the_market_probability_at_zero_model_weight():
+    """With the market's own centre and no model weight, an even-priced total must come out near 50/50
+    and an even-priced spread too. The fitted residual tables are centred on their mean, totals are
+    right-skewed, and a tied draw used to add up to five points: Unders started 0.4 points ahead."""
+    import numpy as np
+    from jghedge.config import load_params
+    from jghedge.model.odds import market_total
+    from jghedge.model.simulate import GameSim
+    p = load_params()
+    for line in (228.5, 224.0, 236.5):
+        mt = market_total(line, -110, -110, p["total_sd"])
+        s = GameSim(4.0, mt, p, 400_000, np.random.default_rng(5))
+        over = float(np.mean(s.total > line) + 0.5 * np.mean(s.total == line))
+        assert abs(over - 0.5) < 0.0035, (line, over)
+        assert not np.any(s.margin == 0)                                     # every tie is settled
+    s = GameSim(3.5, 228.5, p, 400_000, np.random.default_rng(6))            # the market makes home -3.5 a coin flip
+    assert abs(float(np.mean(s.margin - 3.5 > 0)) - 0.5) < 0.006
+    # a symmetric table is unchanged by the centring
+    q = {"margin_sd": 12.0, "total_sd": 18.0}
+    g = GameSim(0.0, 220.0, q, 200_000, np.random.default_rng(1))
+    assert abs(float(np.mean(g.total > 219.5)) - float(np.mean(g.total < 220.5))) < 0.01
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

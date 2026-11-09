@@ -370,6 +370,22 @@ def test_bootstrap_determinism_and_grid_timing():
     assert growth.growth_block(path="/nonexistent/replay.json")["grid"] == []
 
 
+def test_lineup_cap_counts_parlay_stake():
+    """A parlay is exposed to a late scratch in any leg's game, so its stake counts toward 'most of the
+    ticket is provisional', which caps a BET night at LIGHT. A parlay's game_id is None, so it used to
+    count for nothing."""
+    rng = np.random.default_rng(3)
+    n = 6000
+    R = np.column_stack([np.where(rng.random(n) < 0.36, 2.645, -1.0), np.where(rng.random(n) < 0.36, 2.645, -1.0)])
+    meta = [{"id": "parlay-1", "kind": "parlay", "label": "A + C", "game_id": None, "game_ids": ["a", "c"], "dec": 3.645},
+            {"id": "parlay-2", "kind": "parlay", "label": "B + C", "game_id": None, "game_ids": ["b", "c"], "dec": 3.645}]
+    assert policy.night_block(R, meta, 100, 0.5, {})["verdict"] == "BET"
+    assert policy.night_block(R, meta, 100, 0.5, {"lineup_uncertainty": ["c"]})["verdict"] == "LIGHT"       # every unit touches game c
+    assert policy.night_block(R, meta, 100, 0.5, {"lineup_uncertainty": ["z"]})["verdict"] == "BET"
+    old_meta = [{k: v for k, v in m.items() if k != "game_ids"} for m in meta]
+    assert policy.night_block(R, old_meta, 100, 0.5, {"lineup_uncertainty": ["c"]})["verdict"] == "BET"      # the old undercount
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

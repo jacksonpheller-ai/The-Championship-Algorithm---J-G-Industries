@@ -67,17 +67,20 @@ def _key(row: dict) -> str:
 def record(result: dict, profile: str = "reference") -> int:
     """Record tonight's reference ticket ($100 bankroll, $0.50 units): singles, parlays and
     pick'em slips. Each bet is recorded ONCE, by the first run that bets it, at that run's line,
-    so early tips are kept and closing-line value is measured against later snapshots. Nothing
-    is staked on a PASS night (the replay skips PASS nights too); stand-in PrizePicks slips are
-    recorded as a zero-stake paper track so the pick'em model is graded even without the board."""
+    so early tips are kept and closing-line value is measured against the close. No game bet is
+    staked on a PASS night (the replay skips PASS nights too). Pick'em slips do not depend on the
+    game verdict: a live 'play' slip is recorded at the minimum entry, a stand-in slip as a
+    zero-stake paper entry so the pick'em model is graded even without the board.
+
+    Several runs price the same night, so the caps are applied to the NIGHT, not to each run:
+    game bets stop at NIGHT_CAP of the bankroll, pick'em at the slip count _pickem_rows allows,
+    and a later run never adds the other side of a market the night already holds."""
     bets = {b["id"]: b for b in result["bets"]}
     parlays = {p["id"]: p for p in result["parlays"]}
     alloc = result["allocations"].get(profile) or result["allocations"].get("balanced", {})
     verdict = (result.get("night") or {}).get("verdict")
     rows = _pickem_rows(result)
-    if verdict == "PASS":
-        rows = [r for r in rows if r.get("paper")]
-    else:
+    if verdict != "PASS":
         for it in alloc.get("items", []):
             ref = it["ref"]
             if ref in bets:
@@ -95,14 +98,34 @@ def record(result: dict, profile: str = "reference") -> int:
                              "ev_shrunk": p.get("shrunk_ev"), "frac": it["frac"], "legs": legs, "result": None})
     entries = load()
     have = {(e["date"], e.get("key") or _key(e)) for e in entries}
+    night = [e for e in entries if e["date"] == result["date"]]
+    pk = result.get("pickem") or {}
+    max_slips = max(int(NIGHT_CAP * REF_BANKROLL // float(pk.get("min_entry") or 5.0)), 1)
+    n_slips = sum(1 for e in night if e.get("type") == "pickem")
+    staked = sum(float(e.get("frac") or 0.0) for e in night if e.get("type") != "pickem")
+    sides = {(l.get("game_id"), l.get("kind")): l.get("side") for e in night if e.get("type") != "pickem" for l in e.get("legs", [])}
     new = []
     for r in rows:
         r["key"] = _key(r)
         r["recorded_at"] = result.get("generated")
         r["run_label"] = result.get("run_label")
-        if (r["date"], r["key"]) not in have:
-            new.append(r)
-            have.add((r["date"], r["key"]))
+        if (r["date"], r["key"]) in have:
+            continue
+        if r.get("type") == "pickem":
+            if n_slips >= max_slips:
+                continue
+            n_slips += 1
+        else:
+            frac = float(r.get("frac") or 0.0)
+            if staked + frac > NIGHT_CAP + 1e-9:
+                continue                      # the night's cap is already used by earlier runs
+            if any(sides.get((l.get("game_id"), l.get("kind")), l.get("side")) != l.get("side") for l in r.get("legs", [])):
+                continue                      # the night already holds the other side of this market
+            staked += frac
+            for l in r.get("legs", []):
+                sides[(l.get("game_id"), l.get("kind"))] = l.get("side")
+        new.append(r)
+        have.add((r["date"], r["key"]))
     save(entries + new)
     return len(new)
 
@@ -151,6 +174,8 @@ def grade(season: int) -> int:
     from .data import lines as lines_mod
     n = 0
     for e in entries:
+        if e.get("type") == "pickem" and e.get("result") == "push" and (e.get("units") or 0.0) < 0:
+            e["result"] = "loss"              # rows graded before a 0.4x Flex payout counted as a loss
         if e.get("result") is not None:
             continue
         res = [_settle_leg(l, games, players) for l in e["legs"]]
@@ -158,7 +183,11 @@ def grade(season: int) -> int:
             continue
         for l in e["legs"]:
             if l.get("kind") in ("total", "spread") and l.get("clv") is None:
-                closing = lines_mod.closing_line(e["date"], l.get("game_id"))
+                # the real close is in the game's history record; the desk's last snapshot can be hours
+                # before tip (and equals the bet's own line when the last run placed it)
+                close = ((games.get(l.get("game_id")) or {}).get("odds") or {}).get("close") or {}
+                field = "total" if l["kind"] == "total" else "spread_home"
+                closing = close if close.get(field) is not None else lines_mod.closing_line(e["date"], l.get("game_id"))
                 if closing:
                     l["close_line"] = closing.get("total") if l["kind"] == "total" else closing.get("spread_home")
                     l["clv"] = lines_mod.clv(l, closing)
@@ -202,9 +231,11 @@ def settle_pickem(slip_type: str | None, leg_results: list[str], payouts: dict |
         if family is None:
             return "push", 0.0, hits
     mult = float(payout_vector(f"{family}{n}", table)[hits])
-    if mult <= 0:
-        return "loss", -1.0, hits
-    return ("win" if mult > 1 else "push"), mult - 1.0, hits
+    if mult > 1:
+        return "win", mult - 1.0, hits
+    if mult == 1:
+        return "push", 0.0, hits
+    return "loss", mult - 1.0, hits           # includes Flex tiers that pay back less than the entry (0.4x)
 
 
 def summary(entries: list[dict] | None = None) -> dict:

@@ -161,6 +161,13 @@ def test_ledger_pickem_grading_rules():
     assert ledger.settle_pickem("power2", ["win", "void"], pay) == ("push", 0.0, 1)             # below 2 picks: refund
     assert ledger.settle_pickem("flex6", ["win"] * 4 + ["loss", "void"], pay) == ("win", 1.0, 4)  # -> flex5, 4 of 5
     assert ledger.settle_pickem("power3", ["win", "push", "win"], pay) == ("win", 2.0, 2)       # tie drops the pick like a void
+    # a Flex tier that pays back less than the entry is a loss of the difference, not a push
+    r, u, h = ledger.settle_pickem("flex5", ["win", "win", "win", "loss", "loss"], pay)
+    assert r == "loss" and abs(u + 0.6) < 1e-12 and h == 3
+    assert ledger.settle_pickem("flex3", ["win", "win", "loss"], pay)[0] == "win"                # 1.25x here
+    assert ledger.settle_pickem("flex3", ["win", "win", "loss"], {"power": {}, "flex": {"3": [3.0, 1.0]}}) == ("push", 0.0, 2)
+    rows = [{"type": "pickem", "kind": "pickem", "paper": True, "result": r, "units": u, "frac": 0.0, "date": "2099-01-01", "legs": []}]
+    assert ledger.summary(rows)["pickem_paper"]["losses"] == 1
     games = {"g": {"home_score": 110, "away_score": 104}}
     players = {("g", "7"): {"pts": 22, "reb": 5}}
     leg = {"game_id": "g", "kind": "pickem", "side": "more", "line": 21.5, "player_id": "7", "stat": "pts"}
@@ -241,6 +248,149 @@ def test_pickem_lean_blends_prior_with_live_sample():
     assert abs(got["value"] - 0.04) < 1e-9 and got["live_n"] == 4000 and got["live"] == 0.05               # equal weights
     assert pipeline.pickem_lean({"n": 100000, "lean": 0.20}, prm)["value"] == 0.05                         # clipped above
     assert pipeline.pickem_lean({"n": 100000, "lean": -0.10}, prm)["value"] == 0.0                         # overs beating their price: no lean
+
+
+def _night(date, label, gen, items, bets, slips=(), verdict="BET", source="prizepicks"):
+    legs = [{"id": f"l{i}", "game_id": "g", "player_id": str(i), "player": f"P{i}", "stat": "pts", "line": 20.5, "side": "less",
+             "label": f"P{i} Less 20.5 Pts", "p_side": 0.62} for i in range(8)]
+    return {"date": date, "generated": gen, "run_label": label, "bets": bets, "parlays": [], "night": {"verdict": verdict},
+            "allocations": {"reference": {"items": items}},
+            "pickem": {"platform": "PrizePicks", "source": source, "min_entry": 5.0, "payouts": {"power": {"2": 3.0}, "flex": {}}, "legs": legs,
+                       "slips": [{"id": f"pk-{k}", "type": "power2", "legs": list(pair), "verdict": v, "verdict_if_lines_match": "play",
+                                  "p_all": 0.38, "ev": 0.1, "ev_shrunk": 0.05, "label": "+".join(pair)} for k, (pair, v) in enumerate(slips)]}}
+
+
+def _total(gid, side, line, max_line):
+    return {"id": f"{gid}-to-{side[0]}", "game_id": gid, "kind": "total", "label": f"{gid} {side} {line}", "side": side, "line": line,
+            "price": -110, "dec": 1.9091, "p_final": 0.56, "ev": 0.05, "shrunk_ev": 0.025, "max_line": max_line}
+
+
+def test_ledger_caps_hold_for_the_night_not_for_each_run():
+    """Several runs price one night. The reference ticket must stop at the 10% night cap and two pick'em
+    entries in total, and a later run must not add the other side of a market the night already holds."""
+    A_o, A_u, B_o, C_o = _total("A", "over", 228.5, 229.5), _total("A", "under", 236.5, 235.5), _total("B", "over", 220.5, 221.5), _total("C", "over", 231.5, 232.5)
+    bets = [A_o, A_u, B_o, C_o]
+    old = ledger.LEDGER_FILE
+    with tempfile.TemporaryDirectory() as td:
+        ledger.LEDGER_FILE = Path(td) / "ledger.json"
+        try:
+            r1 = _night("2099-01-01", "opener", "2099-01-01T02:31:00+00:00", [{"ref": "A-to-o", "frac": 0.04}, {"ref": "B-to-o", "frac": 0.04}], bets,
+                        [(("l0", "l1"), "play"), (("l2", "l3"), "play")])
+            assert ledger.record(r1) == 4
+            r2 = _night("2099-01-01", "morning", "2099-01-01T15:41:00+00:00", [{"ref": "A-to-u", "frac": 0.02}, {"ref": "C-to-o", "frac": 0.05}], bets,
+                        [(("l0", "l2"), "play"), (("l4", "l5"), "play")])
+            n2 = ledger.record(r2)
+            rows = ledger.load()
+            refs = [r["ref"] for r in rows if r["type"] == "single"]
+            assert "A-to-u" not in refs                                   # the night already holds the Over on game A
+            assert "C-to-o" not in refs                                   # 4% + 4% + 5% would pass the 10% night cap
+            assert n2 == 0 and sum(1 for r in rows if r["type"] == "pickem") == 2    # two slips for the night, not two per run
+            r3 = _night("2099-01-01", "pretip", "2099-01-01T20:41:00+00:00", [{"ref": "C-to-o", "frac": 0.02}], bets)
+            assert ledger.record(r3) == 1 and abs(sum(r["frac"] for r in ledger.load() if r["type"] == "single") - 0.10) < 1e-12
+            # a new night starts again
+            r4 = _night("2099-01-02", "opener", "2099-01-02T02:31:00+00:00", [{"ref": "A-to-u", "frac": 0.05}], bets, [(("l6", "l7"), "play")])
+            assert ledger.record(r4) == 2
+        finally:
+            ledger.LEDGER_FILE = old
+
+
+def test_ledger_records_live_slip_on_a_pass_night():
+    """Pick'em does not depend on the game verdict: the page offers a live 'play' slip on a PASS night, so the ledger records it."""
+    old = ledger.LEDGER_FILE
+    with tempfile.TemporaryDirectory() as td:
+        ledger.LEDGER_FILE = Path(td) / "ledger.json"
+        try:
+            res = _night("2099-01-03", "morning", "2099-01-03T15:00:00+00:00", [{"ref": "A-to-o", "frac": 0.02}], [_total("A", "over", 228.5, 229.5)],
+                         [(("l0", "l1"), "play")], verdict="PASS")
+            assert ledger.record(res) == 1
+            row = ledger.load()[0]
+            assert row["type"] == "pickem" and row["paper"] is False and row["frac"] == 0.05     # the game bet is not staked on a PASS
+        finally:
+            ledger.LEDGER_FILE = old
+
+
+def test_closing_line_value_uses_the_real_close():
+    """grade() takes the close from the game's history record; the desk's last snapshot can be hours old."""
+    from jghedge.data import lines as lines_mod
+    leg = {"game_id": "g", "kind": "total", "side": "over", "line": 226.5}
+    assert lines_mod.clv(leg, {"total": 227.5}) == 1.0 and lines_mod.clv({**leg, "side": "under"}, {"total": 227.5}) == -1.0
+    old_file, old_load, old_close = ledger.LEDGER_FILE, ledger.history.load_season, lines_mod.closing_line
+    with tempfile.TemporaryDirectory() as td:
+        ledger.LEDGER_FILE = Path(td) / "ledger.json"
+        try:
+            ledger.save([{"date": "2099-01-01", "ref": "g-to-o", "type": "single", "kind": "total", "dec": 1.9091, "frac": 0.02, "result": None,
+                          "legs": [{"id": "g-to-o", "game_id": "g", "kind": "total", "side": "over", "line": 226.5}]}])
+            ledger.history.load_season = lambda season: [{"id": "g", "home_score": 120.0, "away_score": 110.0, "players": [],
+                                                          "odds": {"close": {"total": 227.5, "spread_home": -3.5}}}]
+            lines_mod.closing_line = lambda date, gid: {"total": 226.5}      # the desk's own last look: the bet's own line
+            assert ledger.grade(2099) == 1
+            e = ledger.load()[0]
+            assert e["result"] == "win" and e["legs"][0]["close_line"] == 227.5 and e["legs"][0]["clv"] == 1.0
+        finally:
+            ledger.LEDGER_FILE, ledger.history.load_season, lines_mod.closing_line = old_file, old_load, old_close
+
+
+def test_moved_past_compares_with_the_number_the_desk_took():
+    bets = [_total("A", "over", 232.5, 233.0), _total("B", "over", 221.0, 222.0), _total("C", "under", 230.5, 229.5)]
+    entries = [{"date": "2099-01-01", "ref": "A-to-o", "type": "single", "kind": "total", "max_line": 229.5, "recorded_at": "t0",
+                "legs": [{"side": "over", "line": 228.5}]},
+               {"date": "2099-01-01", "ref": "B-to-o", "type": "single", "kind": "total", "max_line": 221.5, "recorded_at": "t0",
+                "legs": [{"side": "over", "line": 220.5}]},
+               {"date": "2099-01-01", "ref": "C-to-u", "type": "single", "kind": "total", "max_line": 231.5, "recorded_at": "t0",
+                "legs": [{"side": "under", "line": 232.5}]},
+               {"date": "2098-12-31", "ref": "A-to-o", "type": "single", "kind": "total", "max_line": 200.0, "legs": [{"side": "over", "line": 199.5}]}]
+    mv = {m["bet_id"]: m for m in pipeline.moved_past("2099-01-01", bets, set(), entries)}
+    assert set(mv) == {"A-to-o", "B-to-o", "C-to-u"}                       # yesterday's row is ignored
+    assert mv["A-to-o"]["still_ok"] is False and mv["A-to-o"]["line_then"] == 228.5 and mv["A-to-o"]["line_now"] == 232.5
+    assert mv["B-to-o"]["still_ok"] is True                                 # 221.0 is inside the 221.5 the desk accepted
+    assert mv["C-to-u"]["still_ok"] is False                                # an Under taken at 232.5 down to 231.5; now 230.5
+    # a bet that still qualifies at the new line is not "moved past", whatever the old number was
+    assert pipeline.moved_past("2099-01-01", bets, {"A-to-o"}, entries)[0]["still_ok"] is True
+
+
+def test_props_log_is_merged_by_game():
+    with tempfile.TemporaryDirectory() as td:
+        d = Path(td)
+        pipeline.log_props("2099-01-01", [{"game_id": "g1", "player_id": "1", "stat": "pts", "line": 20.5, "over": -110, "under": -110},
+                                          {"game_id": "g2", "player_id": "2", "stat": "pts", "line": 10.5, "over": -110, "under": -110}], log_dir=d)
+        # a later run sees only the game that has not tipped, with a moved line
+        pipeline.log_props("2099-01-01", [{"game_id": "g2", "player_id": "2", "stat": "pts", "line": 11.5, "over": -115, "under": -105}], log_dir=d)
+        rows = json.loads((d / "2099-01-01.json").read_text())
+        assert {r["game_id"] for r in rows} == {"g1", "g2"} and len(rows) == 2
+        assert next(r for r in rows if r["game_id"] == "g2")["line"] == 11.5
+
+
+def test_pending_games_restore_back_to_backs_on_an_evening_run():
+    """An evening run prices tomorrow while tonight's games are unfinished: they must still count for rest."""
+    from datetime import date
+    from jghedge.model.situational import schedule_features
+    done = pd.DataFrame([{"id": "old", "date": pd.Timestamp("2098-12-29"), "tip": "2098-12-30T00:00Z", "home": "LAL", "away": "DEN",
+                          "neutral": False, "venue_city": "Los Angeles"}])
+    slate = [{"id": "tom", "date": "2099-01-02T00:00Z", "home": "ATL", "away": "LAL", "neutral": False, "venue_city": "Atlanta"}]
+    board = {date(2098, 12, 30): [],
+             date(2098, 12, 31): [{"id": "ton", "date": "2099-01-01T02:00Z", "home": "LAL", "away": "BOS", "neutral": False, "venue_city": "Los Angeles", "state": "in", "completed": False},
+                                  {"id": "ppd", "date": "2099-01-01T00:00Z", "home": "ATL", "away": "MIA", "neutral": False, "venue_city": "Atlanta", "state": "post", "completed": False},
+                                  {"id": "old", "date": "2098-12-30T00:00Z", "home": "LAL", "away": "DEN", "neutral": False, "venue_city": "Los Angeles", "state": "post", "completed": True}]}
+    pend = pipeline.pending_games(None, date(2099, 1, 1), {"old", "tom"}, boards=board)
+    assert [g["id"] for g in pend] == ["ton"]                                # the postponed game and the known one are left out
+    without = schedule_features(pd.concat([done, pipeline._schedule_rows(slate)], ignore_index=True))
+    with_p = schedule_features(pd.concat([done, pipeline._schedule_rows(pend), pipeline._schedule_rows(slate)], ignore_index=True))
+    assert int(without.loc["tom", "a_b2b"]) == 0 and int(with_p.loc["tom", "a_b2b"]) == 1
+
+
+def test_injury_wording_negation():
+    from jghedge.data.espn import play_probability as pp
+
+    def item(status, fs, comment):
+        return {"status": status, "details": {"fantasyStatus": {"abbreviation": fs}} if fs else {}, "shortComment": comment}
+    assert pp(item("Out", "OUT", "Embiid (knee) is not expected to play Monday against the Celtics."))[0] == 0.0
+    assert pp(item("Out", "OUT", "Leonard (knee) isn't expected to play in Tuesday's game."))[0] == 0.0
+    assert pp(item("Day-To-Day", None, "He is not expected to play Monday."))[0] == 0.15
+    assert pp(item("Day-To-Day", "GTD", "Doncic is unlikely to play Wednesday."))[0] == 0.15
+    assert pp(item("Day-To-Day", None, "James (foot) will not play Tuesday."))[0] == 0.0
+    assert pp(item("Day-To-Day", "GTD", "It is unclear if he will play again this season."))[0] == 0.5
+    assert pp(item("Day-To-Day", "GTD", "Young is expected to play Friday."))[0] == 0.9
+    assert pp(item("Day-To-Day", "GTD", "Smith (finger) is probable for Sunday's game."))[0] == 0.9
 
 
 if __name__ == "__main__":

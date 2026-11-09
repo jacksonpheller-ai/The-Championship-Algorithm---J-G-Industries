@@ -148,15 +148,14 @@ def test_shrunk_ev_is_about_half_the_edge():
 
 
 def test_flex_partial_payouts():
-    # three legs, hit-count distribution computed by hand
-    hits = np.array([[1, 1, 1, 0, 1, 1, 0, 0, 1, 1],
-                     [1, 1, 0, 1, 1, 0, 1, 1, 1, 0],
-                     [1, 0, 1, 1, 1, 1, 0, 1, 1, 1]], dtype=np.uint8)
-    counts = hits.sum(0)
-    p_dist = np.bincount(counts, minlength=4) / 10
-    legs = [{"id": f"l{i}", "player_id": str(i), "p_side": float(hits[i].mean()), "p_side_shrunk": float(hits[i].mean())}
-            for i in range(3)]
-    slips = pickem.enumerate_slips(legs, hits, s=1.0, max_legs=3, top=50)
+    # three independent legs at 0.7, 0.7, 0.8: hit-count distribution by hand
+    ps = [0.7, 0.7, 0.8]
+    p_dist = np.array([0.3 * 0.3 * 0.2,
+                       0.7 * 0.3 * 0.2 + 0.3 * 0.7 * 0.2 + 0.3 * 0.3 * 0.8,
+                       0.7 * 0.7 * 0.2 + 0.7 * 0.3 * 0.8 + 0.3 * 0.7 * 0.8,
+                       0.7 * 0.7 * 0.8])
+    legs = [{"id": f"l{i}", "player_id": str(i), "p_side": ps[i], "p_side_shrunk": ps[i]} for i in range(3)]
+    slips = pickem.enumerate_slips(legs, None, s=1.0, max_legs=3, top=50)
     flex = next(x for x in slips if x["type"] == "flex3" and len(x["legs"]) == 3)
     power = next(x for x in slips if x["type"] == "power3")
     assert np.allclose(flex["p_dist"], p_dist)
@@ -316,7 +315,7 @@ def test_build_legs_hit_matrix_and_slips():
     rng = np.random.default_rng(21)
     n = 20000
     players = [_player("1", "Nikola Jokic", {"pts": 24.0, "reb": 12.0, "ast": 9.0}),
-               _player("2", "Jamal Murray", {"pts": 20.0, "reb": 4.0, "ast": 6.0}),
+               _player("2", "Jamal Murray", {"pts": 20.0, "reb": 4.0, "ast": 6.0}, team="LAL"),   # a slip needs two teams
                _player("3", "Bench Guy", {"pts": 8.0, "reb": 3.0, "ast": 1.0}, exp_min=10.0),
                _player("4", "Doubtful Star", {"pts": 25.0, "reb": 5.0, "ast": 5.0}, play_prob=0.8)]
     sims = {p["id"]: _sims(rng, n, {k: v for k, v in p["exp_line"].items() if k in ("pts", "reb", "ast")},
@@ -372,8 +371,8 @@ def test_build_legs_hit_matrix_and_slips():
     block = pickem.build_pickem_block(legs, sims, source="prizepicks", fetched_at="2026-11-07T15:00:00Z")
     assert block["platform"] == "PrizePicks" and block["source"] == "prizepicks" and block["min_entry"] == 5.0
     assert set(block["breakeven"]) == set(pickem.SLIP_TYPES) and block["payouts"]["power"]["2"] == 3.0
-    assert block["sims"]["n"] == n and block["sims"]["legs"] == [l["id"] for l in legs]
-    back = pickem.unpack_bits(block["sims"]["bits"], len(legs), n)
+    assert block["sims"] == {"n": 0, "legs": [], "bits": ""}          # slips are priced exactly; no joint draws are published
+    back = pickem.unpack_bits(pickem.pack_bits(H), len(legs), n)
     assert np.array_equal(back, H)
     assert all(isinstance(l["id"], str) for l in block["legs"]) and all(x["verdict"] in ("play", "marginal", "skip") for x in block["slips"])
     assert any("assumption" in note.lower() for note in block["notes"])
@@ -383,6 +382,73 @@ def test_build_legs_hit_matrix_and_slips():
     json.dumps(block)                                                    # serialisable as is
     empty = pickem.build_pickem_block([], {}, source="dk_proxy")
     assert empty["legs"] == [] and empty["slips"] == [] and empty["sims"]["bits"] == ""
+
+
+def test_lean_moves_a_component_anchored_combo_once():
+    """A combo with no DraftKings line of its own is anchored through its components. The lean must move
+    it by the lean, as it moves a stat DraftKings does post, not once per component."""
+    rng = np.random.default_rng(9)
+    n = 20000
+    players = [_player("7", "Combo Guy", {"pts": 21.0, "reb": 6.0, "ast": 4.5})]
+    sims = {"7": _sims(rng, n, {"pts": 21.0, "reb": 6.0, "ast": 4.5})}
+    dk = [_dk("7", "pts", 21.5, -110, -110), _dk("7", "reb", 6.5, -110, -110), _dk("7", "ast", 4.5, -110, -110)]
+    pp = [{"player_id": "7", "stat": "pra", "line": 33.5, "odds_type": "standard", "status": "pre_game", "projection_id": "x"},
+          {"player_id": "7", "stat": "pts", "line": 21.5, "odds_type": "standard", "status": "pre_game", "projection_id": "y"}]
+    game = {"id": "g", "matchup": "LAL @ DEN", "tip": "2026-11-08T02:00Z"}
+    base = {l["stat"]: l for l in pickem.build_legs(players, sims, dk, pp, {"lean": 0.0}, game=game)}
+    lean = {l["stat"]: l for l in pickem.build_legs(players, sims, dk, pp, {"lean": 0.03}, game=game)}
+    assert base["pra"]["anchor"] == "components" and lean["pra"]["anchor"] == "components"
+    assert abs((base["pra"]["p_more"] - lean["pra"]["p_more"]) - 0.03) < 0.004
+    assert abs((base["pts"]["p_more"] - lean["pts"]["p_more"]) - 0.03) <= 0.011       # a posted stat: two anchoring tolerances
+    # the stored anchoring parameters still rebuild the leaned draws
+    xa = pickem._anchored_draws(lean["pra"], sims["7"])[sims["7"]["_plays"]]
+    assert abs(float(np.mean(np.rint(xa) > 33.5)) - lean["pra"]["p_more"]) < 1e-9
+
+
+def test_slips_are_priced_exactly_not_from_the_luckiest_draws():
+    """Every leg truly 0.57: by exact binomial no slip grows $100 at a $5 entry (best is flex5 at +9.3%
+    after the shrink). Pricing thousands of combinations on one set of draws used to list a dozen 'play'
+    slips at +12% to +14%."""
+    be = pickem.breakevens()
+    legs = [{"id": f"L{i}", "player_id": str(i), "team": f"T{i % 4}", "p_side": 0.57,
+             "p_side_shrunk": float(pickem.shrink(0.57, be["power2"], 0.5)), "label": f"L{i}"} for i in range(9)]
+    rng = np.random.default_rng(200)
+    noisy = (rng.random((9, 20000)) < 0.57).astype(np.uint8)          # the draws are ignored when legs carry p_side
+    slips = pickem.enumerate_slips(legs, noisy, pool=9)
+    assert slips and not any(x["verdict"] == "play" for x in slips)
+    top = slips[0]
+    assert top["type"] == "flex5"
+    assert abs(top["ev_shrunk"] - pickem.slip_ev_at(float(pickem.shrink(0.57, be["flex5"], 0.5)), "flex5")) < 1e-9
+    assert abs(top["ev_shrunk"] - 0.0930) < 5e-4 and top["growth_at_min_entry_per_100"] < 0
+    assert all(abs(x["ev_shrunk"] - top["ev_shrunk"]) < 1e-12 for x in slips if x["type"] == "flex5")   # identical legs, identical value
+
+
+def test_void_pick_drops_the_slip_a_size():
+    """A pick that does not play drops the slip one size at that size's payout; under two live picks
+    the entry is refunded (the rule ledger.settle_pickem grades by)."""
+    o = pickem.slip_outcomes([0.6, 0.6], [0.1, 0.1], "power2")
+    assert abs(o["probs"].sum() - 1) < 1e-12
+    ev = float(o["probs"] @ o["mults"]) - 1
+    assert abs(ev - 0.81 * (3 * 0.36 - 1)) < 1e-12                   # both live 81% of the time, refunded otherwise
+    # flex5 with one void becomes a 4-pick flex: all four hit pays 6x
+    o5 = pickem.slip_outcomes([1.0, 1.0, 1.0, 1.0, 1.0], [1.0, 0.0, 0.0, 0.0, 0.0], "flex5")
+    assert abs(float(o5["probs"] @ o5["mults"]) - 6.0) < 1e-12
+    # a 2-pick flex does not exist, so a 3-pick flex with one void pays the 2-pick power multiple
+    o3 = pickem.slip_outcomes([1.0, 1.0, 1.0], [1.0, 0.0, 0.0], "flex3")
+    assert abs(float(o3["probs"] @ o3["mults"]) - 3.0) < 1e-12
+    # the slip value seen by enumerate_slips includes the void chance and a tie on a whole-number line
+    legs = [{"id": "a", "player_id": "1", "team": "A", "p_side": 0.6, "p_side_shrunk": 0.6, "p_void": 0.1},
+            {"id": "b", "player_id": "2", "team": "B", "p_side": 0.6, "p_side_shrunk": 0.6, "p_void": 0.0, "p_tie": 0.1}]
+    sl = pickem.enumerate_slips(legs, None, s=1.0, max_legs=2)[0]
+    assert abs(sl["ev"] - 0.81 * (3 * 0.36 - 1)) < 1e-12 and abs(sl["p_all"] - 0.81 * 0.36) < 1e-12
+
+
+def test_single_team_slips_are_not_offered():
+    legs = [{"id": f"l{i}", "player_id": str(i), "team": t, "p_side": 0.66, "p_side_shrunk": 0.62} for i, t in enumerate(["DEN", "DEN", "DEN"])]
+    assert pickem.enumerate_slips(legs, None, max_legs=3) == []
+    legs[2]["team"] = "LAL"
+    slips = pickem.enumerate_slips(legs, None, max_legs=3)
+    assert slips and all("l2" in x["legs"] for x in slips)
 
 
 def test_under_lean_moves_more_to_less():

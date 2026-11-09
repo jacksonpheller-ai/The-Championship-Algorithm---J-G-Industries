@@ -46,8 +46,9 @@ PAYOUT_NOTES = [
     "Flex partial tiers (3-pick 1x with one miss, 4-pick 1.5x, 5-pick 2x/0.4x, 6-pick 2x/0.4x) are from secondary sources. "
     "PrizePicks notes some lineups (e.g. several players from one game) pay differently: check the multiplier the app shows.",
     "Minimum entry assumed $5 (official help centre, via web search 2026-11-07); Happy Hour promos can be lower.",
-    "Standard (non-Demon/Goblin) projections only; a voided leg (DNP, tie on a whole-number line) is "
-    "counted as a loss here, which understates slip value slightly.",
+    "Standard (non-Demon/Goblin) projections only. A voided pick (the player sits, or a tie on a whole-number "
+    "line) is assumed to drop the slip one size at that size's payout; under two live picks it is refunded.",
+    "A slip needs players from at least two teams (assumed PrizePicks rule), and its picks are treated as independent.",
 ]
 
 SLIP_TYPES = ("power2", "power3", "power4", "power5", "power6", "flex3", "flex4", "flex5", "flex6")
@@ -347,31 +348,34 @@ def build_legs(players: list[dict], prop_sims: dict[str, dict], dk_props: list[d
         stats = sorted({st for (q, st) in list(dk) + list(pp) if q == pid})
         cache: dict[str, dict | None] = {}
 
-        def anchor_stat(st: str) -> dict | None:
-            if st in cache:
-                return cache[st]
+        def anchor_stat(st: str, lean: bool = True) -> dict | None:
+            key = (st, lean)
+            if key in cache:
+                return cache[key]
             row, x = dk.get((pid, st)), sims.get(st)
             if row is None or x is None:
-                cache[st] = None
+                cache[key] = None
                 return None
             seed = _seed_for(pid, st)
             u = _jitter(n, seed)
             p_over, _ = novig_multiplicative(row["over"], row["under"])
             # sportsbook overs hit less often than their no-vig price: anchor to the price minus the lean
-            p_anchor = float(min(max(p_over - float(prm["lean"]), 0.02), 0.98))
+            p_anchor = float(min(max(p_over - (float(prm["lean"]) if lean else 0.0), 0.02), 0.98))
             m, c = anchor_params(np.asarray(x, dtype=float)[plays], float(row["line"]), p_anchor, u[plays],
                                  prm["tol"], tuple(prm["strain_band"]))
-            cache[st] = {"x": _transform(x, u, m, c), "m": m, "shift": c, "seed": seed, "dk": row,
-                         "p_over_mkt": p_over, "p_over_anchor": p_anchor, "anchor": "dk", "components": None}
-            return cache[st]
+            cache[key] = {"x": _transform(x, u, m, c), "m": m, "shift": c, "seed": seed, "dk": row,
+                          "p_over_mkt": p_over, "p_over_anchor": p_anchor, "anchor": "dk", "components": None}
+            return cache[key]
 
         for st in stats:
             a = anchor_stat(st)
             if a is None and st in COMBOS:
-                parts = [anchor_stat(x) for x in COMBOS[st]]
+                # components are anchored WITHOUT the lean and the lean is applied once to the sum below;
+                # leaning each component first would move a Pts+Reb+Ast pick by about 1.5 times the lean
+                parts = [anchor_stat(x, lean=False) for x in COMBOS[st]]
                 if all(parts):
                     a = {"x": sum(q["x"] for q in parts), "m": None, "shift": None, "seed": None, "dk": None,
-                         "p_over_mkt": None, "p_over_anchor": None, "anchor": "components",
+                         "p_over_mkt": None, "p_over_anchor": None, "anchor": "components", "lean_pending": True,
                          "components": [{"stat": c_st, "m": q["m"], "shift": q["shift"], "seed": q["seed"]}
                                         for c_st, q in zip(COMBOS[st], parts)]}
             if a is None:
@@ -391,6 +395,13 @@ def build_legs(players: list[dict], prop_sims: dict[str, dict], dk_props: list[d
                 lo_p, hi_p = prm["proxy_p_band"]
                 if a["p_over_mkt"] is None or not (lo_p <= a["p_over_mkt"] <= hi_p):
                     continue   # lopsided DK market: PrizePicks would post a different number (or none)
+            if a.get("lean_pending") and float(prm["lean"]) > 0:
+                # one shift of the summed draws so that P(more) at this line falls by exactly the lean
+                xs = a["x"][plays]
+                edge = line if not float(line).is_integer() else line + 0.5      # round(x) > line  <=>  x >= edge
+                target = max(float(np.mean(np.rint(xs) > line)) - float(prm["lean"]), 0.02)
+                a = {**a, "shift": float(edge - np.quantile(xs, 1.0 - target))}
+                a["x"] = a["x"] + a["shift"]
             xa = a["x"][plays]
             p_more, p_less, p_tie = leg_probabilities(xa, line)
             side = "more" if p_more >= p_less else "less"
@@ -439,7 +450,7 @@ def _anchored_draws(leg: dict, sims: dict) -> np.ndarray:
         tot = np.zeros(n)
         for c in leg["anchor_components"]:
             tot += _transform(sims[c["stat"]], _jitter(n, c["seed"]), float(c["m"]), float(c["shift"]))
-        return tot
+        return tot + float(leg.get("anchor_shift") or 0.0)      # the lean, applied once to the sum
     return _transform(sims[leg["stat"]], _jitter(n, leg["anchor_seed"]), float(leg["anchor_m"]), float(leg["anchor_shift"]))
 
 
@@ -535,68 +546,121 @@ def _too_similar(x: dict, chosen: list[dict], max_overlap: float) -> bool:
     return False
 
 
-def enumerate_slips(legs: list[dict], hits: np.ndarray, payouts: dict = PAYOUTS, min_entry: float = MIN_ENTRY,
-                    bankroll_ref: float = 100.0, max_legs: int = 6, pool: int = 14, s: float = 0.5,
-                    top: int = 12, seed: int = 12345, max_overlap: float = 0.8) -> list[dict]:
-    """Every combination of 2..max_legs legs from the `pool` best legs (no two legs of the same
-    player; same game allowed), priced from the joint draws:
-      p_dist     exact hit-count distribution over the simulation
-      ev_mult/ev expected payout multiple and EV per $1 at raw probabilities
-      ev_shrunk  the same after thinning each leg's wins to its shrunk probability
-      growth_at_min_entry_per_100  E[ln(1 + (payout-1) * min_entry/bankroll_ref)] at shrunk hits
+def _step_down_vector(kind: str, m: int, payouts: dict) -> np.ndarray | None:
+    """Payout vector for a slip left with `m` live picks: the same family at that size, else the other
+    family, else None (refund). Mirrors ledger.settle_pickem."""
+    if m < 2:
+        return None
+    for fam in (kind, "flex" if kind == "power" else "power"):
+        if m in payouts.get(fam, {}):
+            return payout_vector(f"{fam}{m}", payouts)
+    return None
+
+
+def slip_outcomes(ps, vs, slip_type: str, payouts: dict = PAYOUTS) -> dict:
+    """Exact outcome table of a slip whose picks are independent.
+
+    ps[i] = P(pick i hits | it is live); vs[i] = P(pick i is void: the player sits, or the stat lands on
+    a whole-number line). ASSUMPTION (PrizePicks house rules as remembered, same as the grader): a void
+    pick drops the slip to the next size down at that size's payout, and under two live picks the entry
+    is refunded. Returns the probability and payout multiple of every (live picks, hits) cell, the
+    marginal hit-count distribution and P(every pick is live and hits)."""
+    kind, n = parse_slip_type(slip_type)
+    table = np.zeros((n + 1, n + 1))            # [live picks, hits]
+    table[0, 0] = 1.0
+    for p, v in zip(ps, vs):
+        p, v = float(p), float(v)
+        nxt = table * v
+        nxt[1:, :] += table[:-1, :] * (1 - v) * (1 - p)
+        nxt[1:, 1:] += table[:-1, :-1] * (1 - v) * p
+        table = nxt
+    probs, mults = [], []
+    for m in range(n + 1):
+        vec = _step_down_vector(kind, m, payouts)
+        for h in range(m + 1):
+            if table[m, h] > 0:
+                probs.append(table[m, h])
+                mults.append(1.0 if vec is None else float(vec[h]))
+    return {"probs": np.array(probs), "mults": np.array(mults), "hit_dist": table.sum(axis=0), "p_all": float(table[n, n])}
+
+
+def enumerate_slips(legs: list[dict], hits: np.ndarray | None = None, payouts: dict = PAYOUTS,
+                    min_entry: float = MIN_ENTRY, bankroll_ref: float = 100.0, max_legs: int = 6,
+                    pool: int = 14, s: float = 0.5, top: int = 12, seed: int = 12345,
+                    max_overlap: float = 0.8) -> list[dict]:
+    """Every combination of 2..max_legs legs from the `pool` best legs (one leg per player, players from
+    at least two teams), priced EXACTLY from the legs' own probabilities (slip_outcomes):
+      p_dist     hit-count distribution at the raw probabilities (p_dist_shrunk at the shrunk ones)
+      ev_mult/ev expected payout multiple and EV per $1 at raw probabilities, voids included
+      ev_shrunk  the same with each leg shrunk toward this slip type's break-even
+      growth_at_min_entry_per_100  E[ln(1 + (payout-1) * min_entry/bankroll_ref)] at shrunk probabilities
       b_min      smallest bankroll at which one minimum entry is growth-positive
       verdict    play / marginal / skip
-    Returns the top `top` by growth, skipping near-duplicates of an already listed slip of the
-    same type (`max_overlap`, 1.0 disables), plus the best positive slip of any type not shown.
+    Picks of different players are treated as independent (measured |rho| < 0.02). The slips used to be
+    priced from the joint simulation draws, but every one of several thousand combinations was scored
+    on the same draws and the luckiest were reported: with every leg truly 0.57 that listed a dozen
+    "play" slips at +12% to +14% when the exact answer is +9.3% and none grows a $100 bankroll.
+    `hits` is only a fallback for a leg without "p_side" (its row mean). Returns the top `top` by
+    growth, skipping near-duplicates of a listed slip of the same type (`max_overlap`, 1.0 disables),
+    plus the best positive slip of any type not shown.
     """
-    if not legs or hits is None or hits.size == 0:
+    if not legs:
         return []
-    hits = np.asarray(hits, dtype=np.uint8)
-    n_all, n = hits.shape
-    order = sorted(range(min(len(legs), n_all)),
-                   key=lambda i: -float(legs[i].get("p_side_shrunk", legs[i].get("p_side", hits[i].mean()))))[:pool]
+    H = None if hits is None or np.size(hits) == 0 else np.asarray(hits, dtype=np.uint8)
+    n_all = len(legs) if H is None else min(len(legs), H.shape[0])
+
+    def p_of(i: int) -> float:
+        v = legs[i].get("p_side")
+        return float(v) if v is not None else float(H[i].mean())
+
+    if H is None and any(legs[i].get("p_side") is None for i in range(n_all)):
+        return []
+    order = sorted(range(n_all), key=lambda i: -float(legs[i].get("p_side_shrunk", p_of(i))))[:pool]
     if len(order) < 2:
         return []
     types = available_slip_types(payouts, max_legs)
     be = {t: breakeven_probability(t, payouts) for t in types}
     pay = {t: payout_vector(t, payouts) for t in types}
-    rows = hits[order]
-    p_cond = np.array([float(legs[i].get("p_side", rows[k].mean())) for k, i in enumerate(order)])
-    U = np.random.default_rng(seed).random(rows.shape)
-    rows_t = {t: _thin(rows, p_cond, be[t], s, U) for t in types}
+    p_raw = [p_of(i) for i in order]
+    # a pick is void when the player sits or (whole-number lines only) the stat lands on the line
+    void = [min(max(float(legs[i].get("p_void") or 0.0) + (1.0 - float(legs[i].get("p_void") or 0.0)) * float(legs[i].get("p_tie") or 0.0), 0.0), 1.0)
+            for i in order]
+    p_shr = {t: [float(shrink(x, be[t], s)) for x in p_raw] for t in types}
     who = [legs[i].get("player_id") for i in order]
+    team = [legs[i].get("team") for i in order]
     found: list[dict] = []
 
-    def rec(start: int, chosen: list[int], cum_raw: np.ndarray, cum_t: dict[str, np.ndarray]) -> None:
+    def rec(start: int, chosen: list[int]) -> None:
         d = len(chosen)
-        if d >= 2:
-            p_dist = _dist(cum_raw, d)
+        # ASSUMPTION: PrizePicks rejects an entry whose players are all on one team
+        if d >= 2 and not (all(team[c] is not None for c in chosen) and len({team[c] for c in chosen}) == 1):
+            vs = [void[c] for c in chosen]
             for t in slip_types_for(d, payouts):
                 if t not in types:
                     continue
-                q_dist = _dist(cum_t[t], d)
-                ev_mult = float(p_dist @ pay[t])
-                ev_shr = float(q_dist @ pay[t]) - 1.0
-                g = growth_of(q_dist, pay[t], min_entry, bankroll_ref)
+                raw = slip_outcomes([p_raw[c] for c in chosen], vs, t, payouts)
+                shr = slip_outcomes([p_shr[t][c] for c in chosen], vs, t, payouts)
+                ev_mult = float(raw["probs"] @ raw["mults"])
+                ev_shr = float(shr["probs"] @ shr["mults"]) - 1.0
+                g = growth_of(shr["probs"], shr["mults"], min_entry, bankroll_ref)
                 found.append({
                     "type": t, "legs": [legs[order[c]]["id"] for c in chosen], "n_legs": d,
-                    "p_dist": p_dist.tolist(), "p_dist_shrunk": q_dist.tolist(),
-                    "p_all": float(p_dist[d]), "p_all_shrunk": float(q_dist[d]),
+                    "p_dist": raw["hit_dist"].tolist(), "p_dist_shrunk": shr["hit_dist"].tolist(),
+                    "p_all": raw["p_all"], "p_all_shrunk": shr["p_all"],
                     "payout": pay[t].tolist(), "ev_mult": ev_mult, "ev": ev_mult - 1.0, "ev_shrunk": ev_shr,
                     "growth_at_min_entry_per_100": g,
-                    "b_min": min_bankroll_for_growth(q_dist, pay[t], min_entry),
+                    "b_min": min_bankroll_for_growth(shr["probs"], shr["mults"], min_entry),
                     "verdict": "play" if (ev_shr > 0 and g > 0) else ("marginal" if ev_shr > 0 else "skip"),
                 })
         if d >= max_legs:
             return
         used = {who[c] for c in chosen}
-        for j in range(start, len(order)):
-            if who[j] in used:
+        for k in range(start, len(order)):
+            if who[k] in used:
                 continue
-            rec(j + 1, chosen + [j], cum_raw + rows[j], {t: cum_t[t] + rows_t[t][j] for t in types})
+            rec(k + 1, chosen + [k])
 
-    zero = np.zeros(n, dtype=np.uint8)
-    rec(0, [], zero, {t: zero for t in types})
+    rec(0, [])
     found.sort(key=lambda x: (-x["growth_at_min_entry_per_100"], -x["ev_shrunk"]))
     chosen: list[dict] = []
     for x in found:
@@ -655,12 +719,11 @@ def build_pickem_block(legs: list[dict], prop_sims: dict[str, dict], source: str
         out["notes"].append("No market-anchored legs tonight (no DraftKings props or no qualifying players).")
         return out
     legs = sorted(legs, key=lambda l: (-l["p_side_shrunk"], l["id"]))
-    sim_legs = legs[:max_sim_legs]
-    H = hit_matrix(sim_legs, prop_sims)
-    slips = enumerate_slips(sim_legs, H, payouts, min_entry, bankroll_ref, max_legs, pool, s, top)
-    # anchoring parameters keep full precision so the hit matrix can be re-derived exactly
+    slips = enumerate_slips(legs[:max_sim_legs], None, payouts, min_entry, bankroll_ref, max_legs, pool, s, top)
+    # anchoring parameters keep full precision so a leg's draws can be re-derived exactly (hit_matrix)
     out["legs"] = [_round(l) | {k: l.get(k) for k in ("anchor_m", "anchor_shift", "anchor_components")} for l in legs]
-    out["sims"] = {"n": int(H.shape[1]) if H.size else 0, "legs": [l["id"] for l in sim_legs], "bits": pack_bits(H)}
+    # slips are priced exactly from the legs, so the packed joint draws are no longer published
+    out["sims"] = {"n": 0, "legs": [], "bits": ""}
     proxy = source not in ("prizepicks", "oddsapi_prizepicks") and all(l.get("line_source") != "prizepicks" for l in legs)
     by_id = {l["id"]: l for l in legs}
     for x in slips:

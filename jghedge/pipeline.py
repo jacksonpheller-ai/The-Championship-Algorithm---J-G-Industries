@@ -83,6 +83,32 @@ def slate_day(label: str, now: datetime | None = None) -> date:
     return d
 
 
+def _schedule_rows(games: list[dict]) -> pd.DataFrame:
+    return pd.DataFrame([{"id": g["id"], "date": pd.Timestamp(history.game_day(g["date"])), "tip": g["date"],
+                          "home": g["home"], "away": g["away"], "neutral": g["neutral"],
+                          "venue_city": g["venue_city"]} for g in games],
+                        columns=["id", "date", "tip", "home", "away", "neutral", "venue_city"])
+
+
+def pending_games(f, day: date, known_ids: set, boards: dict | None = None) -> list[dict]:
+    """Games on the two days before `day` that the history does not hold yet: scheduled, under way,
+    or final within the last few minutes (postponed games are left out). `boards` maps a date to a
+    scoreboard list and replaces the fetch in tests."""
+    out = []
+    for back in (2, 1):
+        d = day - timedelta(days=back)
+        try:
+            board = boards[d] if boards is not None else espn.scoreboard(f, d)
+        except Exception:  # noqa: BLE001
+            board = []
+        for g in board:
+            if g["id"] in known_ids or g["home"] not in TEAMS or g["away"] not in TEAMS:
+                continue
+            if g.get("state") in ("pre", "in") or g.get("completed"):
+                out.append(g)
+    return out
+
+
 def _w_time(hours_to_tip: float, early: float, late: float) -> float:
     x = min(max((hours_to_tip - 1.0) / 5.0, 0.0), 1.0)
     return late + (early - late) * x
@@ -159,12 +185,43 @@ def pickem_lean(regime: dict | None, params: dict | None = None) -> dict:
 
 
 # ------------------------------------------------------------------ props regime
-def log_props(day, rows: list[dict]) -> None:
-    """Keep the pre-tip DraftKings 'ou' board (main lines) so the under lean can be measured."""
+def moved_past(day, bets: list[dict], kept_ids: set, entries: list[dict]) -> list[dict]:
+    """Totals the desk took earlier today (ledger rows, with the worst line it accepted then) against
+    the line now. still_ok is False when the bet no longer qualifies at the current line AND that line
+    is past the number the desk accepted: the page then says 'moved, skip'. (Comparing the current line
+    with a max line recomputed from that same line, as before, could never be False.)"""
+    cur = {b["id"]: b for b in bets if b.get("kind") == "total"}
+    out = []
+    for e in entries:
+        if e.get("date") != str(day) or e.get("type") != "single" or e.get("kind") != "total" or not e.get("legs"):
+            continue
+        leg, b = e["legs"][0], cur.get(e.get("ref"))
+        if b is None or leg.get("line") is None or b.get("line") is None:
+            continue                          # the game has tipped, or the line is off the board
+        ok = b["id"] in kept_ids or policy.still_ok(leg.get("side"), b["line"], e.get("max_line"))
+        out.append({"bet_id": b["id"], "priced_at": e.get("recorded_at"), "line_then": leg["line"], "line_now": b["line"],
+                    "max_line_then": e.get("max_line"), "moved_by": round(float(b["line"] - leg["line"]), 2), "still_ok": bool(ok)})
+    return out
+
+
+def log_props(day, rows: list[dict], log_dir=None) -> None:
+    """Keep the pre-tip DraftKings 'ou' board (main lines) so the under lean can be measured.
+    Several runs price a night and each sees only the games that have not tipped, so the file is
+    merged by game: a game's rows are replaced by a later pre-tip look, never dropped."""
     if not rows:
         return
-    PROPS_LOG_DIR.mkdir(parents=True, exist_ok=True)
-    (PROPS_LOG_DIR / f"{day}.json").write_text(json.dumps(rows, separators=(",", ":")))
+    log_dir = log_dir or PROPS_LOG_DIR
+    log_dir.mkdir(parents=True, exist_ok=True)
+    path = log_dir / f"{day}.json"
+    old = []
+    if path.exists():
+        try:
+            old = json.loads(path.read_text())
+        except ValueError:
+            old = []
+    fresh = {str(r.get("game_id")) for r in rows}
+    merged = [r for r in old if str(r.get("game_id")) not in fresh] + list(rows)
+    path.write_text(json.dumps(merged, separators=(",", ":")))
 
 
 def props_regime(day, params: dict | None = None, log_dir=None, results_dir=None) -> dict:
@@ -302,13 +359,15 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     team_tbl = None if replay else bbref_table(f, "team", season)
     kill = context_kill_switch(eng.gdf, season, asof, params.get("context_params"))
 
-    # situational features need the schedule including tonight
+    # situational features need the schedule including tonight, and any game before this slate that is
+    # not in the history yet: an evening run prices tomorrow while tonight's games are still being played,
+    # and without them a team on a back-to-back looks rested
     sched = eng.gdf[["id", "date", "tip", "home", "away", "neutral", "venue_city"]].copy()
     sched = sched[~sched["id"].isin({g["id"] for g in slate})]
-    tonight = pd.DataFrame([{"id": g["id"], "date": pd.Timestamp(history.game_day(g["date"])), "tip": g["date"],
-                             "home": g["home"], "away": g["away"], "neutral": g["neutral"],
-                             "venue_city": g["venue_city"]} for g in slate])
-    sit = schedule_features(pd.concat([sched, tonight], ignore_index=True)) if len(tonight) else None
+    pending = [] if replay else pending_games(f, day, set(sched["id"]) | {g["id"] for g in slate})
+    tonight = _schedule_rows(slate)
+    sit = (schedule_features(pd.concat([sched, _schedule_rows(pending), tonight], ignore_index=True))
+           if len(tonight) else None)
 
     pm = PropModel(eng.pg, eng.tg, season, asof, params) if with_props else None
     rng = np.random.default_rng(seed)
@@ -609,9 +668,10 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     for b in singles:
         meta.append({"id": b["id"], "kind": "total", "label": b["label"], "game_id": b["game_id"], "dec": b["dec"],
                      "side": b["side"], "line": b["line"], "max_line": b.get("max_line"), "fair_line": b.get("fair_line")})
+    game_of = {b["id"]: b.get("game_id") for b in bets}
     for p in parlays:
         meta.append({"id": p["id"], "kind": "parlay", "label": " + ".join(p["leg_labels"]),
-                     "game_id": None, "dec": p["dec"]})
+                     "game_id": None, "game_ids": [game_of.get(l) for l in p.get("legs", [])], "dec": p["dec"]})
     regime = props_regime(day) if not replay else {"regime": "neutral", "n": 0}
     hours_first = min((gm["hours_to_tip"] for gm in games_out if gm.get("hours_to_tip") is not None), default=None)
     flags = {"props_regime": regime["regime"], "props_regime_n": int(regime.get("n") or 0), "props_regime_min": int(PROPS_REGIME["min_lines"]),
@@ -786,13 +846,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     if not replay and slate:
         models = {gm["id"]: {"margin": gm["model"]["margin_final"], "total": gm["model"]["total_final"]} for gm in games_out}
         lines_mod.record(day, label, slate, models, at=now.isoformat(timespec="seconds"))
-        for b in kept:
-            mv = lines_mod.movement(day, b)
-            if mv:
-                # the bet was re-priced at the current line; it stays on as long as that line is within its max line
-                ok = policy.still_ok(b["side"], mv["line_now"], b.get("max_line"))
-                lines_block["moved"].append({"bet_id": b["id"], "priced_at": mv["priced_at"], "line_then": mv["line_then"],
-                                             "line_now": mv["line_now"], "moved_by": mv["moved_by"], "still_ok": bool(ok)})
+        from . import ledger as ledger_mod
+        lines_block["moved"] = moved_past(day, bets, {b["id"] for b in kept}, ledger_mod.load())
         log_props(day, props_log_rows)
 
     # ----------------------------------------------------------- output

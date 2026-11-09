@@ -3,7 +3,7 @@
 Margin and total residuals are drawn from the *empirical* walk-forward residual
 distribution (quantile tables fit by the backtest), joined by a Gaussian copula. NBA
 margins have fatter tails and a denser centre than a normal with the same RMSE, which
-matters for moneyline and alternate-line pricing. Scores are rounded; ties go to overtime.
+matters for moneyline and alternate-line pricing. Scores are rounded; a tie is settled by one point.
 """
 from __future__ import annotations
 
@@ -20,8 +20,15 @@ def _gauss_quantiles(sd: float) -> np.ndarray:
 
 class GameSim:
     def __init__(self, m_final: float, t_final: float, params: dict, n: int, rng: np.random.Generator):
-        mq = np.asarray(params.get("margin_resid_q") or _gauss_quantiles(params["margin_sd"]))
-        tq = np.asarray(params.get("total_resid_q") or _gauss_quantiles(params["total_sd"]))
+        mq = np.asarray(params.get("margin_resid_q") or _gauss_quantiles(params["margin_sd"]), dtype=float)
+        tq = np.asarray(params.get("total_resid_q") or _gauss_quantiles(params["total_sd"]), dtype=float)
+        # The centres passed in are 50/50 points (the market's line and price, blended with our number),
+        # but the fitted tables are centred on their MEAN, and totals are right-skewed (overtime), so the
+        # table's median sat 0.36 points low and every Under started 0.4 points of probability ahead.
+        # Centre the tables on their median: at zero model weight the simulation then returns the
+        # market's own no-vig probability (the closing total has landed over its centre 50.0% of the time).
+        mq = mq - float(np.interp(0.5, QGRID, mq))
+        tq = tq - float(np.interp(0.5, QGRID, tq))
         rho = float(params.get("margin_total_corr", 0.0))
         z1 = rng.standard_normal(n)
         z2 = rho * z1 + np.sqrt(max(1 - rho ** 2, 0)) * rng.standard_normal(n)
@@ -33,9 +40,15 @@ class GameSim:
         as_ = np.rint((total - margin) / 2)
         tie = hs == as_
         if tie.any():
-            ot = rng.integers(0, 2, tie.sum()) * 2 - 1
-            hs[tie] += np.where(ot > 0, rng.integers(1, 6, tie.sum()), 0)
-            as_[tie] += np.where(ot < 0, rng.integers(1, 6, tie.sum()), 0)
+            # A tied draw is a margin that rounded to zero. The residual tables already hold overtime
+            # results, so the tie is settled by one point either way without moving the expected total:
+            # the winner gains a point or the loser gives one up, each half the time. (Adding 1-5 points
+            # to the winner, as before, put 0.3 points of probability on every Over and bent short spreads.)
+            k = int(tie.sum())
+            home = rng.integers(0, 2, k) > 0
+            up = rng.integers(0, 2, k) > 0
+            hs[tie] += np.where(home & up, 1, 0) - np.where(~home & ~up, 1, 0)
+            as_[tie] += np.where(~home & up, 1, 0) - np.where(home & ~up, 1, 0)
         self.hs, self.as_ = hs, as_
         self.margin = hs - as_
         self.total = hs + as_

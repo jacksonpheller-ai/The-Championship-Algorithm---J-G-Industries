@@ -605,7 +605,9 @@ def night_block(R_shrunk, bets_meta: list[dict], bankroll: float, unit: float, f
     n_bets = int((ref_units > 0).sum())
     unc = {str(g) for g in (flags.get("lineup_uncertainty") or [])}
     if unc and n_bets:
-        stake_unc = sum(int(u) for u, m in zip(ref_units, meta) if str(m.get("game_id")) in unc)
+        # a parlay is exposed to a late scratch in any of its legs' games (meta "game_ids")
+        stake_unc = sum(int(u) for u, m in zip(ref_units, meta)
+                        if str(m.get("game_id")) in unc or any(str(g) in unc for g in (m.get("game_ids") or [])))
         flags["provisional"] = stake_unc >= 0.5 * int(ref_units.sum())
     v = verdict(score, n_bets, flags, thresholds)
     ev = R.mean(axis=0) if n_cols else np.zeros(0)

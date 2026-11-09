@@ -4,8 +4,8 @@
 //   real     docs/data/latest.json (whatever the nightly job last produced)
 //   empty    {} (no slate at all)
 // and asserts: no console/page errors, no horizontal overflow at 390px on every tab, no bankroll input
-// (tonight's amount is the only stake input), the slip hit-count distribution computed in the browser
-// from pickem.sims.bits equals the slips' p_dist, one pick per player, how tonight's amount is split
+// (tonight's amount is the only stake input), the page's exact slip value equals the engine's for every
+// published slip (including the void rule), one pick per player, how tonight's amount is split
 // (PrizePicks minimum only when it is at most half the amount, game bets by the night's call, nothing
 // moved past our number or info-only), line re-pricing, and the old #desk / #pickem links.
 // Writes light/dark screenshots of Tonight and Player props at 1280px into outdir.
@@ -78,15 +78,6 @@ async function openAt(browser, opts, slate, offsetHours) {
   const perr = []; p.on("pageerror", (e) => perr.push(String(e)));
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#tonight"); await p.waitForTimeout(400);
   assert(await p.evaluate(() => document.getElementById("answer").dataset.verdict) === String(fixture.night.verdict).toUpperCase(), "answer carries the night's call (" + fixture.night.verdict + ")");
-  // bit matrix: browser distribution == fixture p_dist for every slip (raw), and sums to 1
-  for (const s of fixture.pickem.slips) {
-    const d = await p.evaluate((ids) => window.JG_DEBUG.hitDist(ids, false), s.legs);
-    const maxDiff = Math.max(...d.map((x, i) => Math.abs(x - s.p_dist[i])));
-    assert(maxDiff < 1e-3, "slip distribution from bits matches " + s.type + " p_dist (max diff " + maxDiff.toFixed(5) + ")");
-    assert(Math.abs(d.reduce((a, b) => a + b, 0) - 1) < 1e-9, s.type + " distribution sums to 1");
-  }
-  { const s = fixture.pickem.slips[0]; const raw = await p.evaluate((ids) => window.JG_DEBUG.hitDist(ids, false), s.legs), shr = await p.evaluate((ids) => window.JG_DEBUG.hitDist(ids, true), s.legs);
-    assert(shr[shr.length - 1] <= raw[raw.length - 1] + 1e-9, "after the cut, P(all hit) <= raw P(all hit)"); }
   // how tonight's amount is split
   const byId = {}; fixture.bets.forEach((b) => { byId[b.id] = b; });
   const moved = new Set((fixture.lines.moved || []).filter((m) => m.still_ok === false).map((m) => m.bet_id));
@@ -195,6 +186,23 @@ async function openAt(browser, opts, slate, offsetHours) {
       picks: document.querySelectorAll("#mapProps .erow").length }));
     assert(done.cards === 0 && done.total === 0 && done.picks === 0 && /have started/.test(done.head), "after every game has tipped nothing is offered (" + done.head + ")");
     await over.close();
+  }
+  // ---- engine and page price a slip the same way: the page's exact value from the published legs equals the engine's
+  {
+    const rr = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
+    await rr.goto("file://" + path.join(OUT, "real.html") + "#props"); await rr.waitForTimeout(300);
+    const slips = ((real.pickem || {}).slips || []).filter((x) => x.ev_shrunk != null);
+    let worst = 0, worstAll = 0;
+    for (const x of slips) {
+      const v = await rr.evaluate((sl) => { const D = window.JG_DEBUG, legs = sl.legs.map((id) => D.PKBY[id]), be = D.beFor(sl.type);
+        return D.slipValue(legs.map((l) => D.legP(l, true, be)), legs.map((l) => D.legVoid(l)), D.slipKind(sl.type)); }, x);
+      worst = Math.max(worst, Math.abs(v.ev - x.ev_shrunk)); worstAll = Math.max(worstAll, Math.abs(v.dist[v.dist.length - 1] - x.p_dist_shrunk[x.p_dist_shrunk.length - 1]));
+    }
+    if (slips.length) assert(worst < 3e-3 && worstAll < 1e-3, "page and engine agree on the value of all " + slips.length + " published slips (max EV diff " + worst.toFixed(5) + ")");
+    // a pick whose player may sit: the void rule, by hand (two picks at 0.6, one 10% to sit -> 0.9 x (3 x 0.36 - 1))
+    const hand = await rr.evaluate(() => window.JG_DEBUG.slipValue([0.6, 0.6], [0.1, 0], "power").ev);
+    assert(Math.abs(hand - 0.9 * (3 * 0.36 - 1)) < 1e-12, "void rule in the page: a 2-pick with one pick 10% to sit is worth 0.9 x (3 x 0.36 - 1)");
+    await rr.close();
   }
   // ---- the real slate: a PASS night stakes no game bets at any amount
   const r = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);

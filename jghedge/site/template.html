@@ -337,7 +337,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     </div>
     <div id="sharedWrap" hidden><h3 style="margin-bottom:10px">Shared record (logged by either of us)</h3><div class="tiles" id="sharedTiles"></div><div class="tbl" style="margin-top:10px"><table id="sharedTbl"></table></div></div>
     <div class="panel"><h3 style="margin-bottom:10px">The desk's own ticket, graded every night</h3><div class="tiles" id="ledgerTiles" style="margin-bottom:12px"></div><div id="ledgerChart"></div><p class="small muted" id="ledgerNote" style="margin-top:8px"></p></div>
-    <div class="panel"><h3 style="margin-bottom:8px">Past seasons, replayed</h3><p class="small muted" style="margin-bottom:8px">Every past night priced with that day's opening lines and only what was known before tip, bets placed and settled from final scores. Game totals only (there is no history of prop or PrizePicks lines).</p><div class="clegend"><span><i style="background:var(--chart)"></i>$1,000 start</span><span id="lg10"><i style="background:var(--brass)"></i>$10 start, $0.10 bets</span></div><div id="replayChart"></div><div class="tbl" style="border:0;margin-top:8px"><table id="replayTbl"></table></div></div>
+    <div class="panel"><h3 style="margin-bottom:8px">Past seasons, replayed</h3><p class="small muted" style="margin-bottom:8px">Every past night priced with that day's opening lines and only what was known before tip, bets placed and settled from final scores. Game totals only (there is no history of prop or PrizePicks lines). The model's settings were fitted on these same seasons and every bet is assumed filled at the opening line, so this is an upper bound, not a forecast.</p><div class="clegend"><span><i style="background:var(--chart)"></i>$1,000 start</span><span id="lg10"><i style="background:var(--brass)"></i>$10 start, $0.10 bets</span></div><div id="replayChart"></div><div class="tbl" style="border:0;margin-top:8px"><table id="replayTbl"></table></div></div>
     <details class="panel"><summary>Model accuracy by season</summary><div class="in"><div class="grid2"><div><h3 style="margin-bottom:8px">Win-probability calibration</h3><div id="calChart"></div><p class="small muted" id="calNote"></p></div><div><h3 style="margin-bottom:8px">Final-margin error vs the closing line</h3><div class="tbl" style="border:0"><table id="folds"></table></div></div></div></div></details>
     <details class="panel"><summary>Recent desk-ticket entries</summary><div class="in"><div class="tbl" style="border:0"><table id="ledgerTbl"></table></div></div></details>
   </section>
@@ -353,7 +353,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
 
       <h2>2. Where the edge comes from</h2>
       <ul>
-        <li><b>Game totals, on Fliff.</b> Our points projection disagrees with the posted total early enough (before the line settles) to beat the price. This is the edge with a track record: the whole method has been replayed on three full past seasons using only what was known before each game.</li>
+        <li><b>Game totals, on Fliff.</b> Our points projection disagrees with the posted total early enough (before the line settles) to beat the price. This is the edge with the most evidence behind it: the method has been replayed on three past seasons using the lines, results and rosters known before each game. Its settings were fitted on those same seasons and the replay assumes every bet was filled at the opening line, so the replay flatters it. The live record is the real test.</li>
         <li><b>Player picks, on PrizePicks.</b> PrizePicks pays the same multiple whatever the odds. When a sportsbook prices one side of a player line at, say, −178, that side hits about 60% of the time, but PrizePicks pays it like any other pick. We start from the sportsbook's price, correct it for the one bias we can measure (overs hit less often than priced, so "Less" is where most of the edge is), and look for PrizePicks lines that are as easy or easier.</li>
       </ul>
       <p>Everything else is priced but not bet. Spreads and moneylines lost money in two of three replayed seasons. Our own player projections, tested on a season they hadn't seen, made the sportsbook's price worse, so they are shown for reference and never used.</p>
@@ -375,7 +375,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
         <li><b>The under lean.</b> Sportsbook overs hit less often than their price says. On 8,009 past DraftKings lines they hit 3.4 points less (2.8 in 2025–26 and 4.9 so far in 2026–27; the same direction in every month and every stat), and correcting for it on one season improved the forecasts on the other. So <span id="mLean">3.0</span> points are moved from More to Less before a pick is priced. The figure blends that history with the desk's own log of this season's lines. A More pick the sportsbook prices at 59% is treated as about 56%; a Less pick at 59% as about 62%.</li>
         <li>The chance is then read at PrizePicks' line. When PrizePicks' board can't be read (it blocks the server most nights), DraftKings' line stands in: compare with the app, or type the app's line and the page re-prices the pick.</li>
         <li>The chance is compared with the break-even: 57.7% a pick for a 2-pick Power, about 54% for a 5- or 6-pick Flex.</li>
-        <li>Slips: the chance of each number of hits is counted from the joint simulations, so two picks from the same game are priced together rather than assumed independent.</li>
+        <li>Slips: a slip's value is worked out exactly from its picks' chances, treating different players as independent. A pick whose player sits (or that lands exactly on a whole-number line) is void: the slip drops one size and pays that size's multiple, and with fewer than two live picks the entry is refunded. A slip needs players from at least two teams. A slip is suggested when it returns more than $1 per $1 after the safety cut and is worth its swings at the minimum entry.</li>
       </ol>
       <p>Evidence: on 2,866 DraftKings prop lines that moved between open and close, this method (priced at the old line, anchored to the new price) predicted 60.7% for the favoured side, which hit 59.0%. Picks it put at 60–65% hit 66% (589 picks). There is no history of PrizePicks lines, so PrizePicks results are being tracked from scratch on the Record tab.</p>
       <p>"Clear take" on a pick is the line at which our side reaches 60%. When PrizePicks' board can't be read, the desk only suggests a slip if every pick reaches its clear-take line in the app.</p>
@@ -566,7 +566,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     return w;
   }
 
-  // ---------------------------------------------------------------- PrizePicks: legs, break-evens, joint simulations
+  // ---------------------------------------------------------------- PrizePicks: legs, break-evens, exact slip value
   var PKLEGS = (PK && PK.legs) || [], PKBY = {}; PKLEGS.forEach(function (l) { PKBY[l.id] = l; });
   var PAY = (PK && PK.payouts) || { power: { "2": 3, "3": 6, "4": 10, "5": 20, "6": 37.5 }, flex: { "3": [3, 1], "4": [6, 1.5], "5": [10, 2, 0.4], "6": [25, 2, 0.4] } };
   var BE = (PK && PK.breakeven) || { power2: 0.5774 };
@@ -574,22 +574,27 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   var BE_HI = BEV.length ? Math.max.apply(null, BEV) : 0.5774, BE_LO = BEV.length ? Math.min.apply(null, BEV) : 0.5421;
   function beFor(type) { return BE[type] || BE.power2 || 0.5774; }
   function slipName(t) { var m = /^(power|flex)(\d+)$/.exec(String(t)); return m ? m[2] + "-pick " + (m[1] === "power" ? "Power" : "Flex") : String(t); }
-  var SIMS = null;   // { n, rows: {legId -> row}, bytes }
-  (function () {
-    var s = PK && PK.sims; if (!s || !s.bits || !s.n || !(s.legs || []).length) return;
-    try { var bin = atob(s.bits), bytes = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i); var rows = {}; s.legs.forEach(function (id, i) { rows[id] = i; }); if (bytes.length * 8 >= s.legs.length * s.n) SIMS = { n: s.n, rows: rows, bytes: bytes }; } catch (e) { SIMS = null; }
-  })();
-  function hitBit(row, c) { var k = row * SIMS.n + c; return (SIMS.bytes[k >> 3] >> (7 - (k & 7))) & 1; }
-  function hash01(i, c) { var h = (i + 1) * 2654435761 + (c + 1) * 40503; h = (h ^ (h >>> 15)) >>> 0; h = Math.imul(h, 2246822519) >>> 0; h = (h ^ (h >>> 13)) >>> 0; return (h % 100000) / 100000; }
   function payVec(kind, n) { var v = new Array(n + 1).fill(0); if (kind === "power") { if (!PAY.power || PAY.power[String(n)] == null) return null; v[n] = PAY.power[String(n)]; } else { var f = (PAY.flex || {})[String(n)]; if (!f) return null; f.forEach(function (m, i) { v[n - i] = m; }); } return v; }
   function shrPk(p, be) { var s = SHR.pickem != null ? SHR.pickem : 0.5; return p > be ? be + s * (p - be) : p; }   // one-sided: never lifts a pick below break-even
-  function hitDist(ids, shrunk, be) {   // exact hit-count distribution over the joint draws; shrunk thins wins to the cut probability (keeps correlation)
-    var n = ids.length, rows = ids.map(function (id) { return SIMS.rows[id]; }), keep = ids.map(function (id) { var l = PKBY[id]; return shrunk && l && l.p_side > 0 ? Math.min(1, shrPk(l.p_side, be || beFor("power2")) / l.p_side) : 1; });
-    var cnt = new Array(n + 1).fill(0);
-    for (var c = 0; c < SIMS.n; c++) { var h = 0; for (var i = 0; i < n; i++) { if (hitBit(rows[i], c) && (keep[i] >= 1 || hash01(rows[i], c) < keep[i])) h++; } cnt[h]++; }
-    return cnt.map(function (x) { return x / SIMS.n; });
+  function stepVec(kind, m) { if (m < 2) return null; return payVec(kind, m) || payVec(kind === "power" ? "flex" : "power", m); }
+  function slipValue(ps, vs, kind) {   // exact value of a slip whose picks are independent; a void pick drops it one size, under two live picks it is refunded (mirrors pickem.slip_outcomes)
+    var n = ps.length, T = [], m, h, i;
+    for (m = 0; m <= n; m++) T.push(new Array(n + 1).fill(0));
+    T[0][0] = 1;
+    for (i = 0; i < n; i++) {
+      var p = ps[i], v = vs[i] || 0, N = []; for (m = 0; m <= n; m++) N.push(new Array(n + 1).fill(0));
+      for (m = 0; m <= i; m++) for (h = 0; h <= m; h++) { var x = T[m][h]; if (!x) continue; N[m][h] += x * v; N[m + 1][h] += x * (1 - v) * (1 - p); N[m + 1][h + 1] += x * (1 - v) * p; }
+      T = N;
+    }
+    var evm = 0, g = 0, f = state.ppMin / 100, dist = new Array(n + 1).fill(0);
+    for (m = 0; m <= n; m++) { var vec = stepVec(kind, m); for (h = 0; h <= m; h++) { var q = T[m][h]; if (!q) continue; var mult = vec ? vec[h] : 1; evm += q * mult; g += q * Math.log(Math.max(1e-9, 1 + (mult - 1) * f)); dist[h] += q; } }
+    return { evm: evm, ev: evm - 1, g: g, dist: dist };
   }
-  function pbDist(ps) { var d = [1]; ps.forEach(function (p) { var nd = new Array(d.length + 1).fill(0); d.forEach(function (x, k) { nd[k] += x * (1 - p); nd[k + 1] += x * p; }); d = nd; }); return d; }
+  function legVoid(l) {   // chance the pick is void: the player sits, or the stat lands on a whole-number line
+    var v = l.p_void || 0, t = l.p_tie || 0, line = pk.edited[l.id];
+    if (line != null && line !== l.line) { var e = (l.q || []).filter(function (r) { return r.line === line; })[0]; t = e && e.p_tie ? e.p_tie : 0; }
+    return Math.min(1, v + (1 - v) * t);
+  }
   function slipMath(dist, pay) { var evm = 0; dist.forEach(function (p, k) { evm += p * pay[k]; }); return { evm: evm, ev: evm - 1 }; }
   var pk = { ticked: [], edited: {}, showAll: false };
   function curLine(l) { return pk.edited[l.id] != null ? pk.edited[l.id] : l.line; }
@@ -696,11 +701,11 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var ids = s.legs, n = ids.length, kind = slipKind(s.type), pay = payVec(kind, n) || new Array(n + 1).fill(0), beT = beFor(s.type);
     var edited = ids.some(function (id) { return pk.edited[id] != null && pk.edited[id] !== PKBY[id].line; });
     var ok = ids.every(function (id) { return pAt(PKBY[id]).ok; }), dist = null, ev = null, g = null;
-    if (!edited) {   // untouched: the server's joint-simulation numbers and its verdict stand
+    if (!edited) {   // untouched: the engine's numbers and its verdict stand (the page's slipValue gives the same)
       dist = s.p_dist_shrunk || s.p_dist || null; ev = s.ev_shrunk != null ? s.ev_shrunk : (dist ? slipMath(dist, pay).ev : null);
       return { edited: false, ok: ok, dist: dist, ev: ev, g: null, pay: pay, n: n, kind: kind, be: beT, good: ok && (s.verdict === "play" || s.verdict === "check_lines") && ev > 0 };
     }
-    if (ok) { dist = pbDist(ids.map(function (id) { return legP(PKBY[id], true, beT); })); ev = slipMath(dist, pay).ev; var f = state.ppMin / 100; g = 0; dist.forEach(function (q, k) { g += q * Math.log(Math.max(1e-9, 1 + (pay[k] - 1) * f)); }); }
+    if (ok) { var val = slipValue(ids.map(function (id) { return legP(PKBY[id], true, beT); }), ids.map(function (id) { return legVoid(PKBY[id]); }), kind); dist = val.dist; ev = val.ev; g = val.g; }
     // typed lines are live lines, so the desk's live rule applies: positive after the cut, and worth its swings at the minimum entry on a $100 reference
     return { edited: true, ok: ok, dist: dist, ev: ev, g: g, pay: pay, n: n, kind: kind, be: beT, good: !!dist && ev > 0 && g > 0 };
   }
@@ -969,17 +974,17 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var out = warn.map(function (w) { return "<div class='banner' style='margin-bottom:8px'>" + esc(w) + "</div>"; }).join("");
     customState = null;
     if (pay && n >= 2 && n <= 6) {
-      var beT = beFor(kind + n), joint = !!SIMS && ids.every(function (id) { return SIMS.rows[id] != null && (pk.edited[id] == null || pk.edited[id] === PKBY[id].line); });
-      var same = joint ? (PK.slips || []).filter(function (x) { return x.type === kind + n && x.legs.length === n && x.legs.every(function (id) { return ids.indexOf(id) >= 0; }) && x.p_dist && x.p_dist_shrunk; })[0] : null;
-      var dRaw = same ? same.p_dist : joint ? hitDist(ids, false) : pbDist(ids.map(function (id) { return legP(PKBY[id], false); }));
-      var dShr = same ? same.p_dist_shrunk : joint ? hitDist(ids, true, beT) : pbDist(ids.map(function (id) { return legP(PKBY[id], true, beT); }));
-      var mRaw = slipMath(dRaw, pay), mShr = slipMath(dShr, pay);
+      var beT = beFor(kind + n), voids = ids.map(function (id) { return legVoid(PKBY[id]); });
+      var mRaw = slipValue(ids.map(function (id) { return legP(PKBY[id], false); }), voids, kind);
+      var mShr = slipValue(ids.map(function (id) { return legP(PKBY[id], true, beT); }), voids, kind);
+      var dRaw = mRaw.dist, dShr = mShr.dist;
       customState = { ids: ids, kind: kind, n: n, pay: pay, entry: entry, dist: dShr };
       out += "<div class='tiles' style='margin-bottom:10px'>" + [[esc(slipName(kind + n)), esc(slipPays(kind, n).replace(/^pays /, "")), "needs " + pct(beT) + " a pick"],
         ["All " + n + " hit", pct(dShr[n]), "raw " + pct(dRaw[n])],
         ["Back per $1", '<span class="' + (mShr.ev >= 0 ? "pos" : "neg") + '">' + mShr.evm.toFixed(2) + "×</span>", "after the cut · raw " + mRaw.evm.toFixed(2) + "×"],
         ["On " + usd(entry), '<span class="' + (mShr.ev >= 0 ? "pos" : "neg") + '">' + (mShr.ev >= 0 ? "+" : "") + usd(entry * mShr.ev) + "</span>", mShr.ev > 0 ? "expected; an edge" : "expected; no edge, skip it"]].map(tile).join("") + "</div>" +
-        "<div class='small muted' style='margin-bottom:4px'>" + (joint ? "Chance of each number of hits, from " + SIMS.n.toLocaleString() + " joint simulations (same-game picks priced together)" : "Chance of each number of hits from the typed lines (picks treated as independent)") + "</div>" + distBar(dShr, pay);
+        (new Set(ids.map(function (id) { return PKBY[id].team; })).size < 2 ? "<div class='banner' style='margin-bottom:8px'>All of these players are on one team. PrizePicks needs at least two teams in an entry.</div>" : "") +
+        "<div class='small muted' style='margin-bottom:4px'>Chance of each number of hits. Picks are treated as independent; a pick whose player sits drops the slip one size at that size's payout.</div>" + distBar(dShr, pay);
     }
     $("pkCustomOut").innerHTML = out;
     $("pkSave").disabled = !customState || !(customState.entry > 0);
@@ -1041,7 +1046,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     if (!fam) return { result: "push", pnl: 0 };
     var v = new Array(n + 1).fill(0); if (fam === "power") v[n] = Number(tbl.power[String(n)]); else tbl.flex[String(n)].forEach(function (m, i) { v[n - i] = Number(m); });
     var mult = v[hits] || 0;
-    return { result: mult > 1 ? "win" : mult > 0 ? "push" : "loss", pnl: e.stake * (mult - 1) };
+    return { result: mult > 1 ? "win" : mult === 1 ? "push" : "loss", pnl: e.stake * (mult - 1) };   // a 0.4x Flex payout is a loss of 0.6
   }
   var resultsCache = RES;
   function fetchResults(date) {
@@ -1157,7 +1162,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     $("ledgerTbl").innerHTML = rec.length ? "<thead><tr><th>Date</th><th>Bet</th><th class='n'>Odds</th><th class='n'>Beat close by</th><th>Result</th></tr></thead><tbody>" + rec.map(function (e) { var res = e.result || "pending"; var clv = (e.legs || []).map(function (l) { return l.clv; }).filter(function (c) { return c != null; }); return "<tr><td class='mono'>" + esc(e.date) + "</td><td>" + esc(e.label) + "</td><td class='n'>" + am(e.price) + "</td><td class='n'>" + (clv.length ? sgn(clv[0], 1) : "—") + "</td><td><span class='pill " + (res === "win" ? "win" : res === "loss" ? "loss" : "") + "'>" + esc(res) + "</span></td></tr>"; }).join("") + "</tbody>" : "<tbody><tr><td class='muted'>No entries yet.</td></tr></tbody>";
     var txt = "";
     if ((BT.folds || []).length) txt += "On " + BT.folds.reduce(function (s, f) { return s + f.metrics.games; }, 0).toLocaleString() + " games the model hadn't seen, its final-margin error was " + BT.folds.map(function (f) { return seasonName(f.test_season) + " " + num(f.metrics.margin_rmse.model_only, 1) + " points (closing line " + num(f.metrics.margin_rmse.market_close, 1) + ")"; }).join(", ") + ". The closing line is the better forecast, which is why the desk leans on the market and bets only early lines and only where it disagrees for a reason. ";
-    if (seasons.length) txt += "Replaying the whole method on past nights at the opening lines, from $1,000: " + seasons.map(function (k) { var r = RP[k]; return seasonName(k) + (r.nights < 60 ? " (to date)" : "") + " " + usd(r.end_bankroll) + " (" + sgn((r.stake_weighted_roi || 0) * 100) + "% per $1 bet, worst drop " + pct(r.max_drawdown, 0) + ")"; }).join("; ") + ". The settings were chosen while looking at these same seasons, so treat the replay as optimistic; the season in progress and the live record are the honest tests. Re-running a season with different random draws moves the result by $50–150 on $1,000, so single seasons are noisy.";
+    if (seasons.length) txt += "Replaying the whole method on past nights at the opening lines, from $1,000: " + seasons.map(function (k) { var r = RP[k]; return seasonName(k) + (r.nights < 60 ? " (to date)" : "") + " " + usd(r.end_bankroll) + " (" + sgn((r.stake_weighted_roi || 0) * 100) + "% per $1 bet, worst drop " + pct(r.max_drawdown, 0) + ")"; }).join("; ") + ". The model's settings were fitted on all of these seasons, the current one included, and the replay assumes every bet was filled at the opening line, so treat it as optimistic. The live record on the Record tab is the only test the method has not already seen. Re-running a season with different random draws moves the result by $50–150 on $1,000 (more in 2023–24), so single seasons are noisy.";
     $("methodEvidence").textContent = txt || "The backtest and replay reports aren't in this build.";
   }
 
@@ -1168,7 +1173,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     $("mPpMin").textContent = usd(state.ppMin); $("mFlMin").textContent = usd(state.fliffMin);
     if (PK && PK.lean && PK.lean.value != null) $("mLean").textContent = (PK.lean.value * 100).toFixed(1);
     $("fliffMin").value = state.fliffMin; $("ppMin").value = state.ppMin;
-    $("payNote").textContent = "PrizePicks payouts assumed: Power " + Object.keys(PAY.power || {}).map(function (k) { return k + "-pick " + PAY.power[k] + "×"; }).join(", ") + "; Flex " + Object.keys(PAY.flex || {}).map(function (k) { return k + "-pick " + PAY.flex[k].join("/") + "×"; }).join(", ") + " (all hit / one miss / two misses).";
+    $("payNote").textContent = "PrizePicks payouts assumed: Power " + Object.keys(PAY.power || {}).map(function (k) { return k + "-pick " + PAY.power[k] + "×"; }).join(", ") + "; Flex " + Object.keys(PAY.flex || {}).map(function (k) { return k + "-pick " + PAY.flex[k].join("/") + "×"; }).join(", ") + " (all hit / one miss / two misses). A void pick is assumed to drop the slip one size; an entry is assumed to need players from two teams.";
   }
   $("fliffMin").addEventListener("change", function () { var v = Number(this.value); if (v > 0) { state.fliffMin = v; store.set("jg.fliffmin", v); renderMethod(); renderTonight(); } });
   $("ppMin").addEventListener("change", function () { var v = Number(this.value); if (v > 0) { state.ppMin = v; store.set("jg.ppmin", v); if (Number($("pkEntry").value) < v) $("pkEntry").value = v; renderMethod(); renderTonight(); renderBuilder(); } });
@@ -1179,6 +1184,6 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   renderMethod(); renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); renderRecord(); renderOur(); gradeAll().then(renderOur);
   window.addEventListener("hashchange", route); route();
   document.addEventListener("visibilitychange", function () { if (!document.hidden) { renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); } });
-  window.JG_DEBUG = { state: state, plan: plan, slipNow: slipNow, hitDist: hitDist, settlePickem: settlePickem, SIMS: SIMS, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
+  window.JG_DEBUG = { state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
 })();
 </script>

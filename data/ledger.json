@@ -1730,5 +1730,249 @@
   "key": "flex5:401909947-pk-4431671-ast-2.5-more+401909949-pk-4432848-ast-2.5-more+401909950-pk-4066648-ast-1.5-less+401909951-pk-3064440-ast-3.5-less+401909951-pk-6475-fg3m-2.5-more",
   "recorded_at": "2026-11-08T23:59:13+00:00",
   "run_label": "pretip"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Andrew Wiggins Less 3.5 Reb + Kobe Sanders Less 2.5 Reb + Klay Thompson Less 3.5 3PM + Kris Dunn More 1.5 Stl + Bam Adebayo Less 3.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0726,
+  "ev": 0.3359,
+  "ev_shrunk": 0.1781,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909951-pk-3059319-reb-3.5-less",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Andrew Wiggins Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "3059319",
+    "player": "Andrew Wiggins",
+    "p_final": 0.593,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909950-pk-4702352-reb-2.5-less",
+    "game_id": "401909950",
+    "kind": "pickem",
+    "label": "Kobe Sanders Less 2.5 Reb",
+    "side": "less",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "4702352",
+    "player": "Kobe Sanders",
+    "p_final": 0.5835,
+    "matchup": "NO @ LAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909951-pk-6475-fg3m-3.5-less",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Klay Thompson Less 3.5 3PM",
+    "side": "less",
+    "line": 3.5,
+    "stat": "fg3m",
+    "player_id": "6475",
+    "player": "Klay Thompson",
+    "p_final": 0.5818,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909950-pk-2991139-stl-1.5-more",
+    "game_id": "401909950",
+    "kind": "pickem",
+    "label": "Kris Dunn More 1.5 Stl",
+    "side": "more",
+    "line": 1.5,
+    "stat": "stl",
+    "player_id": "2991139",
+    "player": "Kris Dunn",
+    "p_final": 0.5792,
+    "matchup": "NO @ LAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909951-pk-4066261-ast-3.5-less",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Bam Adebayo Less 3.5 Ast",
+    "side": "less",
+    "line": 3.5,
+    "stat": "ast",
+    "player_id": "4066261",
+    "player": "Bam Adebayo",
+    "p_final": 0.5723,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909950-pk-2991139-stl-1.5-more+401909950-pk-4702352-reb-2.5-less+401909951-pk-3059319-reb-3.5-less+401909951-pk-4066261-ast-3.5-less+401909951-pk-6475-fg3m-3.5-less",
+  "recorded_at": "2026-11-09T01:44:34+00:00",
+  "run_label": "afternoon"
+ },
+ {
+  "date": "2026-11-08",
+  "ref": "pk-6-flex5",
+  "type": "pickem",
+  "label": "Kobe Sanders Less 2.5 Reb + Klay Thompson More 3.5 Reb+Ast + Darius Acuff Jr. More 2.5 3PM + Jeremiah Fears Less 4.5 Reb + De'Andre Hunter More 1.5 3PM",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0701,
+  "ev": 0.3038,
+  "ev_shrunk": 0.1688,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909950-pk-4702352-reb-2.5-less",
+    "game_id": "401909950",
+    "kind": "pickem",
+    "label": "Kobe Sanders Less 2.5 Reb",
+    "side": "less",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "4702352",
+    "player": "Kobe Sanders",
+    "p_final": 0.5835,
+    "matchup": "NO @ LAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909951-pk-6475-ra-3.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Klay Thompson More 3.5 Reb+Ast",
+    "side": "more",
+    "line": 3.5,
+    "stat": "ra",
+    "player_id": "6475",
+    "player": "Klay Thompson",
+    "p_final": 0.5803,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909951-pk-5142620-fg3m-2.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "Darius Acuff Jr. More 2.5 3PM",
+    "side": "more",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "5142620",
+    "player": "Darius Acuff Jr.",
+    "p_final": 0.5763,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909950-pk-5144091-reb-4.5-less",
+    "game_id": "401909950",
+    "kind": "pickem",
+    "label": "Jeremiah Fears Less 4.5 Reb",
+    "side": "less",
+    "line": 4.5,
+    "stat": "reb",
+    "player_id": "5144091",
+    "player": "Jeremiah Fears",
+    "p_final": 0.5757,
+    "matchup": "NO @ LAC",
+    "tip": "2026-11-09T02:00Z"
+   },
+   {
+    "id": "401909951-pk-4065732-fg3m-1.5-more",
+    "game_id": "401909951",
+    "kind": "pickem",
+    "label": "De'Andre Hunter More 1.5 3PM",
+    "side": "more",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4065732",
+    "player": "De'Andre Hunter",
+    "p_final": 0.574,
+    "matchup": "MIA @ SAC",
+    "tip": "2026-11-09T02:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909950-pk-4702352-reb-2.5-less+401909950-pk-5144091-reb-4.5-less+401909951-pk-4065732-fg3m-1.5-more+401909951-pk-5142620-fg3m-2.5-more+401909951-pk-6475-ra-3.5-more",
+  "recorded_at": "2026-11-09T01:44:34+00:00",
+  "run_label": "afternoon"
  }
 ]

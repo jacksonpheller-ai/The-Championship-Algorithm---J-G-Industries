@@ -2242,5 +2242,235 @@
   "key": "flex5:401909952-pk-4278039-fg3m-3.5-less+401909954-pk-3157465-ast-2.5-less+401909955-pk-4065733-reb-2.5-more+401909958-pk-4278585-fg3m-1.5-more+401909958-pk-4601023-ast-2.5-more",
   "recorded_at": "2026-11-09T10:10:57+00:00",
   "run_label": "opener"
+ },
+ {
+  "date": "2026-11-10",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Neemias Queta Less 7.5 Reb + Jayson Tatum Less 7.5 Reb + Derrick White Less 3.5 Reb + Jaylen Brown Less 10.5 Reb+Ast + VJ Edgecombe Less 9.5 Reb+Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0646,
+  "ev": 0.2546,
+  "ev_shrunk": 0.1218,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909961-pk-4397424-reb-7.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Neemias Queta Less 7.5 Reb",
+    "side": "less",
+    "line": 7.5,
+    "stat": "reb",
+    "player_id": "4397424",
+    "player": "Neemias Queta",
+    "p_final": 0.586,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   },
+   {
+    "id": "401909961-pk-4065648-reb-7.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Jayson Tatum Less 7.5 Reb",
+    "side": "less",
+    "line": 7.5,
+    "stat": "reb",
+    "player_id": "4065648",
+    "player": "Jayson Tatum",
+    "p_final": 0.5848,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   },
+   {
+    "id": "401909961-pk-3078576-reb-3.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Derrick White Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "3078576",
+    "player": "Derrick White",
+    "p_final": 0.5757,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   },
+   {
+    "id": "401909961-pk-3917376-ra-10.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Jaylen Brown Less 10.5 Reb+Ast",
+    "side": "less",
+    "line": 10.5,
+    "stat": "ra",
+    "player_id": "3917376",
+    "player": "Jaylen Brown",
+    "p_final": 0.573,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   },
+   {
+    "id": "401909961-pk-5124612-ra-9.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "VJ Edgecombe Less 9.5 Reb+Ast",
+    "side": "less",
+    "line": 9.5,
+    "stat": "ra",
+    "player_id": "5124612",
+    "player": "VJ Edgecombe",
+    "p_final": 0.5711,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909961-pk-3078576-reb-3.5-less+401909961-pk-3917376-ra-10.5-less+401909961-pk-4065648-reb-7.5-less+401909961-pk-4397424-reb-7.5-less+401909961-pk-5124612-ra-9.5-less",
+  "recorded_at": "2026-11-10T04:11:04+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-10",
+  "ref": "pk-2-flex4",
+  "type": "pickem",
+  "label": "Neemias Queta Less 7.5 Reb + Jayson Tatum Less 7.5 Reb + Derrick White Less 3.5 Reb + Jaylen Brown Less 10.5 Reb+Ast",
+  "kind": "pickem",
+  "slip_type": "flex4",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.1131,
+  "ev": 0.17,
+  "ev_shrunk": 0.0828,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909961-pk-4397424-reb-7.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Neemias Queta Less 7.5 Reb",
+    "side": "less",
+    "line": 7.5,
+    "stat": "reb",
+    "player_id": "4397424",
+    "player": "Neemias Queta",
+    "p_final": 0.586,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   },
+   {
+    "id": "401909961-pk-4065648-reb-7.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Jayson Tatum Less 7.5 Reb",
+    "side": "less",
+    "line": 7.5,
+    "stat": "reb",
+    "player_id": "4065648",
+    "player": "Jayson Tatum",
+    "p_final": 0.5848,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   },
+   {
+    "id": "401909961-pk-3078576-reb-3.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Derrick White Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "3078576",
+    "player": "Derrick White",
+    "p_final": 0.5757,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   },
+   {
+    "id": "401909961-pk-3917376-ra-10.5-less",
+    "game_id": "401909961",
+    "kind": "pickem",
+    "label": "Jaylen Brown Less 10.5 Reb+Ast",
+    "side": "less",
+    "line": 10.5,
+    "stat": "ra",
+    "player_id": "3917376",
+    "player": "Jaylen Brown",
+    "p_final": 0.573,
+    "matchup": "BOS @ PHI",
+    "tip": "2026-11-11T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex4:401909961-pk-3078576-reb-3.5-less+401909961-pk-3917376-ra-10.5-less+401909961-pk-4065648-reb-7.5-less+401909961-pk-4397424-reb-7.5-less",
+  "recorded_at": "2026-11-10T04:11:04+00:00",
+  "run_label": "opener"
  }
 ]

@@ -2366,10 +2366,13 @@
     "tip": "2026-11-11T01:00Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909961-pk-3078576-reb-3.5-less+401909961-pk-3917376-ra-10.5-less+401909961-pk-4065648-reb-7.5-less+401909961-pk-4397424-reb-7.5-less+401909961-pk-5124612-ra-9.5-less",
   "recorded_at": "2026-11-10T04:11:04+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": 9.0,
+  "hits": 5,
+  "graded": "2026-11-11T09:33:22+00:00"
  },
  {
   "date": "2026-11-10",
@@ -2474,9 +2477,256 @@
     "tip": "2026-11-11T01:00Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex4:401909961-pk-3078576-reb-3.5-less+401909961-pk-3917376-ra-10.5-less+401909961-pk-4065648-reb-7.5-less+401909961-pk-4397424-reb-7.5-less",
   "recorded_at": "2026-11-10T04:11:04+00:00",
+  "run_label": "opener",
+  "units": 5.0,
+  "hits": 4,
+  "graded": "2026-11-11T09:33:22+00:00"
+ },
+ {
+  "date": "2026-11-11",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Jabari Smith Jr. Less 2.5 3PM + Franz Wagner Less 1.5 3PM + Ty Jerome Less 3.5 Reb + Herbert Jones Less 1.5 Ast + Julius Randle Less 1.5 3PM",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.091,
+  "ev": 0.6073,
+  "ev_shrunk": 0.276,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909974-pk-4432639-fg3m-2.5-less",
+    "game_id": "401909974",
+    "kind": "pickem",
+    "label": "Jabari Smith Jr. Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4432639",
+    "player": "Jabari Smith Jr.",
+    "p_final": 0.6211,
+    "matchup": "GS @ HOU",
+    "tip": "2026-11-12T02:30Z"
+   },
+   {
+    "id": "401909973-pk-4566434-fg3m-1.5-less",
+    "game_id": "401909973",
+    "kind": "pickem",
+    "label": "Franz Wagner Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4566434",
+    "player": "Franz Wagner",
+    "p_final": 0.621,
+    "matchup": "ORL @ UTAH",
+    "tip": "2026-11-12T02:00Z"
+   },
+   {
+    "id": "401909970-pk-4065733-reb-3.5-less",
+    "game_id": "401909970",
+    "kind": "pickem",
+    "label": "Ty Jerome Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "4065733",
+    "player": "Ty Jerome",
+    "p_final": 0.6206,
+    "matchup": "DEN @ MEM",
+    "tip": "2026-11-12T01:00Z"
+   },
+   {
+    "id": "401909972-pk-4277813-ast-1.5-less",
+    "game_id": "401909972",
+    "kind": "pickem",
+    "label": "Herbert Jones Less 1.5 Ast",
+    "side": "less",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "4277813",
+    "player": "Herbert Jones",
+    "p_final": 0.6173,
+    "matchup": "BKN @ NO",
+    "tip": "2026-11-12T01:00Z"
+   },
+   {
+    "id": "401909972-pk-3064514-fg3m-1.5-less",
+    "game_id": "401909972",
+    "kind": "pickem",
+    "label": "Julius Randle Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "3064514",
+    "player": "Julius Randle",
+    "p_final": 0.6158,
+    "matchup": "BKN @ NO",
+    "tip": "2026-11-12T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909970-pk-4065733-reb-3.5-less+401909972-pk-3064514-fg3m-1.5-less+401909972-pk-4277813-ast-1.5-less+401909973-pk-4566434-fg3m-1.5-less+401909974-pk-4432639-fg3m-2.5-less",
+  "recorded_at": "2026-11-11T09:33:11+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-11",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Jabari Smith Jr. Less 2.5 3PM + Franz Wagner Less 1.5 3PM + Ty Jerome Less 3.5 Reb + Christian Braun Less 4.5 Reb + Brayden Burries Less 1.5 3PM",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0896,
+  "ev": 0.59,
+  "ev_shrunk": 0.2687,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909974-pk-4432639-fg3m-2.5-less",
+    "game_id": "401909974",
+    "kind": "pickem",
+    "label": "Jabari Smith Jr. Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4432639",
+    "player": "Jabari Smith Jr.",
+    "p_final": 0.6211,
+    "matchup": "GS @ HOU",
+    "tip": "2026-11-12T02:30Z"
+   },
+   {
+    "id": "401909973-pk-4566434-fg3m-1.5-less",
+    "game_id": "401909973",
+    "kind": "pickem",
+    "label": "Franz Wagner Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4566434",
+    "player": "Franz Wagner",
+    "p_final": 0.621,
+    "matchup": "ORL @ UTAH",
+    "tip": "2026-11-12T02:00Z"
+   },
+   {
+    "id": "401909970-pk-4065733-reb-3.5-less",
+    "game_id": "401909970",
+    "kind": "pickem",
+    "label": "Ty Jerome Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "4065733",
+    "player": "Ty Jerome",
+    "p_final": 0.6206,
+    "matchup": "DEN @ MEM",
+    "tip": "2026-11-12T01:00Z"
+   },
+   {
+    "id": "401909970-pk-4431767-reb-4.5-less",
+    "game_id": "401909970",
+    "kind": "pickem",
+    "label": "Christian Braun Less 4.5 Reb",
+    "side": "less",
+    "line": 4.5,
+    "stat": "reb",
+    "player_id": "4431767",
+    "player": "Christian Braun",
+    "p_final": 0.6119,
+    "matchup": "DEN @ MEM",
+    "tip": "2026-11-12T01:00Z"
+   },
+   {
+    "id": "401909971-pk-5082206-fg3m-1.5-less",
+    "game_id": "401909971",
+    "kind": "pickem",
+    "label": "Brayden Burries Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "5082206",
+    "player": "Brayden Burries",
+    "p_final": 0.6119,
+    "matchup": "LAL @ MIL",
+    "tip": "2026-11-12T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909970-pk-4065733-reb-3.5-less+401909970-pk-4431767-reb-4.5-less+401909971-pk-5082206-fg3m-1.5-less+401909973-pk-4566434-fg3m-1.5-less+401909974-pk-4432639-fg3m-2.5-less",
+  "recorded_at": "2026-11-11T09:33:11+00:00",
   "run_label": "opener"
  }
 ]

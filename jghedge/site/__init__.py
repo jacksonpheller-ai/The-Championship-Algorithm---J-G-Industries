@@ -1,5 +1,6 @@
-"""Build the dashboard: docs/index.html (GitHub Pages) and dist/jg-hedging-co.html
-(a single self-contained file you can send to anyone or open offline)."""
+"""Build the dashboard: docs/index.html (the web page: GitHub Pages, or opened straight from disk)
+and dist/jg-hedging-co.html (the same page without the document wrapper, for local use), plus
+docs/data/version.json, which an open page polls to find a newer build."""
 from __future__ import annotations
 
 import json
@@ -19,6 +20,9 @@ def _load(name: str) -> dict:
 REPO_URL = "https://github.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries"
 PAGES_URL = "https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/"
 RAW_URL = "https://raw.githack.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/main/docs/index.html"
+# Where any copy of the page (the site, a downloaded file) looks for a newer build: raw.githubusercontent
+# allows cross-site reads and needs no setup while the repository is public.
+UPDATE_BASE = "https://raw.githubusercontent.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/main/docs/"
 
 
 def _recent_results(n: int = 7) -> dict:
@@ -46,7 +50,8 @@ def render() -> str:
     slate = _load("latest.json")
     data = {"slate": slate, "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
             "replay": _load("replay_open.json"), "results": _recent_results(), "shared": _load("shared_ledger.json") or None,
-            "lines": _lines_for(slate), "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL}
+            "lines": _lines_for(slate), "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL,
+            "update_base": UPDATE_BASE}
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return TEMPLATE.read_text(encoding="utf-8").replace('"__JG_DATA__"', blob)
 
@@ -58,6 +63,9 @@ def build_standalone() -> Path:
             "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, viewport-fit=cover\">\n"
             "<meta name=\"robots\" content=\"noindex\">\n</head>\n<body>\n" + body + "\n</body>\n</html>\n")
     (SITE_DIR / "index.html").write_text(page, encoding="utf-8")
+    # a few bytes the open page polls to learn that a newer build exists (template: checkForUpdate)
+    slate = _load("latest.json")
+    (SITE_DATA / "version.json").write_text(json.dumps({"generated": slate.get("generated"), "date": slate.get("date")}))
     (SITE_DIR / ".nojekyll").write_text("")
     DIST.mkdir(exist_ok=True)
     out = DIST / "jg-hedging-co.html"

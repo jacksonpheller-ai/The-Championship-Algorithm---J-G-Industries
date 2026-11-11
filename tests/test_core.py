@@ -175,6 +175,28 @@ def test_simulation_returns_the_market_probability_at_zero_model_weight():
     assert abs(float(np.mean(g.total > 219.5)) - float(np.mean(g.total < 220.5))) < 0.01
 
 
+def test_total_probabilities_match_the_simulation():
+    """The page re-prices a total at a live line with simulate.total_probabilities' formula (template
+    liveProbs). It must agree with the simulator, be 50/50 at an even half-point line, and allow a push
+    only on a whole-number line."""
+    import numpy as np
+    from jghedge.config import load_params
+    from jghedge.model.simulate import GameSim, centred_table, total_probabilities
+    p = load_params()
+    tab = centred_table(p["total_resid_q"])
+    for line, off in ((228.5, 0.0), (224.0, 0.0), (220.5, 1.7), (231.0, -2.3), (226.0, 3.0)):
+        c = line + off
+        s = GameSim(4.0, c, p, 600_000, np.random.default_rng(5))
+        so, su = float(np.mean(s.total > line)), float(np.mean(s.total < line))
+        ao, au, ap = total_probabilities(c, line, tab)
+        assert abs(so - ao) < 0.004 and abs(su - au) < 0.004, (line, off, so, ao, su, au)
+        assert abs(ao + au + ap - 1.0) < 1e-9
+        assert (ap == 0.0) == (line != round(line))
+    o, u, _ = total_probabilities(228.5, 228.5, tab)
+    assert abs(o - 0.5) < 0.002 and abs(u - 0.5) < 0.002
+    assert total_probabilities(231.5, 228.5, tab)[0] > total_probabilities(229.5, 228.5, tab)[0] > 0.5
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

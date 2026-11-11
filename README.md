@@ -2,7 +2,13 @@
 
 A quantitative NBA betting engine and dashboard for two people and a small bankroll. Every day it prices the slate (moneylines, spreads, totals, player props), builds cross-game parlays, and splits whatever you want to bet tonight across the bets that have an edge. It records the bets you say you placed and grades them from the box scores.
 
-**Open it:** `https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/` once GitHub Pages is switched on (Settings → Pages → *Deploy from a branch* → `main`, folder `/docs`). `docs/index.html` is itself a single self-contained file (that run's data is built in), so it also opens straight from disk; `python -m jghedge site` writes a copy to `dist/` locally (not committed).
+**Open it:** the page is one self-contained file, `docs/index.html`. Three ways to get it, all the same page:
+
+- **Its own address (recommended):** switch on GitHub Pages once (Settings → Pages → *Deploy from a branch* → `main`, folder `/docs`) and it lives at `https://jacksonpheller-ai.github.io/The-Championship-Algorithm---J-G-Industries/`.
+- **No setup:** `https://raw.githack.com/jacksonpheller-ai/The-Championship-Algorithm---J-G-Industries/main/docs/index.html` (a third-party service that serves the repository's file as a web page).
+- **A file:** download `docs/index.html` and open it; it works from disk.
+
+**It keeps itself current.** While open, the page (wherever it was opened from) reads the live DraftKings totals from ESPN every 90 seconds and re-prices each game in the browser the way the model run did, and every five minutes it asks for a few bytes (`docs/data/version.json`) to see whether a newer model run exists and loads it in place. A live line can take a bet off the plan; it never adds a stake the model run did not make. Player picks change only with a model run.
 
 ## Is it updated every day?
 

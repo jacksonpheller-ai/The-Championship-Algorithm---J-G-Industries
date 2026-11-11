@@ -33,7 +33,7 @@ from .model.odds import (american_to_decimal, decimal_to_american, inv_logit, lo
                          novig_multiplicative, novig_power)
 from .model.props import COMBOS, PropModel
 from .backtest import p_home_win
-from .model.simulate import GameSim, win_prob
+from .model.simulate import GameSim, _gauss_quantiles, centred_table, win_prob
 from .model.situational import schedule_features
 from .portfolio import discrete, kelly, policy
 from .portfolio.parlay import build_parlays, same_game_fair, select_parlays
@@ -599,6 +599,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
             "model": {"margin_ratings": _r(bl["m_ratings"], 2), "margin_elo": _r(bl["m_elo"], 2),
                       "margin_model": _r(bl["m_model"], 2), "margin_market": _r(bl["m_market"], 2),
                       "margin_final": _r(bl["m_final"], 2), "total_model": _r(bl["t_model"], 1),
+                      "t_model": _r(bl["t_model"], 3), "t_final": _r(bl["t_final"], 3),      # full precision for live re-pricing
                       "total_market": _r(bl["t_market"], 1), "total_final": _r(bl["t_final"], 1),
                       "total_context": _r(bl.get("t_context"), 2), "fair_total": _r(policy.fair_line(sim.total), 1),
                       "pace": _r(bl["pace"], 1), "sit_margin": _r(bl["sit_margin"], 2),
@@ -878,6 +879,13 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         "fliff": fliff_block(ticket_bets, ticket_parlays, bool(odds_events)),
         "growth": growth_block, "lines": lines_block,
         "props_regime": regime, "context": {"kill_switch": kill, "params": ctx.CONTEXT_PARAMS},
+        # everything the page needs to re-price a total at a live line the way this run did (template liveReprice)
+        "live_pricing": {"total_sd": float(params["total_sd"]), "w_early": float(params.get("w_total_early", 0.30)),
+                         "w_late": float(params["w_model_vs_market_total"]),
+                         "resid": [round(float(x), 3) for x in centred_table(
+                             params.get("total_resid_q") or _gauss_quantiles(params["total_sd"]))],
+                         "min_ev": float(params["min_ev"]), "max_edge_prob": float(params["max_edge_prob"]),
+                         "floor": float(policy.MIN_SHRUNK_EV), "s": float(policy.shrink_factor("total"))},
         "params": {k: params[k] for k in ("margin_sd", "total_sd", "w_ratings", "w_model_vs_market_margin",
                                           "w_model_vs_market_total", "w_total_early", "w_model_vs_market_props", "hca_points",
                                           "min_ev", "max_edge_prob")},

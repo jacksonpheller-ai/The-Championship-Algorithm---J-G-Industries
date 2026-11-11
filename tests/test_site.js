@@ -16,9 +16,10 @@ const OUT = process.argv[2] || path.join(__dirname, "..", "dist", "shots");
 fs.mkdirSync(OUT, { recursive: true });
 const readJson = (p) => (fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {});
 const template = fs.readFileSync(path.join(ROOT, "jghedge/site/template.html"), "utf8");
-function render(slate) {
-  const data = { slate, ledger: readJson(path.join(ROOT, "docs/data/ledger.json")), backtest: readJson(path.join(ROOT, "docs/data/backtest.json")),
-    replay: readJson(path.join(ROOT, "docs/data/replay_open.json")), results: {}, shared: null, repo: "https://github.com/example/repo", pages_url: "", raw_url: "" };
+// live: false keeps a test page off the network; the live-line and self-update tests pass { live: true } and mock the two hosts
+function render(slate, extra) {
+  const data = Object.assign({ slate, ledger: readJson(path.join(ROOT, "docs/data/ledger.json")), backtest: readJson(path.join(ROOT, "docs/data/backtest.json")),
+    replay: readJson(path.join(ROOT, "docs/data/replay_open.json")), results: {}, shared: null, repo: "https://github.com/example/repo", pages_url: "", raw_url: "", live: false }, extra || {});
   const blob = JSON.stringify(data).replace(/<\//g, "<\\/");
   return "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"></head><body>" + template.replace('"__JG_DATA__"', blob) + "</body></html>";
 }
@@ -122,7 +123,7 @@ async function openAt(browser, opts, slate, offsetHours) {
   assert(statuses.every((c) => /s-(edge|close|none)/.test(c)), "every game row is marked edge, close or none");
   // games tab: details open the numbers
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#games"); await p.waitForTimeout(300);
-  await p.click("#gameRows [data-why]"); await p.waitForTimeout(100);
+  await p.click("#gameRows .whybtn[data-why]"); await p.waitForTimeout(100);
   assert(/How we got our total/.test(await p.evaluate(() => document.getElementById("gameRows").textContent)), "game Details shows how we got our total");
   // props: tick a suggested slip's legs into the builder
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#props"); await p.waitForTimeout(300);
@@ -203,6 +204,88 @@ async function openAt(browser, opts, slate, offsetHours) {
     const hand = await rr.evaluate(() => window.JG_DEBUG.slipValue([0.6, 0.6], [0.1, 0], "power").ev);
     assert(Math.abs(hand - 0.9 * (3 * 0.36 - 1)) < 1e-12, "void rule in the page: a 2-pick with one pick 10% to sit is worth 0.9 x (3 x 0.36 - 1)");
     await rr.close();
+  }
+  // ---- live lines: the page reads ESPN's totals and re-prices each game the way the engine did
+  if (real.live_pricing && (real.games || []).length) {
+    const UPD = "https://jg-update.test/docs/";
+    fs.writeFileSync(path.join(OUT, "live.html"), render(real, { live: true, update_base: UPD }));
+    const scoreboard = (edit) => ({ events: real.games.map((g) => { const m = Object.assign({ total: g.market.total, over_price: g.market.over_price, under_price: g.market.under_price, state: "pre" }, (edit || {})[g.id] || {});
+      const od = (x) => (x > 0 ? "+" + x : String(x));
+      return { id: g.id, date: g.tip, competitions: [{ status: { type: { state: m.state } }, odds: [{ provider: { name: "DraftKings" }, overUnder: m.total, total: { over: { close: { line: "o" + m.total, odds: od(m.over_price) } }, under: { close: { line: "u" + m.total, odds: od(m.under_price) } } } }] }] }; }) });
+    let board = scoreboard(), hits = 0;
+    // six hours before the first tip the model carries weight, so a moved line matters
+    const firstTip = Math.min(...real.games.map((g) => Date.parse(g.tip)));
+    const lp = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const lerr = []; lp.on("pageerror", (e) => lerr.push(String(e)));
+    await lp.clock.setFixedTime(new Date(firstTip - 6 * 3600 * 1000));
+    await lp.route("https://site.api.espn.com/**", (route) => { hits++; route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(board) }); });
+    await lp.route(UPD + "**", (route) => route.fulfill({ status: 404, body: "" }));
+    await lp.goto("file://" + path.join(OUT, "live.html") + "#tonight"); await lp.waitForTimeout(700);
+    const st0 = await lp.evaluate(() => ({ ok: window.JG_DEBUG.LIVE.ok, n: window.JG_DEBUG.LIVE.n, moved: window.JG_DEBUG.LIVE.moved, kicker: document.getElementById("tDate").textContent }));
+    assert(hits >= 1 && st0.ok && st0.n === real.games.length && st0.moved === 0 && /lines live/.test(st0.kicker), "the page reads the live feed and re-prices all " + real.games.length + " games (" + st0.kicker.slice(-70) + ")");
+    // maths: the formula agrees with the engine's simulation at the engine's own centre and line, and is sane
+    const m0 = await lp.evaluate(() => { const D = window.JG_DEBUG, out = { worst: 0, half: D.liveProbs(228.5, 228.5), whole: D.liveProbs(224, 224), up: D.liveProbs(230.5, 228.5), ppf: D.normPpf(0.975) };
+      Object.keys(D.SRV).forEach((id) => { const g = D.GAMES[id.split("-to-")[0]], s0 = D.SRV[id]; if (!g || g.model.t_final == null || s0.line == null) return; const a = D.liveProbs(g.model.t_final, s0.line), js = (id.endsWith("-o") ? a.over : a.under) + 0.5 * a.push; out.worst = Math.max(out.worst, Math.abs(js - s0.p_final)); });
+      return out; });
+    assert(m0.worst < 0.013, "the page's formula matches the engine's simulated chance for every total (max gap " + m0.worst.toFixed(4) + ")");
+    assert(Math.abs(m0.half.over - 0.5) < 0.002 && m0.half.push === 0 && m0.whole.push > 0.01 && Math.abs(m0.whole.over - m0.whole.under) < 0.004 && m0.up.over > 0.53 && Math.abs(m0.ppf - 1.959964) < 1e-5, "an even line is 50/50, a whole-number line can push, a higher centre favours the Over");
+    // move one game's total three points up: the Over gets worse, the Under better, and the page says the line moved
+    const g0 = real.games[0], before = await lp.evaluate((id) => ({ o: window.JG_DEBUG.BETS[id + "-to-o"].p_final, u: window.JG_DEBUG.BETS[id + "-to-u"].p_final }), g0.id);
+    board = scoreboard({ [g0.id]: { total: g0.market.total + 3 } });
+    await lp.evaluate(() => { window.JG_DEBUG.LIVE.busy = false; document.dispatchEvent(new Event("visibilitychange")); }); await lp.waitForTimeout(500);
+    const after = await lp.evaluate((id) => ({ o: window.JG_DEBUG.BETS[id + "-to-o"], u: window.JG_DEBUG.BETS[id + "-to-u"], moved: window.JG_DEBUG.LIVE.moved, kicker: document.getElementById("tDate").textContent,
+      row: Array.from(document.querySelectorAll("#mapGames .erow")).map((r) => r.textContent).find((t) => t.includes("at the model run")) || "" }), g0.id);
+    assert(after.o.line === g0.market.total + 3 && after.o.p_final < before.o - 0.01 && after.o.p_final > before.o - 0.04 && after.u.p_final > before.u + 0.01 && after.moved === 1 && /1 moved/.test(after.kicker) && /was /.test(after.row), "a line moved 3 points re-prices both sides (our blend follows the market for 70% of the move, so about 2 points of chance) and is shown as moved (Over " + before.o.toFixed(3) + " -> " + after.o.p_final.toFixed(3) + ")");
+    // a live line can take a bet off the plan, never put one on: make the model love an Over, then move the line away
+    const off = await lp.evaluate((id) => { const D = window.JG_DEBUG, b = D.BETS[id + "-to-o"]; D.SRV[b.id].eligible = true; b.eligible = false; b.live = true;
+      return { off: D.gameStatus(b).tag, plan: D.plan(100).rows.filter((r) => r.id === b.id).length }; }, g0.id);
+    assert(off.off === "Moved" && off.plan === 0, "a bet that no longer qualifies at the live line is marked Moved and left out of the plan");
+    // a started game is not re-priced
+    board = scoreboard({ [g0.id]: { total: g0.market.total - 9, state: "in" } });
+    const lineBefore = await lp.evaluate((id) => window.JG_DEBUG.BETS[id + "-to-o"].line, g0.id);
+    await lp.evaluate(() => { window.JG_DEBUG.LIVE.busy = false; document.dispatchEvent(new Event("visibilitychange")); }); await lp.waitForTimeout(500);
+    assert(await lp.evaluate((id) => window.JG_DEBUG.BETS[id + "-to-o"].line, g0.id) === lineBefore, "a game ESPN reports as under way keeps its last pre-game price");
+    assert(lerr.length === 0, "no page errors with live lines: " + JSON.stringify(lerr));
+    await lp.close();
+
+    // ---- a newer build: the open page finds it through a few bytes and loads it in place, even from a file
+    const later = new Date(Date.parse(real.generated) + 3 * 3600 * 1000).toISOString().replace(".000Z", "+00:00");
+    const newer = render(Object.assign({}, real, { generated: later }), { live: true, update_base: UPD });
+    const up = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await up.clock.setFixedTime(new Date(firstTip - 6 * 3600 * 1000));
+    await up.route("https://site.api.espn.com/**", (route) => route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(scoreboard()) }));
+    let served = { v: real.generated };
+    await up.route(UPD + "data/version.json", (route) => route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ generated: served.v }) }));
+    await up.route(UPD + "index.html", (route) => route.fulfill({ status: 200, contentType: "text/plain", headers: { "access-control-allow-origin": "*" }, body: newer }));
+    await up.goto("file://" + path.join(OUT, "live.html") + "#tonight"); await up.waitForTimeout(400);
+    await up.evaluate(() => window.JG_DEBUG.checkForUpdate()); await up.waitForTimeout(400);
+    assert(await up.evaluate((g) => document.getElementById("jg-data").textContent.includes(g), real.generated), "no newer build: the page stays as it is");
+    // while a line is typed the page asks instead of reloading
+    served.v = later;
+    await up.evaluate(() => { window.JG_DEBUG.pk.edited["x"] = 1; window.JG_DEBUG.checkForUpdate(); }); await up.waitForTimeout(500);
+    assert(await up.evaluate((g) => !document.getElementById("upd").hidden && /newer model run/.test(document.getElementById("upd").textContent) && document.getElementById("jg-data").textContent.includes(g), real.generated), "a newer build while a line is typed is offered, not forced");
+    await up.click("#updGo"); await up.waitForTimeout(900);
+    assert(await up.evaluate((g) => document.getElementById("jg-data").textContent.includes(g) && !!window.JG_DEBUG && document.getElementById("tHead").textContent.length > 0, later), "the newer build is loaded in place and runs");
+    await up.close();
+  }
+  // ---- what a percentage means: every bar opens an explanation, and the explainer does the arithmetic
+  {
+    const ex = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
+    await ex.goto("file://" + path.join(OUT, "real.html") + "#tonight"); await ex.waitForTimeout(300);
+    if (await ex.$("#mapGames button.cm")) {
+      await ex.click("#mapGames button.cm"); await ex.waitForTimeout(100);
+      assert(/is our chance this bet wins/.test(await ex.evaluate(() => document.getElementById("mapGames").textContent)), "tapping a game's bar explains its percentage in wins and dollars");
+    }
+    if (await ex.$("#mapProps button.cm")) {
+      await ex.click("#mapProps button.cm"); await ex.waitForTimeout(100);
+      assert(/is our chance this pick hits/.test(await ex.evaluate(() => document.getElementById("mapProps").textContent)), "tapping a pick's bar explains what it needs in each slip");
+    }
+    await ex.goto("file://" + path.join(OUT, "real.html") + "#method/percent"); await ex.waitForTimeout(300);
+    const at60 = await ex.evaluate(() => document.getElementById("pctOut").textContent);
+    assert(/60 wins in 100/.test(at60) && /1\.15×/.test(at60) && /\+\$14\.55/.test(at60) && /1\.08×/.test(at60), "the explainer at 60%: a -110 total returns 1.15x (+$14.55 per 100 bets), a 2-pick Power 1.08x");
+    await ex.fill("#pctSlider", "52"); await ex.dispatchEvent("#pctSlider", "input"); await ex.waitForTimeout(100);
+    assert(/−\$0\.73/.test(await ex.evaluate(() => document.getElementById("pctOut").textContent)), "the explainer at 52%: a -110 total loses $0.73 per 100 bets");
+    await ex.close();
   }
   // ---- the real slate: a PASS night stakes no game bets at any amount
   const r = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);

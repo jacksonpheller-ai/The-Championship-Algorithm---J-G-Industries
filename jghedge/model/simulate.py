@@ -32,12 +32,11 @@ def _balanced_centre(q: np.ndarray) -> float:
     u = (np.arange(8001) + 0.5) / 8001
     r = np.interp(u, QGRID, q)
 
-    def tail(x):            # P(e >= x), e the sum of two independent rounding errors uniform on (-0.5, 0.5)
-        x = np.clip(x, -1.0, 1.0)
-        return np.where(x <= 0, 1.0 - (1.0 + x) ** 2 / 2.0, (1.0 - x) ** 2 / 2.0)
-
-    def gap(c):             # P(up half a point) - P(down half a point); falls as c rises
-        return float(tail(0.5 - (r - c)).mean() - tail(0.5 + (r - c)).mean())
+    # The two rounded scores add up to round(T + g), g uniform on (-0.5, 0.5), for a continuous total T.
+    # Against a half-point line at the centre: P(over | d) = clip(0.5 + d, 0, 1) with d = r - c, and
+    # P(under | d) = clip(0.5 - d, 0, 1); their difference is clip(2d, -1, 1).
+    def gap(c):             # P(over) - P(under) for a half-point line at the centre; falls as c rises
+        return float(np.clip(2.0 * (r - c), -1.0, 1.0).mean())
 
     mid = float(np.interp(0.5, QGRID, q))
     lo, hi = mid - 2.0, mid + 2.0
@@ -49,6 +48,25 @@ def _balanced_centre(q: np.ndarray) -> float:
             hi = c
     _CENTRE_CACHE[key] = (lo + hi) / 2.0
     return _CENTRE_CACHE[key]
+
+
+def centred_table(q) -> np.ndarray:
+    """A residual quantile table shifted to its balanced centre: what GameSim draws from."""
+    q = np.asarray(q, dtype=float)
+    return q - _balanced_centre(q)
+
+
+def total_probabilities(centre: float, line: float, table) -> tuple[float, float, float]:
+    """(P(over), P(under), P(push)) of the rounded total for a centre and a line, from a centred residual
+    table, without simulation: the rounded total is round(T + g) with g uniform on (-0.5, 0.5). The page
+    uses the same formula to re-price a game at the live line (template.html, liveProbs)."""
+    u = (np.arange(4000) + 0.5) / 4000
+    d = centre + np.interp(u, QGRID, np.asarray(table, dtype=float)) - float(line)
+    if abs(line - round(line)) > 0.25:          # half-point line: no push
+        over = float(np.clip(d + 0.5, 0.0, 1.0).mean())
+        return over, 1.0 - over, 0.0
+    over, under = float(np.clip(d, 0.0, 1.0).mean()), float(np.clip(-d, 0.0, 1.0).mean())
+    return over, under, max(0.0, 1.0 - over - under)
 
 
 class GameSim:

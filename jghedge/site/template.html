@@ -1,5 +1,4 @@
 <title>J&amp;G Hedging Co. NBA Desk</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,500;6..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -149,6 +148,16 @@ details.why p { margin-top: 6px; font-size: 14px; color: var(--ink-2); max-width
 .s-edge .cm .bar i { background: var(--good); opacity: 1; } .s-close .cm .bar i { background: var(--warn); opacity: 1; }
 .cm .bar b { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--ink); }
 .cm .lab { font: 12px var(--f-mono); color: var(--ink-2); margin-top: 5px; }
+button.cm { display: block; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+button.cm:hover .lab, button.cm[aria-expanded="true"] .lab { color: var(--accent); }
+button.cm .lab::after { content: " ⓘ"; color: var(--ink-3); }
+.sample { display: grid; gap: 4px; max-width: 420px; margin: 10px 0 2px; }
+.cm .scale { display: flex; justify-content: space-between; font: 11px var(--f-mono); color: var(--ink-3); margin-top: 3px; }
+.explain { font-size: 14px; color: var(--ink-2); } .explain p { margin: 0 0 6px; max-width: 80ch; } .explain p:last-child { margin: 0; } .explain b { color: var(--ink); }
+.pt { width: 100%; border-collapse: collapse; font-size: 14px; } .pt td, .pt th { padding: 6px 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.pt th { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); } .pt td.n { font-family: var(--f-mono); text-align: right; white-space: nowrap; }
+.livedot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--good); margin-right: 5px; vertical-align: 1px; }
+.livedot.off { background: var(--ink-3); }
 .tag { display: inline-block; font: 600 11px var(--f-body); text-transform: uppercase; letter-spacing: .06em; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--rule); color: var(--ink-3); white-space: nowrap; }
 .tag.edge { color: var(--good); border-color: var(--good); background: var(--good-bg); }
 .tag.close { color: var(--warn); border-color: var(--warn); background: var(--warn-bg); }
@@ -256,6 +265,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   <!-- ================================================================ TONIGHT -->
   <section class="view" id="view-tonight">
     <div class="banner" id="fresh" hidden></div>
+    <div class="banner" id="upd" hidden></div>
     <div class="amountbox">
       <label for="amount">How much do you want to bet tonight?</label>
       <div class="money"><span>$</span><input id="amount" type="number" inputmode="decimal" min="0" step="1"></div>
@@ -275,7 +285,8 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     </div>
     <div class="panel">
       <div class="sechead"><h2>Where the edge is tonight</h2></div>
-      <p class="lede">A bet has an edge when it wins more often than its price needs. The bar is our chance (after the safety cut); the black tick is the chance the price needs. Past the tick is profit.</p>
+      <p class="lede">A bet has an edge when it wins more often than its price needs. The bar is our chance that the bet wins (after the safety cut); the black tick is the chance its price needs. Past the tick is profit. Tap any bar to see what its percentage means in dollars.</p>
+      <div class="sample" aria-hidden="true"><div class="cm s-edge"><div class="bar"><i style="width:60%"></i><b style="left:calc(41.3% - 1px)"></b></div><div class="scale"><span>40%</span><span>50%</span><span>60%</span><span>70%</span></div></div><div class="small muted">Example: a bar filled to 58% with the tick at 52.4%. We expect 58 wins in 100; the price needs 52.4.</div></div>
       <div class="legend"><span><span class="tag edge">Edge</span>worth money</span><span><span class="tag close">Close</span>an edge too small, or a line away</span><span><span class="tag">None</span>no edge</span></div>
       <h3 style="margin:14px 0 8px">Games · totals on Fliff</h3>
       <div id="mapGames"></div>
@@ -349,7 +360,8 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <p>The desk does one thing: it finds bets that win more often than their price assumes, and tells you how much of tonight's amount to put on each. Most nights that is very little, and some nights it is nothing.</p>
 
       <h2>1. What happens each day</h2>
-      <p>The desk is scheduled to run every two hours. In the evening it prices the next day's slate at the opening lines, where the totals edge has been largest; through the day it re-prices as lines and injury news move. Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times, prices every bet and grades any finished night. GitHub, which runs the schedule, often starts jobs hours late, so the Tonight tab says how old the lines are and warns when they are stale. Games that have tipped drop off the page by your device's clock.</p>
+      <p><b>The model runs a few times a day.</b> Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times, prices every bet and grades any finished night. It is scheduled every two hours, but GitHub, which runs the schedule, starts only about three of those a day. In the evening a run prices the next day's slate at the opening lines.</p>
+      <p><b>The page keeps itself current in between.</b> While it is open it reads the current DraftKings totals straight from ESPN every 90 seconds and re-prices each game in your browser exactly as the model run did: the same blend of our number with the market's, the same error table, the same safety cut and floor. The header line says "lines live" when that is working. A live line can take a bet off tonight's plan; it never adds a stake the model run did not make. Every few minutes the page also asks whether a newer model run exists and loads it in place. Player picks are not re-priced live: they change only with a model run. Games that have tipped drop off by your device's clock.</p>
 
       <h2>2. Where the edge comes from</h2>
       <ul>
@@ -379,6 +391,15 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       </ol>
       <p>Evidence: on 2,866 DraftKings prop lines that moved between open and close, this method (priced at the old line, anchored to the new price) predicted 60.7% for the favoured side, which hit 59.0%. Picks it put at 60–65% hit 66% (589 picks). There is no history of PrizePicks lines, so PrizePicks results are being tracked from scratch on the Record tab.</p>
       <p>"Clear take" on a pick is the line at which our side reaches 60%. When PrizePicks' board can't be read, the desk only suggests a slip if every pick reaches its clear-take line in the app.</p>
+
+      <h2 id="percent">What a percentage on a bar means</h2>
+      <p>A percentage on a bar is a <b>chance</b>, not an edge: how many of 100 bets like it we expect to win. The <b>edge</b> is what is left after the price: every bet has a chance it needs just to break even, and only the part above that is profit. Slide to see what a given chance is worth in each kind of bet.</p>
+      <div class="box" id="pctBox">
+        <label for="pctSlider" class="small" style="display:block;margin-bottom:6px">Our chance: <b id="pctVal">60%</b></label>
+        <input type="range" id="pctSlider" min="50" max="70" step="0.5" value="60" style="width:100%">
+        <div id="pctOut" style="margin-top:10px"></div>
+      </div>
+      <p id="pctTrack" class="small muted"></p>
 
       <h2>5. The safety cut</h2>
       <p>Across 821 replayed bets the model expected +9.7% and made +6.6%; on totals it expected +6.3% and made +3.4%. So every edge is cut in half before anything is decided. A total the model gives 56% at −110 (which needs 52.4%) is treated as 54.2%. PrizePicks picks are cut halfway toward their break-even the same way. Every chance on this page is the cut one.</p>
@@ -480,7 +501,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   // the device clock: a game that has tipped can no longer be bet, whatever the slate says
   var NOW = Date.now();
   function started(tip) { var t = Date.parse(tip); return !isNaN(t) && t <= NOW; }
-  function isOff(id) { if (state.off[id]) return true; var b = BETS[id]; if (b) return started(b.tip); var q = PARLAYS[id]; return !!q && (q.legs || []).some(function (l) { return isOff(l); }); }
+  function isOff(id) { if (state.off[id]) return true; var b = BETS[id]; if (b) return started(b.tip) || liveMovedOff(b); var q = PARLAYS[id]; return !!q && (q.legs || []).some(function (l) { return isOff(l); }); }
   function agoText(d) { var m = Math.max(0, Math.round((NOW - d.getTime()) / 60000)); return m < 60 ? m + " min ago" : m < 2160 ? (m / 60).toFixed(m < 600 ? 1 : 0).replace(/\.0$/, "") + " h ago" : Math.round(m / 1440) + " days ago"; }
 
   // ---------------------------------------------------------------- header, freshness
@@ -492,7 +513,8 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var el = $("fresh"), live = (S.games || []).some(function (g) { return !started(g.tip); }), txt = "";
     if (!S.date || !nGames) txt = "No games are left to bet on this slate.";
     else if (!live) txt = (S.date < usToday() ? "This is the slate for " + S.date + ". " : "Every game on this slate has tipped off. ") + "The next slate is priced at the opening lines the evening before and again through the day. Reload later.";
-    else if (gen && NOW - gen.getTime() > 4 * 3600 * 1000) txt = "These lines were priced " + agoText(gen) + ". Lines and injury news move during the day, so check Fliff's number against each bet's worst line, or reload later for a fresh run.";
+    else if (LIVE.ok) { if (gen && NOW - gen.getTime() > 10 * 3600 * 1000) txt = "Lines are live, but the model's own inputs (ratings, injuries, player picks) are from " + agoText(gen) + ". A late scratch since then is not in these numbers."; }
+    else if (gen && NOW - gen.getTime() > 4 * 3600 * 1000) txt = "These lines were priced " + agoText(gen) + (LIVE.on ? " and the live line feed could not be reached" : "") + ". Lines and injury news move during the day, so check Fliff's number against each bet's worst line.";
     el.hidden = !txt; el.textContent = txt;
   }
 
@@ -623,6 +645,142 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     return c[0] || null;
   }
 
+  // ---------------------------------------------------------------- live lines
+  // The model runs a few times a day; lines move all day. While the page is open it reads the current
+  // DraftKings totals from ESPN (the feed the engine prices from) and re-prices every game the way the
+  // engine did: same blend with the market, same error table, same safety cut, same floor. A live line can
+  // take a bet OFF tonight's plan; it never adds a stake the model run did not make.
+  var LP = S.live_pricing || null;
+  var LIVE = { on: JG.live !== false && !!LP && (LP.resid || []).length > 10 && typeof fetch === "function", at: 0, ok: false, n: 0, moved: 0, busy: false };
+  var SRV = {}, SRVMKT = {};   // each total, and each game's market, as the model run saw them
+  Object.keys(BETS).forEach(function (id) { var b = BETS[id]; if (b.kind === "total") SRV[id] = { line: b.line, price: b.price, dec: b.dec, p_final: b.p_final, p_market: b.p_market, ev: b.ev, shrunk_ev: b.shrunk_ev, p_shrunk: b.p_shrunk, eligible: b.eligible, fair_line: b.fair_line, max_line: b.max_line }; });
+  (S.games || []).forEach(function (g) { var m = g.market || {}, md = g.model || {}; SRVMKT[g.id] = { total: m.total, over_price: m.over_price, under_price: m.under_price, hours: g.hours_to_tip, w: md.w_model_total }; });
+  var RGRID = null;
+  function resGrid() { if (RGRID) return RGRID; var q = LP.resid, m = q.length - 1, N = 2000; RGRID = new Float64Array(N); for (var j = 0; j < N; j++) { var u = (j + 0.5) / N * m, i = Math.min(m - 1, Math.floor(u)); RGRID[j] = q[i] + (q[i + 1] - q[i]) * (u - i); } return RGRID; }
+  function normPpf(p) {   // inverse normal CDF (Acklam), accurate to 1e-9
+    var a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239],
+        b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572],
+        c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783],
+        d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416], q, r;
+    p = Math.min(Math.max(p, 1e-9), 1 - 1e-9);
+    if (p < 0.02425) { q = Math.sqrt(-2 * Math.log(p)); return (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
+    if (p > 1 - 0.02425) { q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) / ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1); }
+    q = p - 0.5; r = q * q;
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+  function impl(a) { return a < 0 ? -a / (100 - a) : 100 / (a + 100); }
+  function decOf(a) { return a < 0 ? 1 + 100 / -a : 1 + a / 100; }
+  function liveProbs(c, L) {   // P(over), P(under), P(push) of the rounded total around centre c; mirrors simulate.total_probabilities
+    var r = resGrid(), n = r.length, over = 0, under = 0, half = Math.abs(L - Math.round(L)) > 0.25, j, d;
+    for (j = 0; j < n; j++) { d = c + r[j] - L;
+      if (half) { d += 0.5; over += d < 0 ? 0 : d > 1 ? 1 : d; }
+      else { over += d < 0 ? 0 : d > 1 ? 1 : d; under += d > 0 ? 0 : d < -1 ? 1 : -d; } }
+    over /= n; under = half ? 1 - over : under / n;
+    return { over: over, under: under, push: Math.max(0, 1 - over - under) };
+  }
+  function wTime(hours) { var x = Math.min(Math.max((hours - 1) / 5, 0), 1); return LP.w_late + (LP.w_early - LP.w_late) * x; }
+  function centreFor(g, mkt, w) {   // the engine's blended total for a market: w x our model + (1 - w) x the market's centre, plus the late-season add
+    var md = g.model || {}, pOver = 0.5, mt = mkt.total;
+    if (mkt.over_price && mkt.under_price) { pOver = impl(mkt.over_price) / (impl(mkt.over_price) + impl(mkt.under_price)); mt = mkt.total + LP.total_sd * normPpf(pOver); }
+    var tm = md.t_model != null ? md.t_model : md.total_model;
+    return { c: w * tm + (1 - w) * mt + (md.total_context || 0), w: w, mt: mt, pOver: pOver };
+  }
+  function liveReprice(g, mkt) {   // the two totals of game g at a live market -> fields to lay over BETS[...]; null when it cannot be priced
+    var srv = SRVMKT[g.id], md = g.model || {};
+    if (!LP || !srv || srv.total == null || mkt.total == null || (md.t_model == null && md.total_model == null)) return null;
+    var hours = (Date.parse(g.tip) - NOW) / 3600000;
+    var cs = centreFor(g, srv, srv.w != null ? srv.w : wTime(srv.hours || 0)), cl = centreFor(g, mkt, wTime(hours));
+    var a0, a1 = liveProbs(cl.c, mkt.total), out = { c: cl.c, w: cl.w, mt: cl.mt, sides: {} };
+    [["o", "over"], ["u", "under"]].forEach(function (sd) {
+      var id = g.id + "-to-" + sd[0], s0 = SRV[id]; if (!s0 || s0.line == null) return;
+      var american = sd[1] === "over" ? mkt.over_price : mkt.under_price; if (!american) american = s0.price;
+      var dec = decOf(american), side = sd[1];
+      // anchor to the model run: its simulated chance at its own line, plus the change the formula sees since then
+      a0 = liveProbs(cs.c, s0.line);
+      var delta = s0.p_final - ((side === "over" ? a0.over : a0.under) + 0.5 * a0.push);
+      var pAt = function (L) { var a = L === mkt.total ? a1 : liveProbs(cl.c, L), pf = Math.min(0.99, Math.max(0.01, (side === "over" ? a.over : a.under) + 0.5 * a.push + delta)), pw = pf - 0.5 * a.push; return { pf: pf, pw: pw, push: a.push, ev: pw * (dec - 1) - (1 - pw - a.push) }; };
+      var x = pAt(mkt.total), be = (1 - x.push) / dec, pMkt = side === "over" ? cl.pOver : 1 - cl.pOver;
+      var worst = null;   // the worst line at which the cut edge still clears the floor, at this price
+      for (var k = -16; k <= 16; k++) { var L = mkt.total + 0.5 * k; if (LP.s * pAt(L).ev >= LP.floor) worst = worst == null ? L : (side === "over" ? Math.max(worst, L) : Math.min(worst, L)); }
+      out.sides[sd[0]] = { line: mkt.total, price: american, dec: dec, p_final: x.pf, p_market: pMkt, ev: x.ev, edge: x.pf - pMkt,
+        shrunk_ev: x.ev > 0 ? LP.s * x.ev : x.ev, p_shrunk: x.ev > 0 ? be + LP.s * (x.pw - be) + 0.5 * x.push : x.pf,
+        eligible: x.ev >= LP.min_ev && x.pf >= 0.25 && Math.abs(x.pf - pMkt) <= LP.max_edge_prob,
+        fair_line: s0.fair_line == null ? null : Math.round((s0.fair_line + cl.c - cs.c) * 2) / 2, max_line: worst };
+    });
+    return out;
+  }
+  function espnMarket(ev) {   // one scoreboard event -> { id, state, total, over_price, under_price }
+    var c = (ev.competitions || [])[0] || {}, o = (c.odds || [])[0] || null, t = (o && o.total) || {};
+    var f = function (x) { if (x == null) return null; if (typeof x === "number") return x; var v = String(x).trim().toLowerCase().replace(/^[ou]/, ""); if (v === "even" || v === "ev") return 100; v = parseFloat(v); return isNaN(v) ? null : v; };
+    var close = function (k, field) { return f((((t[k] || {}).close) || {})[field]); };
+    var total = close("over", "line"); if (total == null && o) total = f(o.overUnder);
+    return { id: String(ev.id), state: (((c.status || {}).type) || {}).state || "", total: total,
+             over_price: close("over", "odds") != null ? close("over", "odds") : (o ? f(o.overOdds) : null), under_price: close("under", "odds") != null ? close("under", "odds") : (o ? f(o.underOdds) : null) };
+  }
+  function applyLive(markets) {   // lay the live markets over the bets; returns how many games moved off the model run's line or price
+    var moved = 0, n = 0;
+    (S.games || []).forEach(function (g) {
+      var mkt = markets[g.id]; if (!mkt || mkt.state !== "pre" || mkt.total == null) return;
+      var srv = SRVMKT[g.id] || {}, r = liveReprice(g, mkt); if (!r) return;
+      n++; var diff = mkt.total !== srv.total || (mkt.over_price && mkt.over_price !== srv.over_price) || (mkt.under_price && mkt.under_price !== srv.under_price);
+      if (diff) moved++;
+      ["o", "u"].forEach(function (k) { var b = BETS[g.id + "-to-" + k], x = r.sides[k]; if (b && x) { Object.keys(x).forEach(function (f) { b[f] = x[f]; }); b.live = true; } });
+      g.live = { c: r.c, w: r.w, mt: r.mt, total: mkt.total, over_price: mkt.over_price, under_price: mkt.under_price, moved: !!diff };
+    });
+    LIVE.n = n; LIVE.moved = moved; return moved;
+  }
+  function fetchLive() {
+    if (!LIVE.on || LIVE.busy || document.hidden || !S.date) return;
+    if (!(S.games || []).some(function (g) { return !started(g.tip); })) return;      // nothing left to price
+    LIVE.busy = true;
+    fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=" + S.date.replace(/-/g, "") + "&limit=100", { cache: "no-store" })
+      .then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then(function (d) { var m = {}; (d.events || []).forEach(function (e) { var x = espnMarket(e); m[x.id] = x; }); NOW = Date.now(); applyLive(m); LIVE.ok = true; LIVE.at = Date.now(); refreshViews(); })
+      .catch(function () { LIVE.ok = false; if (LIVE.at) refreshViews(); })
+      .then(function () { LIVE.busy = false; });
+  }
+  function liveMovedOff(b) { return !!(b && b.live && SRV[b.id] && SRV[b.id].eligible && !b.eligible); }   // was a bet at the model run, is not at the live line
+
+  // ---------------------------------------------------------------- a newer build of this page
+  // Each model run rebuilds the page. An open copy asks for a few bytes (data/version.json) every few minutes:
+  // from its own address when it has one, and from the repository's raw address, which also serves a copy
+  // opened from disk. A newer build is loaded in place unless a line is being typed.
+  var UPD = { base: JG.update_base || "", pending: null, tried: null };
+  function checkForUpdate() {
+    if (JG.live === false || typeof fetch !== "function" || document.hidden || !S.generated) return;
+    var web = /^https?:$/.test(location.protocol), srcs = [];
+    if (web) srcs.push({ url: "data/version.json", how: "reload" });
+    if (UPD.base) srcs.push({ url: UPD.base + "data/version.json", how: "swap" });
+    srcs.forEach(function (src) {
+      fetch(src.url, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) {
+        if (!v || !v.generated || !(v.generated > S.generated)) return;
+        if (UPD.pending && UPD.pending.generated >= v.generated && UPD.pending.how === "reload") return;
+        UPD.pending = { generated: v.generated, how: src.how }; offerUpdate();
+      }).catch(function () {});
+    });
+  }
+  function offerUpdate() {
+    var u = UPD.pending; if (!u) return;
+    var typing = Object.keys(pk.edited).length > 0 || pk.ticked.length > 0 || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+    if (!typing) return loadUpdate();
+    var el = $("upd"); el.hidden = false;
+    el.innerHTML = "A newer model run (" + esc(new Date(u.generated).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + ") is ready. <button type='button' class='btn sm' id='updGo'>Load it</button> <span class='muted'>Typed lines and ticked picks will be cleared.</span>";
+    $("updGo").addEventListener("click", loadUpdate);
+  }
+  function loadUpdate() {
+    var u = UPD.pending; if (!u || UPD.tried === u.generated) return; UPD.tried = u.generated;
+    var seen = null; try { seen = sessionStorage.getItem("jg.reloaded"); } catch (e) {}
+    if (u.how === "reload" && seen !== u.generated) { try { sessionStorage.setItem("jg.reloaded", u.generated); } catch (e) {} location.reload(); return; }
+    if (!UPD.base) return;
+    fetch(UPD.base + "index.html", { cache: "no-store" }).then(function (r) { return r.ok ? r.text() : null; }).then(function (html) {
+      if (!html || html.indexOf("jg-data") < 0 || html.indexOf(u.generated) < 0) return;      // not the build we were told about
+      clearInterval(TIMERS.live); clearInterval(TIMERS.upd);
+      document.open(); document.write(html); document.close();
+    }).catch(function () {});
+  }
+  var TIMERS = { live: 0, upd: 0 };
+  function refreshViews() { renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); }
+
   // ---------------------------------------------------------------- statuses: one vocabulary for games and picks
   function bestTotal(gid) {   // the side our number favours
     var o = BETS[gid + "-to-o"], u = BETS[gid + "-to-u"]; if (!o) return u || null; if (!u) return o;
@@ -634,6 +792,9 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var e = evS(b), mv = MOVED[b.id], gap = lineGap(b);
     if (started(b.tip)) return { s: "none", tag: "Started", act: "Tipped off at " + clockTime(b.tip) + "." };
     if (mv && mv.still_ok === false) return { s: "none", tag: "Moved", act: "The line moved from " + fline(mv.line_then) + " to " + fline(mv.line_now) + ", past our number. Skip." };
+    var s0 = SRV[b.id];
+    if (liveMovedOff(b)) return { s: "none", tag: "Moved", act: "A bet at " + fline(s0.line) + " (" + am(s0.price) + ") when the model ran. At the live " + fline(b.line) + " (" + am(b.price) + ") it no longer qualifies: skip." };
+    if (b.live && b.eligible && s0 && !s0.eligible && e >= MIN_EV_S - 1e-9 && VERDICT !== "PASS") return { s: "edge", tag: "Edge", act: "Qualifies at the live line (it did not at " + fline(s0.line) + " when the model ran). It is not in tonight's plan, which is set by the model run; if you bet it, only at " + worstText(b) + "." };
     if (b.eligible && e >= MIN_EV_S - 1e-9) return { s: "edge", tag: "Edge", act: VERDICT === "PASS"
       ? "Has an edge, but the desk passes on the night: with so little to bet, the night's expected profit is under its bar. If you bet it anyway, only at " + worstText(b) + "."
       : "Bet " + (b.side === "over" ? "Over " : "Under ") + fline(b.line) + (b.max_line != null ? "; still a bet at " + worstText(b) : "") + "." };
@@ -654,9 +815,26 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     return { s: "none", tag: "None", act: "" };
   }
   var LO = 0.40, HI = 0.70;
-  function meter(p, needs, label) {   // our chance as a bar from 40% to 70%; ticks at the chance(s) the price needs
+  function meter(p, needs, label, key) {   // our chance as a bar from 40% to 70%; ticks at the chance(s) the price needs; tap for what it means
     var w = function (x) { return Math.max(0, Math.min(100, (x - LO) / (HI - LO) * 100)); };
-    return "<div class='cm' title='" + esc(label) + "'><div class='bar'><i style='width:" + w(p == null ? LO : p).toFixed(1) + "%'></i>" + needs.map(function (n) { return "<b style='left:calc(" + w(n).toFixed(1) + "% - 1px)'></b>"; }).join("") + "</div><div class='lab'>" + esc(label) + "</div></div>";
+    var inner = "<div class='bar'><i style='width:" + w(p == null ? LO : p).toFixed(1) + "%'></i>" + needs.map(function (n) { return "<b style='left:calc(" + w(n).toFixed(1) + "% - 1px)'></b>"; }).join("") + "</div><div class='lab'>" + esc(label) + "</div>";
+    return key ? "<button type='button' class='cm' data-why='" + esc(key) + "' aria-expanded='" + (openWhy[key] ? "true" : "false") + "' title='What this percentage means'>" + inner + "</button>" : "<div class='cm' title='" + esc(label) + "'>" + inner + "</div>";
+  }
+  function money2(x) { return (x < 0 ? "−$" : "$") + Math.abs(x).toFixed(2); }
+  function explainGame(b) {   // what the bar's percentage means for one total, in wins and dollars
+    var ps = pShrunk(b), need = 1 / b.dec, e = evS(b), win = b.dec - 1, w100 = ps * 100, raw = b.p_final;
+    return "<div class='explain'><p><b>" + pct(ps) + " is our chance this bet wins</b>" + (Math.abs(raw - ps) > 0.0005 ? ", after the safety cut (the model alone says " + pct(raw) + ")" : "") + ". Of 100 bets like it we expect about " + Math.round(w100) + " to win.</p>" +
+      "<p><b>The price needs " + pct(need) + ".</b> At " + am(b.price) + " a win pays " + money2(win) + " on $1 and a loss costs $1, so the bet breaks even at " + num(need * 100, 1) + " wins in 100.</p>" +
+      "<p><b>The gap is the edge.</b> 100 bets of $1: " + num(w100, 1) + " wins × " + money2(win) + " − " + num(100 - w100, 1) + " losses × $1 = " + (e >= 0 ? "+" : "") + money2(e * 100) + ", which is the " + sgn(e * 100) + "% edge. The desk bets a total only at " + sgn(MIN_EV_S * 100) + "% or more.</p>" +
+      "<p class='small muted'>60% on this bar would be a very large edge: at −110 it means +14.5% per $1, and the model itself would have to say about 68% before the cut. Totals here usually show 50–56%. <a href='#method/percent'>More on what the percentages mean →</a></p></div>";
+  }
+  function explainPick(l) {   // the same for a PrizePicks pick: what it needs depends on the slip it goes into
+    var p = legP(l, true), raw = legP(l, false); if (p == null) return "";
+    var two = slipValue([shrPk(raw, beFor("power2")), shrPk(raw, beFor("power2"))], [0, 0], "power").evm, five = slipValue([1, 2, 3, 4, 5].map(function () { return shrPk(raw, beFor("flex5")); }), [0, 0, 0, 0, 0], "flex").evm;
+    return "<div class='explain'><p><b>" + pct(p) + " is our chance this pick hits</b>, after the safety cut (before it: " + pct(raw) + "). Of 100 picks like it we expect about " + Math.round(p * 100) + " to hit.</p>" +
+      "<p><b>What it needs depends on the slip.</b> PrizePicks pays a fixed multiple, so each slip has its own break-even per pick: " + pct(beFor("power2")) + " in a 2-pick Power, " + pct(beFor("flex5")) + " in a 5-pick Flex. The two ticks on the bar are the lowest and highest of those.</p>" +
+      "<p><b>In dollars.</b> Two picks like this in a 2-pick Power return " + two.toFixed(2) + "× per $1 (" + sgn((two - 1) * 100, 0) + "%). Five like it in a 5-pick Flex return " + five.toFixed(2) + "× per $1 (" + sgn((five - 1) * 100, 0) + "%).</p>" +
+      "<p class='small muted'><a href='#method/percent'>More on what the percentages mean →</a></p></div>";
   }
   var openWhy = {};
   function whyBtn(key, txt) { return "<button type='button' class='whybtn' data-why='" + esc(key) + "' aria-expanded='" + (openWhy[key] ? "true" : "false") + "'>" + (openWhy[key] ? "Hide" : (txt || "Why")) + "</button>"; }
@@ -666,11 +844,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
 
   function gameRow(b, withWhy) {
     var g = GAMES[b.game_id], st = gameStatus(b), ps = pShrunk(b), need = 1 / b.dec, e = evS(b), k = "g:" + b.game_id;
-    var lab = pct(ps) + " · needs " + pct(need);
+    var lab = pct(ps) + " chance · needs " + pct(need), xk = "x:" + (withWhy ? "G" : "T") + b.game_id, s0 = SRV[b.id];
+    var was = b.live && s0 && (s0.line !== b.line || s0.price !== b.price) ? " · was " + fline(s0.line) + " (" + am(s0.price) + ") at the model run" : "";
     return "<article class='erow s-" + st.s + "' id='" + (withWhy ? "g-" + esc(b.game_id) : "") + "'><div class='what'><b>" + (b.side === "over" ? "Over " : "Under ") + fline(b.line) + "</b> · " + esc(g ? g.away.abbr + " @ " + g.home.abbr : b.matchup) +
-      "<span class='sub'>" + esc(gameName(b.game_id)) + " · " + clockTime(b.tip) + " · our line " + fline(b.fair_line) + " · odds " + am(b.price) + "</span></div>" +
-      meter(ps, [need], lab) + "<div class='side'><span class='tag " + st.s + "'>" + esc(st.tag) + "</span><span class='edgen " + (e >= 0 ? "pos" : "neg") + "'>edge " + sgn(e * 100) + "%</span>" + (withWhy ? whyBtn(k, "Details") : "") + "</div>" +
+      "<span class='sub'>" + esc(gameName(b.game_id)) + " · " + clockTime(b.tip) + " · our line " + fline(b.fair_line) + " · odds " + am(b.price) + esc(was) + "</span></div>" +
+      meter(ps, [need], lab, started(b.tip) ? null : xk) + "<div class='side'><span class='tag " + st.s + "'>" + esc(st.tag) + "</span><span class='edgen " + (e >= 0 ? "pos" : "neg") + "'>edge " + sgn(e * 100) + "%</span>" + (withWhy ? whyBtn(k, "Details") : "") + "</div>" +
       (st.act ? "<div class='act'>" + esc(st.act) + "</div>" : "") +
+      (openWhy[xk] && !started(b.tip) ? "<div class='whypanel'>" + explainGame(b) + "</div>" : "") +
       (withWhy && openWhy[k] ? "<div class='whypanel'>" + whyTotal(b) + "</div>" : "") + "</article>";
   }
 
@@ -681,16 +861,17 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function byTeam(m, h, a) { if (m == null || isNaN(m)) return "—"; return (m >= 0 ? esc(h.abbr) : esc(a.abbr)) + " by " + Math.abs(m).toFixed(1); }
   function whyTotal(b) {
     var g = GAMES[b.game_id]; if (!g) return "";
-    var md = g.model || {}, m = g.market || {}, h = g.home, a = g.away, w = md.w_model_total, ctx = md.total_context || 0, side = b.side === "over" ? "over" : "under", mlh = BETS[g.id + "-ml-h"];
-    var c1 = "<div><h4>How we got our total</h4>" + dl([["Our model alone", num(md.total_model, 1)], ["Market's total", num(md.total_market, 1)], ["Weight on our model", pct(w, 0)], ["Late-season add", sgn(ctx, 1)], ["Blended total", num(md.total_final, 1)], ["Our line (50/50)", fline(b.fair_line)]]) + "</div>";
+    var md = g.model || {}, m = g.market || {}, h = g.home, a = g.away, lv = g.live || null, w = lv ? lv.w : md.w_model_total, ctx = md.total_context || 0, side = b.side === "over" ? "over" : "under", mlh = BETS[g.id + "-ml-h"];
+    var c1 = "<div><h4>How we got our total</h4>" + dl([["Our model alone", num(md.total_model, 1)], ["Market's total" + (lv ? " (live)" : ""), num(lv ? lv.mt : md.total_market, 1)], ["Weight on our model", pct(w, 0)], ["Late-season add", sgn(ctx, 1)], ["Blended total", num(lv ? lv.c : md.total_final, 1)], ["Our line (50/50)", fline(b.fair_line)]]) + "</div>";
     var c2 = "<div><h4>The teams</h4>" + dl([["Projected score", md.total_final == null ? "—" : esc(a.abbr) + " " + Math.round((md.total_final - md.margin_final) / 2) + " – " + Math.round((md.total_final + md.margin_final) / 2) + " " + esc(h.abbr)], ["Pace", num(md.pace, 1)],
       ["Off / def rating " + esc(a.abbr), num(a.adj_o, 1) + " / " + num(a.adj_d, 1)], ["Off / def rating " + esc(h.abbr), num(h.adj_o, 1) + " / " + num(h.adj_d, 1)],
       ["Schedule", esc(a.abbr) + " " + restTxt(a) + "; " + esc(h.abbr) + " " + restTxt(h), 1], ["Missing " + esc(a.abbr), absences(a), 1], ["Missing " + esc(h.abbr), absences(h), 1]]) + "</div>";
-    var c3 = "<div><h4>The price</h4>" + dl([["Line now / opened", fline(m.total) + " / " + fline(m.open_total)], ["Odds over / under", am(m.over_price) + " / " + am(m.under_price)], [b.side === "over" ? "Highest line to take" : "Lowest line to take", fline(b.max_line)],
+    var c3 = "<div><h4>The price</h4>" + dl([[lv ? "Line live / model run / opened" : "Line now / opened", (lv ? fline(lv.total) + " / " : "") + fline(m.total) + " / " + fline(m.open_total)], ["Odds over / under", am(lv ? lv.over_price : m.over_price) + " / " + am(lv ? lv.under_price : m.under_price)], [b.side === "over" ? "Highest line to take" : "Lowest line to take", fline(b.max_line)],
       ["P(" + side + ") model / market", pct(b.p_final) + " / " + pct(b.p_market)], ["Our chance (cut)", pct(pShrunk(b))], ["Needs at " + am(b.price), pct(1 / b.dec)], ["Edge raw / cut", sgn(b.ev * 100) + "% / " + sgn(evS(b) * 100) + "%"]]) + "</div>";
     var c4 = "<div><h4>Not bet (information)</h4>" + dl([[esc(h.abbr) + " spread", sgn(m.spread_home) + " · ours " + (md.margin_final == null ? "—" : sgn(-md.margin_final))], [esc(h.abbr) + " to win", pct(mlh ? mlh.p_market : null) + " market · " + pct(md.p_home_win) + " ours"], ["Model margin", byTeam(md.margin_model, h, a)]]) + "</div>";
     var hrs = g.hours_to_tip;
-    var note = "Our model gets " + pct(w, 0) + " of the weight" + (hrs != null ? " because this run was built " + num(Math.max(hrs, 0), 1) + " h before tip" : "") + ": " + pct(W_EARLY, 0) + " six or more hours out, falling to 0% at tip, when the closing line is the better forecast. " +
+    if (lv) hrs = (Date.parse(g.tip) - NOW) / 3600000;
+    var note = (lv ? "Re-priced in your browser at the live line. " : "") + "Our model gets " + pct(w, 0) + " of the weight" + (hrs != null ? " because " + (lv ? "tip is " : "this run was built ") + num(Math.max(hrs, 0), 1) + " h " + (lv ? "away" : "before tip") : "") + ": " + pct(W_EARLY, 0) + " six or more hours out, falling to 0% at tip, when the closing line is the better forecast. " +
       (ctx ? "Late in the regular season totals have run over the close, so " + sgn(ctx, 1) + " points are added. " : "") +
       "Our chance is the model's, cut halfway toward break-even. A total is a bet when its cut edge is at least " + pct(MIN_EV_S, 1) + ".";
     return "<div class='whygrid'>" + c1 + c2 + c3 + c4 + "</div><p class='whynote'>" + note + "</p>";
@@ -776,7 +957,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     NOW = Date.now(); freshBanner();
     var A = state.amount, pl = plan(A); lastPlan = pl;
     var day = S.date ? new Date(S.date + "T12:00:00").toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" }) : "";
-    $("tDate").textContent = (day ? day + " · " : "") + nGames + " game" + (nGames === 1 ? "" : "s") + (gen ? " · priced " + agoText(gen) : "") + (VERDICT ? " · the desk's call: " + VERDICT.toLowerCase() : "");
+    $("tDate").textContent = (day ? day + " · " : "") + nGames + " game" + (nGames === 1 ? "" : "s") + (LIVE.ok ? " · lines live" + (LIVE.moved ? " (" + LIVE.moved + " moved since the model ran)" : "") + " · model run " + agoText(gen) : gen ? " · priced " + agoText(gen) : "") + (VERDICT ? " · the desk's call: " + VERDICT.toLowerCase() : "");
     $("answer").dataset.verdict = VERDICT || "";
     var nG = pl.rows.length, cl = !!pl.pp && pl.pp.slip.verdict === "check_lines" && !pl.pp.calc.edited, ppOn = !!pl.pp && !pl.pp.skip;
     var liveGames = (S.games || []).filter(function (g) { return !started(g.tip); }).length;
@@ -826,11 +1007,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function renderEdgeMap() {
     var gs = (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(Boolean).sort(function (x, y) { return (started(x.tip) - started(y.tip)) || (evS(y) - evS(x)); });
     $("mapGames").innerHTML = gs.length ? "<div class='elist'>" + gs.map(function (b) { return gameRow(b, false); }).join("") + "</div>" : "<div class='empty'>No game totals are posted for this slate yet.</div>";
+    bindWhy($("mapGames"), renderEdgeMap);
     var ranked = PKLEGS.filter(function (l) { return !started(l.tip); }).sort(function (a, b) { return (legP(b, true) || 0) - (legP(a, true) || 0); });
     if (!PK || !ranked.length) { $("mapPropsNote").textContent = ""; $("mapProps").innerHTML = "<div class='empty'>" + (PKLEGS.length ? "Every game with a priced pick has tipped off." : "No player picks priced (no sportsbook props posted yet).") + "</div>"; return; }
     var nE = ranked.filter(function (l) { return pickStatus(l).s === "edge"; }).length, nC = ranked.filter(function (l) { return pickStatus(l).s === "close"; }).length;
     $("mapPropsNote").textContent = nE + " of " + ranked.length + " picks beat every slip's break-even and " + nC + " more beat only the bigger Flex slips" + (PK.mode === "check_lines" ? ", at the sportsbook's lines: PrizePicks' board couldn't be read, so check its lines in the app." : ".") + " Top 8:";
     $("mapProps").innerHTML = "<div class='elist'>" + ranked.slice(0, 8).map(function (l) { return pickRow(l, false); }).join("") + "</div>";
+    bindWhy($("mapProps"), renderEdgeMap);
   }
   function renderChecklist(pl) {
     var li = [], fl = (NIGHT && NIGHT.flags) || {};
@@ -898,12 +1081,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var st = pickStatus(l), p = legP(l, true), raw = legP(l, false), k = "l:" + l.id, on = pk.ticked.indexOf(l.id) >= 0;
     var blocked = !on && pk.ticked.some(function (x) { return PKBY[x] && PKBY[x].player_id === l.player_id; });
     var src = l.line_source === "dk" ? "sportsbook line" : "PrizePicks line";
-    var lab = (p == null ? "—" : pct(p)) + " · needs " + pct(BE_LO, 0) + "–" + pct(BE_HI, 0);
+    var lab = (p == null ? "—" : pct(p) + " chance") + " · needs " + pct(BE_LO, 0) + "–" + pct(BE_HI, 0), xk = "x:" + (full ? "P" : "M") + l.id, tap = p == null || started(l.tip) ? null : xk;
     var what = "<div class='what'><b>" + esc(l.player) + "</b> <span class='muted'>(" + esc(l.team) + ")</span> · " + esc(pickText(l)) + "<span class='sub'>" + esc(l.matchup) + " · " + clockTime(l.tip) + (full ? " · " + src + (l.dk_line != null && l.dk_line !== curLine(l) ? " (sportsbook " + fline(l.dk_line) + ")" : "") : " · " + src) + "</span></div>";
-    if (!full) return "<article class='erow s-" + st.s + "'>" + what + meter(p, [BE_LO, BE_HI], lab) + "<div class='side'><span class='tag " + st.s + "'>" + esc(st.tag) + "</span></div>" + (st.act ? "<div class='act'>" + esc(st.act) + "</div>" : "") + "</article>";
+    var xp = tap && openWhy[xk] ? "<div class='whypanel'>" + explainPick(l) + "</div>" : "";
+    if (!full) return "<article class='erow s-" + st.s + "'>" + what + meter(p, [BE_LO, BE_HI], lab, tap) + "<div class='side'><span class='tag " + st.s + "'>" + esc(st.tag) + "</span></div>" + (st.act ? "<div class='act'>" + esc(st.act) + "</div>" : "") + xp + "</article>";
     return "<article class='erow prow s-" + st.s + "' id='p-" + esc(l.id) + "'><input type='checkbox' data-pk='" + esc(l.id) + "'" + (on ? " checked" : "") + (blocked || p == null ? " disabled" : "") + " aria-label='Add " + esc(l.player) + " to the slip builder' title='" + (blocked ? "One pick per player" : "Add to the slip builder") + "'>" + what +
       "<label class='lin'>PP line<input class='cell' type='number' step='0.5' value='" + curLine(l) + "' data-pkline='" + esc(l.id) + "' aria-label='PrizePicks line for " + esc(l.player) + "'></label>" +
-      meter(p, [BE_LO, BE_HI], lab) + "<div class='side'><span class='tag " + st.s + "'>" + esc(st.tag) + "</span>" + whyBtn(k) + "</div>" + (st.act ? "<div class='act'>" + esc(st.act) + "</div>" : "") +
+      meter(p, [BE_LO, BE_HI], lab, tap) + "<div class='side'><span class='tag " + st.s + "'>" + esc(st.tag) + "</span>" + whyBtn(k) + "</div>" + (st.act ? "<div class='act'>" + esc(st.act) + "</div>" : "") + xp +
       (openWhy[k] ? "<div class='whypanel'>" + whyLeg(l, raw) + "</div>" : "") + "</article>";
   }
   function whyLeg(l, raw) {
@@ -1167,7 +1351,28 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   }
 
   // ---------------------------------------------------------------- how it works: live numbers and the editable assumptions
+  function renderPercent() {   // what a chance of X% is worth in each kind of bet
+    var x = Number($("pctSlider").value) / 100, w = function (v) { return Math.max(0, Math.min(100, (v - LO) / (HI - LO) * 100)); };
+    $("pctVal").textContent = pct(x);
+    var rows = [], dec110 = 1 + 100 / 110, need110 = 1 / dec110;
+    rows.push(["Game total at −110", need110, x * dec110]);
+    [["power2", "2-pick Power"], ["power3", "3-pick Power"], ["flex5", "5-pick Flex"], ["flex6", "6-pick Flex"]].forEach(function (t) {
+      var n = Number(t[0].replace(/\D/g, "")), kind = slipKind(t[0]); if (!payVec(kind, n)) return;
+      var ps = []; for (var i = 0; i < n; i++) ps.push(x);
+      rows.push([t[1] + ", every pick at this chance", beFor(t[0]), slipValue(ps, ps.map(function () { return 0; }), kind).evm]);
+    });
+    var raw = need110 + (x - need110) / (SHR.total != null && SHR.total > 0 ? SHR.total : 0.5);
+    $("pctOut").innerHTML = "<div class='cm " + (x > need110 ? "s-edge" : "s-none") + "' style='max-width:420px'><div class='bar'><i style='width:" + w(x).toFixed(1) + "%;background:" + (x > need110 ? "var(--good)" : "var(--ink-3)") + "'></i><b style='left:calc(" + w(need110).toFixed(1) + "% - 1px)'></b></div><div class='scale'><span>40%</span><span>50%</span><span>60%</span><span>70%</span></div></div>" +
+      "<p style='margin:10px 0 8px'><b>" + pct(x) + "</b> means we expect about <b>" + Math.round(x * 100) + " wins in 100</b> bets like it. Whether that is worth money depends on what the bet needs:</p>" +
+      "<table class='pt'><thead><tr><th>Bet</th><th class='n'>Needs</th><th class='n'>$1 returns</th><th class='n'>100 bets of $1</th></tr></thead><tbody>" +
+      rows.map(function (r) { var e = r[2] - 1; return "<tr><td>" + esc(r[0]) + "</td><td class='n'>" + pct(r[1]) + "</td><td class='n'>" + r[2].toFixed(2) + "×</td><td class='n " + (e >= 0 ? "pos" : "neg") + "'>" + (e >= 0 ? "+" : "") + money2(e * 100) + "</td></tr>"; }).join("") + "</tbody></table>" +
+      "<p class='small muted' style='margin-top:8px'>These chances are after the safety cut. For a total at −110 to show " + pct(x) + " here, the model itself has to say " + pct(Math.min(raw, 0.999)) + (x > need110 ? ", because the cut halves the distance to the " + pct(need110) + " break-even" : "") + ". Totals on this page usually show 50–56% and picks 55–60%.</p>";
+  }
   function renderMethod() {
+    renderPercent();
+    var cal = {}; Object.keys(RP).forEach(function (k) { ((RP[k] || {}).bet_calibration || []).forEach(function (c) { var m = cal[c.bin] || (cal[c.bin] = { pw: 0, aw: 0, n: 0 }); m.pw += c.pred * c.n; m.aw += c.actual * c.n; m.n += c.n; }); });
+    var bins = Object.keys(cal).sort().map(function (k) { var m = cal[k]; return "totals the model put at " + pct(m.pw / m.n) + " won " + pct(m.aw / m.n) + " (" + Math.round(m.n) + " replayed bets)"; });
+    $("pctTrack").textContent = "How good have these chances been? In the replay, " + (bins.length ? bins.join("; ") + ". " : "there are no graded bets yet. ") + "On 8,009 past sportsbook prop lines, sides priced near 59% hit 61.7% when they were Less and 56.2% when they were More, which is why the page leans to Less. Both are history the model was fitted on; the live record is the real test.";
     $("mW").textContent = pct(W_EARLY, 0); $("mFloor").textContent = pct(MIN_EV_S, 1);
     var ctx = (S.context || {}).params || {}; if (ctx.late_adj != null) $("mLate").textContent = String(ctx.late_adj); if (ctx.very_late_adj != null) $("mLate2").textContent = String(ctx.very_late_adj);
     $("mPpMin").textContent = usd(state.ppMin); $("mFlMin").textContent = usd(state.fliffMin);
@@ -1175,6 +1380,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     $("fliffMin").value = state.fliffMin; $("ppMin").value = state.ppMin;
     $("payNote").textContent = "PrizePicks payouts assumed: Power " + Object.keys(PAY.power || {}).map(function (k) { return k + "-pick " + PAY.power[k] + "×"; }).join(", ") + "; Flex " + Object.keys(PAY.flex || {}).map(function (k) { return k + "-pick " + PAY.flex[k].join("/") + "×"; }).join(", ") + " (all hit / one miss / two misses). A void pick is assumed to drop the slip one size; an entry is assumed to need players from two teams.";
   }
+  $("pctSlider").addEventListener("input", renderPercent);
   $("fliffMin").addEventListener("change", function () { var v = Number(this.value); if (v > 0) { state.fliffMin = v; store.set("jg.fliffmin", v); renderMethod(); renderTonight(); } });
   $("ppMin").addEventListener("change", function () { var v = Number(this.value); if (v > 0) { state.ppMin = v; store.set("jg.ppmin", v); if (Number($("pkEntry").value) < v) $("pkEntry").value = v; renderMethod(); renderTonight(); renderBuilder(); } });
   $("sharePanel").innerHTML = JG.raw_url ? "Share: <span class='mono' style='overflow-wrap:anywhere'>" + esc(JG.pages_url || JG.raw_url) + "</span> <button class='btn ghost sm' type='button' id='copyLink'>Copy link</button> The amount you type stays on your own device." : "";
@@ -1183,7 +1389,10 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   $("pkEntry").value = state.ppMin;
   renderMethod(); renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); renderRecord(); renderOur(); gradeAll().then(renderOur);
   window.addEventListener("hashchange", route); route();
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) { renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); } });
-  window.JG_DEBUG = { state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) { refreshViews(); fetchLive(); checkForUpdate(); } });
+  // live lines every 90 seconds and a build check every 5 minutes, only while the page is visible
+  if (LIVE.on) { fetchLive(); TIMERS.live = setInterval(fetchLive, 90000); }
+  if (JG.live !== false) { setTimeout(checkForUpdate, 4000); TIMERS.upd = setInterval(checkForUpdate, 300000); }
+  window.JG_DEBUG = { LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
 })();
 </script>

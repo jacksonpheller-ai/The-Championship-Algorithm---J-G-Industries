@@ -50,28 +50,51 @@ def cmd_backtest(args):
 
 
 def cmd_run(args):
-    from . import ledger, pipeline
+    import os
+
+    from . import ledger, pipeline, results
+    from .data.http import Fetcher
     from .site import build_standalone
-    d = date.fromisoformat(args.date) if args.date else None
-    res = pipeline.run(day=d, n_sims=args.sims, update=not args.no_update, with_props=not args.no_props,
-                       label=args.label)
+    runs = []
+    if args.date or args.label or os.environ.get("JG_RUN_LABEL", "").strip():
+        # one named night (a date or a label typed in, or the weekly refit): priced on its own, as before
+        d = date.fromisoformat(args.date) if args.date else None
+        runs.append(pipeline.run(day=d, n_sims=args.sims, update=not args.no_update, with_props=not args.no_props, label=args.label))
+        main, nxt = runs[0], None
+    else:
+        # the usual run prices tonight and, once a total is posted, tomorrow: the page offers both
+        f = Fetcher()
+        (d0, lab0), (d1, lab1) = pipeline.run_plan()
+        s0, s1 = pipeline.fetch_slate(f, d0), pipeline.fetch_slate(f, d1)
+        today = tomorrow = None
+        if s0 or not s1:
+            today = pipeline.run(day=d0, n_sims=args.sims, update=not args.no_update, with_props=not args.no_props, label=lab0, slate=s0)
+            runs.append(today)
+        if s1 and (pipeline.has_total(s1) or not s0):
+            tomorrow = pipeline.run(day=d1, n_sims=args.sims, update=not args.no_update and not runs, with_props=not args.no_props,
+                                    label=lab1, slate=s1)
+            runs.append(tomorrow)
+        main, nxt = pipeline.pick_slates(today, tomorrow)
     if not args.no_update:
         ledger.grade(CURRENT_SEASON)
-    res["ledger"] = {k: v for k, v in ledger.summary().items() if k != "recent"}
-    pipeline.write_outputs(res)
-    from . import results
+    summary = {k: v for k, v in ledger.summary().items() if k != "recent"}
+    for res in runs:
+        res["ledger"] = summary
+    pipeline.write_outputs(main)
+    pipeline.write_outputs(nxt, name="next")
     results.publish(CURRENT_SEASON)
-    if res["games"] and not args.no_ledger:
-        n = ledger.record(res)
-        print(f"Ledger: recorded {n} reference-ticket entries for {res['date']}")
+    for res in runs:
+        if res["games"] and not args.no_ledger:
+            n = ledger.record(res)
+            print(f"Ledger: recorded {n} reference-ticket entries for {res['date']}")
     ledger.publish()
     out = build_standalone()
-    nt = res["night"]
-    pr = res["props"]
-    print(f"Night {res['date']} ({res['run_label']}): {nt['verdict']} score {nt['score']:.6f} | "
-          f"{res['counts']['placeable_ref']} placeable at $100/$0.50 | Fliff props ({pr['source']}): {len(pr['rows'])} priced, "
-          f"{pr.get('n_ok', 0)} with an edge at Fliff's number")
-    print(nt["headline"])
+    for res in runs:
+        nt, pr = res["night"], res["props"]
+        print(f"Night {res['date']} ({res['run_label']}{', main' if res is main else ', next' if res is nxt else ''}): {nt['verdict']} "
+              f"score {nt['score']:.6f} | {res['counts']['placeable_ref']} placeable at $100/$0.50 | Fliff props ({pr['source']}): "
+              f"{len(pr['rows'])} priced, {pr.get('n_ok', 0)} with an edge at Fliff's number")
+        print(nt["headline"])
     print("Dashboard data:", SITE_DATA / "latest.json", "| standalone:", out)
 
 

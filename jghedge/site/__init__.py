@@ -1,6 +1,7 @@
 """Build the dashboard: docs/index.html (the web page: GitHub Pages, or opened straight from disk)
 and dist/jg-hedging-co.html (the same page without the document wrapper, for local use), plus
-docs/data/version.json, which an open page polls to find a newer build."""
+docs/data/version.json, which an open page polls to find a newer build. The page carries the main
+slate (docs/data/latest.json) and, when it exists, tomorrow's (docs/data/next.json)."""
 from __future__ import annotations
 
 import json
@@ -46,9 +47,19 @@ def _lines_for(slate: dict) -> list:
         return []
 
 
+def _slates() -> tuple[dict, dict | None, str | None]:
+    """(main slate, tomorrow's slate or None, build stamp). The build stamp is the newer of the two
+    'generated' times: an open page compares it with docs/data/version.json to find a newer build."""
+    slate, nxt = _load("latest.json"), _load("next.json")
+    if not nxt.get("date") or not nxt.get("games") or nxt.get("date") == slate.get("date"):
+        nxt = None
+    stamps = [x for x in (slate.get("generated"), (nxt or {}).get("generated")) if x]
+    return slate, nxt, (max(stamps) if stamps else None)
+
+
 def render() -> str:
-    slate = _load("latest.json")
-    data = {"slate": slate, "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
+    slate, nxt, build = _slates()
+    data = {"slate": slate, "next": nxt, "build": build, "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
             "replay": _load("replay_open.json"), "results": _recent_results(), "shared": _load("shared_ledger.json") or None,
             "lines": _lines_for(slate), "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL,
             "update_base": UPDATE_BASE}
@@ -64,8 +75,8 @@ def build_standalone() -> Path:
             "<meta name=\"robots\" content=\"noindex\">\n</head>\n<body>\n" + body + "\n</body>\n</html>\n")
     (SITE_DIR / "index.html").write_text(page, encoding="utf-8")
     # a few bytes the open page polls to learn that a newer build exists (template: checkForUpdate)
-    slate = _load("latest.json")
-    (SITE_DATA / "version.json").write_text(json.dumps({"generated": slate.get("generated"), "date": slate.get("date")}))
+    slate, _nxt, build = _slates()
+    (SITE_DATA / "version.json").write_text(json.dumps({"generated": build, "date": slate.get("date")}))
     (SITE_DIR / ".nojekyll").write_text("")
     DIST.mkdir(exist_ok=True)
     out = DIST / "jg-hedging-co.html"

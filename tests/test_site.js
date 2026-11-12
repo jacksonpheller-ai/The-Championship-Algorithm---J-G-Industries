@@ -155,7 +155,7 @@ async function openAt(browser, opts, slate, offsetHours) {
     // at the take price: an edge, in the plan, one card more
     const before = await p.evaluate(() => window.JG_DEBUG.plan(40).rows.length);
     await type(pick.id, "under", pick.take_under);
-    const at = await p.evaluate((i) => { const D = window.JG_DEBUG, x = D.plan(40); return { tag: D.propStatus(D.PRBY[i]).tag, rows: x.rows.length, inPlan: x.rows.some((r) => r.id === i), props: x.props, stored: JSON.parse(localStorage.getItem("jg.fliff")).rows[i] }; }, pick.id);
+    const at = await p.evaluate((i) => { const D = window.JG_DEBUG, x = D.plan(40); return { tag: D.propStatus(D.PRBY[i]).tag, rows: x.rows.length, inPlan: x.rows.some((r) => r.id === i), props: x.props, stored: JSON.parse(localStorage.getItem("jg.fliff." + D.date)).rows[i] }; }, pick.id);
     assert(at.tag === "Edge" && at.inPlan && at.rows === before + 1 && at.props <= 20 + 1e-9, "at the take-it price the prop is an Edge and joins the plan");
     assert(at.stored && at.stored.under === pick.take_under, "the typed Fliff number is remembered on this device");
     // a softer line with the same odds is better still; a harder line is worse
@@ -322,6 +322,48 @@ async function openAt(browser, opts, slate, offsetHours) {
     await up.click("#updGo"); await up.waitForTimeout(900);
     assert(await up.evaluate((g) => document.getElementById("jg-data").textContent.includes(g) && !!window.JG_DEBUG && document.getElementById("tHead").textContent.length > 0, later), "the newer build is loaded in place and runs");
     await up.close();
+  }
+  // ---- tomorrow's slate rides along: a switch shows it, the choice holds for the tab, and tonight is the default while it has a game to bet
+  {
+    const nextSlate = JSON.parse(JSON.stringify(fixture)), dayMs = 24 * 3600 * 1000, shift = (iso) => new Date(Date.parse(iso) + dayMs).toISOString().replace(".000Z", "Z");
+    nextSlate.date = "2026-11-08"; nextSlate.run_label = "opener"; nextSlate.generated = "2026-11-07T19:29:50+00:00";
+    nextSlate.games.forEach((g) => { g.tip = shift(g.tip); }); nextSlate.bets.forEach((b) => { if (b.tip) b.tip = shift(b.tip); }); nextSlate.props.rows.forEach((r) => { r.tip = shift(r.tip); });
+    nextSlate.games = nextSlate.games.slice(0, 3);
+    fs.writeFileSync(path.join(OUT, "twoday.html"), render(fixture, { next: nextSlate, build: nextSlate.generated }));
+    const file = "file://" + path.join(OUT, "twoday.html");
+    const d = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
+    const derr = []; d.on("pageerror", (e) => derr.push(String(e)));
+    await d.goto(file + "#tonight"); await d.waitForTimeout(300);
+    const a0 = await d.evaluate(() => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, hidden: document.getElementById("daySwitch").hidden, btns: Array.from(document.querySelectorAll("#daySwitch button")).map((b) => [b.dataset.day, b.getAttribute("aria-pressed")]), head: document.getElementById("tHead").textContent }));
+    assert(a0.view === "main" && a0.date === fixture.date && !a0.hidden && a0.btns.length === 2 && a0.btns[0][1] === "true" && a0.btns[1][0] === "2026-11-08", "with tomorrow priced, a switch offers both days and tonight is shown first");
+    await d.fill("#amount", "20");
+    await d.click("#daySwitch button[data-day='2026-11-08']"); await d.waitForTimeout(500);
+    const a1 = await d.evaluate(() => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, games: document.querySelectorAll("#mapGames .erow").length, kicker: document.getElementById("tDate").textContent, label: document.getElementById("amountLabel").textContent, pressed: document.querySelector("#daySwitch button[aria-pressed='true']").dataset.day, started: Array.from(document.querySelectorAll("#mapGames .erow .tag")).filter((x) => x.textContent === "Started").length, amount: document.getElementById("amount").value }));
+    assert(a1.view === "next" && a1.date === "2026-11-08" && a1.games === 3 && a1.pressed === "2026-11-08" && a1.started === 0 && /Nov 8/.test(a1.kicker), "the switch loads tomorrow's slate: its date, its 3 games, none started (" + a1.kicker.slice(0, 40) + ")");
+    assert(!/tonight\?/.test(a1.label) && a1.amount === "20", "tomorrow's view asks about that day's games and keeps the amount");
+    // a Fliff number typed for tomorrow stays with tomorrow
+    const rid = nextSlate.props.rows.find((r) => r.ref === "dk").id;
+    await d.evaluate((i) => window.JG_DEBUG.setTyped(i, { line: window.JG_DEBUG.PRBY[i].line, over: null, under: 120, at: 1 }), rid);
+    await d.goto(file + "#games"); await d.waitForTimeout(300);
+    assert(await d.evaluate(() => window.JG_DEBUG.VIEWDAY === "next" && getComputedStyle(document.getElementById("daySwitch")).display !== "none"), "the choice holds across tabs and reloads, and the switch is on the Games tab too");
+    await d.goto(file + "#tonight"); await d.waitForTimeout(300);
+    await d.click("#daySwitch button[data-day='" + fixture.date + "']"); await d.waitForTimeout(500);
+    const a2 = await d.evaluate((i) => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, typedHere: Object.keys(window.JG_DEBUG.typed()).length, kept: !!(JSON.parse(localStorage.getItem("jg.fliff.2026-11-08") || "{}").rows || {})[i] }), rid);
+    assert(a2.view === "main" && a2.date === fixture.date && a2.typedHere === 0 && a2.kept, "switching back shows tonight; a number typed for tomorrow is kept for tomorrow only");
+    await d.goto(file + "#method"); await d.waitForTimeout(200);
+    assert(await d.evaluate(() => getComputedStyle(document.getElementById("daySwitch")).display === "none"), "the switch is hidden on tabs that are not about a slate");
+    assert(derr.length === 0, "no page errors with two slates: " + JSON.stringify(derr));
+    await d.close();
+    // once every game tonight has tipped, a fresh tab opens on tomorrow
+    const late = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture, 9);
+    await late.goto(file + "#tonight"); await late.waitForTimeout(300);
+    assert(await late.evaluate(() => window.JG_DEBUG.VIEWDAY === "next" && document.querySelectorAll("#mapGames .erow").length === 3), "after tonight's last tip the page opens on tomorrow's slate");
+    await late.close();
+    // one slate only: no switch
+    const one = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
+    await one.goto("file://" + path.join(OUT, "fixture.html") + "#tonight"); await one.waitForTimeout(200);
+    assert(await one.evaluate(() => document.getElementById("daySwitch").hidden && window.JG_DEBUG.VIEWDAY === "main"), "with one slate there is no switch");
+    await one.close();
   }
   // ---- what a percentage means: every bar opens an explanation, and the explainer does the arithmetic
   {

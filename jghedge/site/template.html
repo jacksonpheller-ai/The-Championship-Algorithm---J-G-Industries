@@ -57,6 +57,10 @@ main { padding-block: 20px 60px; }
 section.view { display: grid; gap: 22px; }
 section.view > * { min-width: 0; }
 .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r); padding: 16px 18px; min-width: 0; }
+.dayswitch { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.dayswitch button { font: 500 14px var(--f-body); padding: 7px 14px; border-radius: 999px; border: 1px solid var(--rule); background: var(--panel); color: var(--ink-2); cursor: pointer; }
+.dayswitch button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+.dayswitch .note { font-size: 13px; color: var(--ink-3); flex-basis: 100%; }
 .banner { background: var(--warn-bg); border: 1px solid var(--warn); color: var(--ink); border-radius: var(--r); padding: 10px 14px; font-size: 14px; }
 .sechead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
 .sechead .small { color: var(--ink-3); }
@@ -266,12 +270,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
 </header>
 
 <main class="wrap">
+  <div class="dayswitch" id="daySwitch" hidden></div>
   <!-- ================================================================ TONIGHT -->
   <section class="view" id="view-tonight">
     <div class="banner" id="fresh" hidden></div>
     <div class="banner" id="upd" hidden></div>
     <div class="amountbox">
-      <label for="amount">How much do you want to bet tonight?</label>
+      <label for="amount" id="amountLabel">How much do you want to bet tonight?</label>
       <div class="money"><span>$</span><input id="amount" type="number" inputmode="decimal" min="0" step="1"></div>
       <div class="quick" id="quick"></div>
       <p class="hint">The desk only puts money where it finds an edge, so it may use less than this, or none of it. <a href="#method/split">How it splits the amount</a></p>
@@ -359,7 +364,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <p>The desk does one thing: it finds bets that win more often than their price assumes, and tells you how much of tonight's amount to put on each. Most nights that is very little, and some nights it is nothing.</p>
 
       <h2>1. What happens each day</h2>
-      <p><b>The model runs 13 times a day, at set times.</b> 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am. Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times, prices every bet and grades any finished night. From 8 pm the runs price the next day's slate, so a new line is seen within about an hour of being posted: the totals edge is at the opening line, before it settles. A separate scheduler starts these runs on time; GitHub's own schedule, which started runs hours late, is kept as a backup.</p>
+      <p><b>The model runs 13 times a day, at set times.</b> 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am. Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times, prices every bet and grades any finished night. Every run prices tonight's games and, as soon as a sportsbook total is posted for it, tomorrow's slate too, so a new line is seen within about an hour of being posted: the totals edge is at the opening line, before it settles. A separate scheduler starts these runs on time; GitHub's own schedule, which started runs hours late, is kept as a backup.</p>
       <p><b>The page keeps itself current in between.</b> While it is open it reads the current DraftKings totals straight from ESPN every 90 seconds and re-prices each game in your browser exactly as the model run did: the same blend of our number with the market's, the same error table, the same safety cut and floor. The header line says "lines live" when that is working. A live line can take a bet off tonight's plan; it never adds a stake the model run did not make. Every few minutes the page also asks whether a newer model run exists and loads it in place. Player props are not re-priced live: DraftKings' prop prices change only with a model run, and Fliff's numbers are the ones you type. Games that have tipped drop off by your device's clock.</p>
 
       <h2>2. Where the edge comes from</h2>
@@ -457,7 +462,14 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   "use strict";
   var JG = {};
   try { JG = JSON.parse(document.getElementById("jg-data").textContent); } catch (e) { JG = {}; }
-  var S = JG.slate || {}, L = JG.ledger || {}, BT = JG.backtest || {}, RP = JG.replay || {}, RES = JG.results || {}, SHARED = JG.shared || null;
+  // Two slates can ride in one build: tonight's (JG.slate) and tomorrow's at the opening lines (JG.next). The page shows one at a time:
+  // tonight while it still has a game to bet, tomorrow once it is over, or the day picked on the switch (kept for this tab by date).
+  var S0 = JG.slate || {}, S1 = JG.next && JG.next.date && JG.next.date !== S0.date ? JG.next : null, dayPick = null;
+  try { dayPick = sessionStorage.getItem("jg.day"); } catch (e) {}
+  var live0 = (S0.games || []).some(function (g) { var tp = Date.parse(g.tip); return isNaN(tp) || tp > Date.now(); });
+  var VIEWDAY = S1 && (dayPick === S1.date || (dayPick !== S0.date && !live0)) ? "next" : "main";
+  var S = VIEWDAY === "next" ? S1 : S0, BUILD = JG.build || S.generated || null;
+  var L = JG.ledger || {}, BT = JG.backtest || {}, RP = JG.replay || {}, RES = JG.results || {}, SHARED = JG.shared || null;
   var REPO = JG.repo || "";
   var BETS = {}, PARLAYS = {}, GAMES = {};
   (S.bets || []).forEach(function (b) { BETS[b.id] = b; });
@@ -517,12 +529,30 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
 
   // ---------------------------------------------------------------- routing
   var VIEWS = ["tonight", "games", "props", "record", "method"], ALIAS = { simple: "tonight", desk: "tonight", pickem: "props", glossary: "method" }, lastView = null;
+  var dayName = function (d) { return new Date(d + "T12:00:00").toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }); };
+  var plusDay = function (d, n) { var x = new Date(d + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
+  var DAYWORD = !S.date || S.date === usToday() ? "Tonight" : S.date === plusDay(usToday(), 1) ? "Tomorrow" : dayName(S.date);
+  var NEXTDAY = VIEWDAY === "next" || (S.date && S.date > usToday());   // looking at a slate that is not today's
+  function renderDaySwitch() {
+    var el = $("daySwitch"); if (!S1) { el.hidden = true; return; }
+    var btn = function (s, which) { return "<button type='button' data-day='" + esc(s.date) + "' aria-pressed='" + (VIEWDAY === which ? "true" : "false") + "'>" + esc((s.date === usToday() ? "Tonight · " : s.date === plusDay(usToday(), 1) ? "Tomorrow · " : "") + dayName(s.date)) + "</button>"; };
+    el.innerHTML = btn(S0, "main") + btn(S1, "next") + "<span class='note'>" + (VIEWDAY === "next"
+      ? "Showing " + esc(dayName(S1.date)) + " at the opening lines. Lines and injury news will move before tip; every run re-prices it."
+      : esc(dayName(S1.date)) + " is priced too, at the opening lines: " + (S1.games || []).length + " game" + ((S1.games || []).length === 1 ? "" : "s") + ".") + "</span>";
+    el.querySelectorAll("[data-day]").forEach(function (b) { b.addEventListener("click", function () {
+      if (b.getAttribute("aria-pressed") === "true") return;
+      try { sessionStorage.setItem("jg.day", b.dataset.day); } catch (e) {}
+      location.reload();   // every number on the page is built from one slate, so the other day is loaded fresh
+    }); });
+    el.hidden = false;
+  }
   function route() {
     var parts = (location.hash || "").replace("#", "").split("/"), v = parts[0], arg = decodeURIComponent(parts.slice(1).join("/") || "");
     if (v === "glossary") arg = "glossary";
     if (ALIAS[v]) v = ALIAS[v];
     if (VIEWS.indexOf(v) < 0) v = "tonight";
     VIEWS.forEach(function (x) { $("view-" + x).hidden = x !== v; });
+    $("daySwitch").style.display = S1 && (v === "tonight" || v === "games" || v === "props") ? "" : "none";
     document.querySelectorAll("nav.tabs a").forEach(function (a) { if (a.dataset.view === v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
     setTimeout(function () {
       var target = null;
@@ -593,8 +623,9 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   Object.keys((PR && PR.rules) || {}).forEach(function (k) { if (PR.rules[k] != null) PRULE[k] = PR.rules[k]; });
   var PAY = (PK && PK.payouts) || { power: { "2": 3, "3": 6, "4": 10, "5": 20, "6": 37.5 }, flex: { "3": [3, 1], "4": [6, 1.5], "5": [10, 2, 0.4], "6": [25, 2, 0.4] } };   // only to grade PrizePicks slips logged before props moved to Fliff
   var typed = {};   // Fliff's numbers as typed: { rowId: { line, over, under, at } }, kept on this device for the slate's date
-  try { var tsv = JSON.parse(store.get("jg.fliff") || "null"); if (tsv && tsv.date === S.date && tsv.rows) typed = tsv.rows; } catch (e) { typed = {}; }
-  function saveTyped() { store.set("jg.fliff", JSON.stringify({ date: S.date, rows: typed })); }
+  var TKEY = "jg.fliff." + (S.date || "none");
+  try { var tsv = JSON.parse(store.get(TKEY) || store.get("jg.fliff") || "null"); if (tsv && tsv.date === S.date && tsv.rows) typed = tsv.rows; } catch (e) { typed = {}; }
+  function saveTyped() { store.set(TKEY, JSON.stringify({ date: S.date, rows: typed })); }
   var pv = { showAll: false, find: "" }, PLANNED = {};
   function propProbs(r, line) { var q = r.q || []; for (var i = 0; i < q.length; i++) if (Math.abs(q[i][0] - line) < 1e-9) return { over: q[i][1], under: 1 - q[i][1], tie: q[i][2] || 0 }; return null; }
   function propEval(p, pt, american) {   // one side at one price (fliffprops.evaluate): p is the chance of winning given no tie
@@ -781,13 +812,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   // opened from disk. A newer build is loaded in place unless a line is being typed.
   var UPD = { base: JG.update_base || "", pending: null, tried: null };
   function checkForUpdate() {
-    if (JG.live === false || typeof fetch !== "function" || document.hidden || !S.generated) return;
+    if (JG.live === false || typeof fetch !== "function" || document.hidden || !BUILD) return;
     var web = /^https?:$/.test(location.protocol), srcs = [];
     if (web) srcs.push({ url: "data/version.json", how: "reload" });
     if (UPD.base) srcs.push({ url: UPD.base + "data/version.json", how: "swap" });
     srcs.forEach(function (src) {
       fetch(src.url, { cache: "no-store" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (v) {
-        if (!v || !v.generated || !(v.generated > S.generated)) return;
+        if (!v || !v.generated || !(v.generated > BUILD)) return;
         if (UPD.pending && UPD.pending.generated >= v.generated && UPD.pending.how === "reload") return;
         UPD.pending = { generated: v.generated, how: src.how }; offerUpdate();
       }).catch(function () {});
@@ -958,14 +989,14 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     if (!(A > 0)) { head = "Enter tonight's amount."; sub.push("Type how much you want to bet tonight and the desk splits it across the bets with an edge."); }
     else if (nG || nP) {
       var parts = []; if (nG) parts.push(nG === 1 ? "one game bet" : nG + " game bets"); if (nP) parts.push(nP === 1 ? "one player prop" : nP + " player props");
-      head = (V === "LIGHT" && nG ? "A light night: " : "Tonight: ") + parts.join(" and ") + ".";
+      head = (V === "LIGHT" && nG ? "A light night: " : DAYWORD + ": ") + parts.join(" and ") + ".";
       head = head.charAt(0).toUpperCase() + head.slice(1);
       sub.push("Bet " + usd(pl.total) + " of your " + usd(A) + (pl.keep > 0.004 ? " and keep " + usd(pl.keep) : "") + ", all on Fliff. If every bet loses, you're down " + usd(pl.total) + ".");
       if (V === "LIGHT" && nG) sub.push("The game edges are thin, so game bets get half of what is left after props.");
       if (nC) sub.push((nC === 1 ? "One more prop" : nC + " more props") + " to check on Fliff below.");
     } else if (nGames && !liveGames) { head = "Tonight's games have started."; sub.push("Nothing on this slate can still be bet. Keep your " + usd(A) + "."); }
     else if (nC) { head = "Nothing to bet yet: check " + (nC === 1 ? "one prop" : nC + " props") + " on Fliff."; sub.push("Keep your " + usd(A) + " unless a prop below clears its price."); }
-    else { head = "No bets tonight."; sub.push("Keep your " + usd(A) + "."); }
+    else { head = NEXTDAY ? "No bets for " + (DAYWORD === "Tomorrow" ? "tomorrow" : DAYWORD) + " yet." : "No bets tonight."; sub.push("Keep your " + usd(A) + "."); }
     if (A > 0 && (liveGames || !nGames)) {
       if (!nG) { if (VERDICT === "PASS" || !pl.nGameCandidates) { var nT = (S.games || []).filter(function (g) { return !started(g.tip) && bestTotal(g.id); }).length; var ed = edgeTotals();
           sub.push(!nT ? "No game totals are posted yet." : ed.length ? "The desk passes on games: " + (ed.length === 1 ? "one total has an edge (" : ed.length + " totals have an edge (") + ed.map(function (b) { return (b.side === "over" ? "Over " : "Under ") + fline(b.line) + " in " + gameName(b.game_id) + ", " + sgn(evS(b) * 100) + "%"; }).join("; ") + "), but with so little to bet the night's expected profit is under the desk's bar, so it stakes nothing. " + (ed.length === 1 ? "It is" : "They are") + " marked Edge below." : "None of tonight's " + nT + " game totals has enough edge after the safety cut. " + closestMiss()); } else if (pl.why && !nP) sub.push("There are game bets, but " + pl.why + "."); }
@@ -1031,12 +1062,12 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     if (moved.length) li.push("Moved past our number since it was priced (skip): " + moved.map(function (id) { var b = BETS[id]; return (b ? b.label : id) + " " + fline(MOVED[id].line_then) + " → " + fline(MOVED[id].line_now); }).join("; ") + ".");
     if ((fl.lineup_uncertainty || []).length) li.push("Starters listed as game-time decisions in " + fl.lineup_uncertainty.map(function (g) { var G = GAMES[g]; return G ? G.away.abbr + "@" + G.home.abbr : g; }).join(", ") + ". A late scratch changes the total; later runs re-price.");
     ((NIGHT && NIGHT.would_change) || []).filter(function (w) { return !/^GTD/.test(w); }).slice(0, 2).forEach(function (w) { li.push(String(w).replace(/max line/g, "worst line")); });
-    if (fl.hours_to_first_tip != null && fl.hours_to_first_tip >= 0) li.push("Priced " + num(fl.hours_to_first_tip, 1) + " h before the first tip" + (S.run_label ? " (" + S.run_label + " run)" : "") + ". The desk re-prices at 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am; from 8 pm it prices the next day's slate.");
+    if (fl.hours_to_first_tip != null && fl.hours_to_first_tip >= 0) li.push("Priced " + num(fl.hours_to_first_tip, 1) + " h before the first tip" + (S.run_label ? " (" + S.run_label + " run)" : "") + ". The desk re-prices at 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am. Tomorrow's slate is priced as soon as its lines are posted: use the switch at the top.");
     li.push("Only bet money you can afford to lose. Help: 1-800-GAMBLER.");
     $("checkList").innerHTML = li.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
   }
   function planText(pl, json) {
-    var head = "J&G Hedging Co. — " + S.date + " (tonight's amount " + usd(pl.amount) + (pl.verdict ? ", call " + pl.verdict : "") + ")";
+    var head = "J&G Hedging Co. — " + S.date + " (amount " + usd(pl.amount) + (pl.verdict ? ", call " + pl.verdict : "") + ")";
     var lines = pl.rows.map(function (x) { return "• Fliff " + (x.type === "parlay" ? "PARLAY: " + x.legs.map(function (l) { return l.label + " " + am(l.price); }).join(" + ") : x.label + " " + am(x.price) + (!x.prop && x.maxLine != null ? " (only at " + worstText(BETS[x.id]) + ")" : "")) + " — " + usd(x.stake) + " to win " + usd(x.toWin); });
     if (!json) return head + "\n" + lines.join("\n");
     var bets = pl.rows.map(function (x) { return { ref: x.id, stake: x.stake, dec: x.dec, price: x.price, label: x.type === "parlay" ? x.legs.map(function (l) { return l.label; }).join(" + ") : x.label, legs: x.legs.map(legRecord) }; });
@@ -1370,12 +1401,14 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   $("sharePanel").innerHTML = JG.raw_url ? "Share: <span class='mono' style='overflow-wrap:anywhere'>" + esc(JG.pages_url || JG.raw_url) + "</span> <button class='btn ghost sm' type='button' id='copyLink'>Copy link</button> The amount you type stays on your own device." : "";
   if ($("copyLink")) $("copyLink").addEventListener("click", function () { copyText(JG.pages_url || JG.raw_url || "", $("copyLink"), "Copy link"); });
 
+  renderDaySwitch();
+  if (NEXTDAY) $("amountLabel").textContent = "How much do you want to bet on " + (DAYWORD === "Tomorrow" ? "tomorrow's" : DAYWORD + "'s") + " games?";
   renderMethod(); renderPropRows(); renderTonight(); renderGames(); renderRecord(); renderOur(); gradeAll().then(renderOur);
   window.addEventListener("hashchange", route); route();
   document.addEventListener("visibilitychange", function () { if (!document.hidden) { refreshViews(); fetchLive(); checkForUpdate(); } });
   // live lines every 90 seconds and a build check every 5 minutes, only while the page is visible
   if (LIVE.on) { fetchLive(); TIMERS.live = setInterval(fetchLive, 90000); }
   if (JG.live !== false) { setTimeout(checkForUpdate, 4000); TIMERS.upd = setInterval(checkForUpdate, 300000); }
-  window.JG_DEBUG = { LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, item: item, IDS: IDS, gameWeights: gameWeights, gameStatus: gameStatus, settlePickem: settlePickem, settleBet: settleBet, PRBY: PRBY, PRULE: PRULE, typed: function () { return typed; }, setTyped: function (id, v) { if (v) typed[id] = v; else delete typed[id]; saveTyped(); renderPropRows(); renderTonight(); }, propEval: propEval, propNow: propNow, propProbs: propProbs, propStatus: propStatus, propBets: propBets, propCheck: propCheck, takeAm: takeAm, takeText: takeText };
+  window.JG_DEBUG = { VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, item: item, IDS: IDS, gameWeights: gameWeights, gameStatus: gameStatus, settlePickem: settlePickem, settleBet: settleBet, PRBY: PRBY, PRULE: PRULE, typed: function () { return typed; }, setTyped: function (id, v) { if (v) typed[id] = v; else delete typed[id]; saveTyped(); renderPropRows(); renderTonight(); }, propEval: propEval, propNow: propNow, propProbs: propProbs, propStatus: propStatus, propBets: propBets, propCheck: propCheck, takeAm: takeAm, takeText: takeText };
 })();
 </script>

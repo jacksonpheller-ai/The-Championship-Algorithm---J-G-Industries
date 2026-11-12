@@ -393,6 +393,52 @@ def test_injury_wording_negation():
     assert pp(item("Day-To-Day", "GTD", "Smith (finger) is probable for Sunday's game."))[0] == 0.9
 
 
+def test_run_plan_prices_tonight_and_tomorrow():
+    from datetime import date
+    at = lambda h, m=7: datetime(2026, 11, 12, h, m, tzinfo=timezone.utc)      # Eastern is UTC-5 in November
+    d12, d13 = date(2026, 11, 12), date(2026, 11, 13)
+    assert pipeline.run_plan(at(13)) == [(d12, "morning"), (d13, "opener")]            # 8:07 am ET
+    assert pipeline.run_plan(at(19)) == [(d12, "pretip"), (d13, "opener")]             # 2:07 pm ET
+    assert pipeline.run_plan(at(22)) == [(d12, "afternoon"), (d13, "opener")]          # 5:07 pm ET
+    # 9:07 pm ET: tonight's late games are still tonight's slate (an evening look, not an opener); tomorrow is the opener
+    assert pipeline.run_plan(datetime(2026, 11, 13, 2, 7, tzinfo=timezone.utc)) == [(d12, "afternoon"), (d13, "opener")]
+    # 12:07 am ET: the calendar has turned, so "tonight" is the new day and its first look is an opener
+    assert pipeline.run_plan(datetime(2026, 11, 13, 5, 7, tzinfo=timezone.utc)) == [(d13, "opener"), (date(2026, 11, 14), "opener")]
+
+
+def test_pick_slates_and_has_total():
+    game = lambda total: {"id": "g", "odds": {"close": {"total": total}}}
+    assert pipeline.has_total([game(None), game(221.5)]) and not pipeline.has_total([game(None)]) and not pipeline.has_total([])
+    assert not pipeline.has_total([{"id": "g", "odds": None}])
+    today, tomorrow, empty = {"date": "a", "games": [1]}, {"date": "b", "games": [1]}, {"date": "c", "games": []}
+    assert pipeline.pick_slates(today, tomorrow) == (today, tomorrow)                   # both: tonight leads, tomorrow rides along
+    assert pipeline.pick_slates(today, None) == (today, None)
+    assert pipeline.pick_slates(empty, tomorrow) == (tomorrow, None)                    # tonight is over: tomorrow is the page
+    assert pipeline.pick_slates(None, tomorrow) == (tomorrow, None)
+    assert pipeline.pick_slates(empty, None) == (empty, None)                           # nothing anywhere: the empty night is published
+
+
+def test_write_outputs_main_and_next():
+    from jghedge import site
+    res = lambda d, gen: {"date": d, "generated": gen, "games": [{"id": "1"}], "bets": [], "allocations": {}, "parlays": [], "picks": {}, "_R": 1}
+    with tempfile.TemporaryDirectory() as td:
+        old_p, old_s = pipeline.SITE_DATA, site.SITE_DATA
+        pipeline.SITE_DATA = site.SITE_DATA = Path(td)
+        try:
+            pipeline.write_outputs(res("2099-01-01", "2099-01-01T00:00:10+00:00"))
+            pipeline.write_outputs(res("2099-01-02", "2099-01-01T00:00:25+00:00"), name="next")
+            main, nxt, build = site._slates()
+            assert main["date"] == "2099-01-01" and nxt["date"] == "2099-01-02" and "_R" not in main
+            assert build == "2099-01-01T00:00:25+00:00"                                  # the page's build stamp is the newer of the two
+            assert (Path(td) / "slates" / "2099-01-02.json").exists()
+            pipeline.write_outputs(None, name="next")                                    # tomorrow is gone: the file must not linger
+            assert not (Path(td) / "next.json").exists() and site._slates()[1] is None
+            pipeline.write_outputs(res("2099-01-01", "x"), name="next")                  # a 'next' for the same date as the main slate is ignored
+            assert site._slates()[1] is None
+        finally:
+            pipeline.SITE_DATA, site.SITE_DATA = old_p, old_s
+
+
 if __name__ == "__main__":
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
     for fn in fns:

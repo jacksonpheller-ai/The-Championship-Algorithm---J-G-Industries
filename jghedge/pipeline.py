@@ -84,6 +84,44 @@ def slate_day(label: str, now: datetime | None = None) -> date:
     return d
 
 
+def run_plan(now: datetime | None = None) -> list[tuple[date, str]]:
+    """What an unlabelled run prices: tonight (the Eastern date) and tomorrow, so the page can offer both.
+    Tonight's label follows the clock (opener before 06:00 ET, morning, pretip, afternoon; an evening look
+    at games that have not tipped is 'afternoon'); a look at tomorrow is always an 'opener'."""
+    now = now or datetime.now(timezone.utc)
+    et = now.astimezone(ET)
+    h = et.hour + et.minute / 60.0
+    if h < RUN_LABEL_HOURS_ET["opener"]:
+        lab = "opener"
+    elif h < RUN_LABEL_HOURS_ET["morning"]:
+        lab = "morning"
+    elif h < RUN_LABEL_HOURS_ET["pretip"]:
+        lab = "pretip"
+    else:
+        lab = "afternoon"
+    return [(et.date(), lab), (et.date() + timedelta(days=1), "opener")]
+
+
+def fetch_slate(f, day: date) -> list[dict]:
+    """The games of `day` that can still be bet: not tipped, both teams known."""
+    return [g for g in espn.scoreboard(f, day) if g["state"] == "pre" and g["home"] in TEAMS and g["away"] in TEAMS]
+
+
+def has_total(slate: list[dict]) -> bool:
+    """True once a sportsbook total is posted for at least one game (tomorrow is worth pricing from then)."""
+    return any((((g.get("odds") or {}).get("close") or {}).get("total")) is not None for g in slate or [])
+
+
+def pick_slates(today: dict | None, tomorrow: dict | None) -> tuple[dict | None, dict | None]:
+    """(main, next) for the page from the two priced nights. Tonight is the main slate while it still has a
+    game to bet and tomorrow rides along as 'next'; once tonight is over tomorrow becomes the main slate."""
+    if today and today.get("games"):
+        return today, (tomorrow if tomorrow and tomorrow.get("games") else None)
+    if tomorrow and tomorrow.get("games"):
+        return tomorrow, None
+    return today or tomorrow, None
+
+
 def _schedule_rows(games: list[dict]) -> pd.DataFrame:
     return pd.DataFrame([{"id": g["id"], "date": pd.Timestamp(history.game_day(g["date"])), "tip": g["date"],
                           "home": g["home"], "away": g["away"], "neutral": g["neutral"],
@@ -355,8 +393,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
 
     log(f"Slate for {day} ({label}) ...")
     if slate is None:
-        slate = [g for g in espn.scoreboard(f, day) if g["state"] == "pre"
-                 and g["home"] in TEAMS and g["away"] in TEAMS]
+        slate = fetch_slate(f, day)
     inj = injuries if injuries is not None else espn.injuries(f, str(day))
     team_tbl = None if replay else bbref_table(f, "team", season)
     kill = context_kill_switch(eng.gdf, season, asof, params.get("context_params"))
@@ -855,12 +892,17 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     return result
 
 
-def write_outputs(result: dict) -> None:
+def write_outputs(result: dict | None, name: str = "latest") -> None:
+    """Write a priced night for the page: `latest` is the main slate, `next` the following day's (the page's
+    Tomorrow option). `None` removes the file, so a stale 'next' never outlives its night."""
     SITE_DATA.mkdir(parents=True, exist_ok=True)
     (SITE_DATA / "slates").mkdir(exist_ok=True)
+    if result is None:
+        (SITE_DATA / f"{name}.json").unlink(missing_ok=True)
+        return
     result = {k: v for k, v in result.items() if not k.startswith("_")}
     txt = json.dumps(result, separators=(",", ":"), default=_json_default)
-    (SITE_DATA / "latest.json").write_text(txt)
+    (SITE_DATA / f"{name}.json").write_text(txt)
     # dated snapshot without the full props board or the packed pick'em sims (keeps the repo small)
     keep = {i["ref"] for a in result["allocations"].values() for i in a["items"]}
     keep |= {l for p in result["parlays"] for l in p["legs"]} | set(result["picks"].values())

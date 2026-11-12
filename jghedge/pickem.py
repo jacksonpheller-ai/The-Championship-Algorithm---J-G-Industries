@@ -69,6 +69,7 @@ DEFAULT_PARAMS = {
     "be_ref": None,             # leg-level reference break-even; None -> power2's
     "strain_band": (0.6, 1.6),  # anchoring multipliers outside this are flagged
     "lean": 0.0,                # under lean: points moved from P(more) to P(less) at the DK line (config.PICKEM_LEAN)
+    "lean_min_under": 0.0,      # the lean applies only where DK's no-vig under is at least this (Fliff props: 0.45)
 }
 
 
@@ -360,7 +361,8 @@ def build_legs(players: list[dict], prop_sims: dict[str, dict], dk_props: list[d
             u = _jitter(n, seed)
             p_over, _ = novig_multiplicative(row["over"], row["under"])
             # sportsbook overs hit less often than their no-vig price: anchor to the price minus the lean
-            p_anchor = float(min(max(p_over - (float(prm["lean"]) if lean else 0.0), 0.02), 0.98))
+            lean_v = float(prm["lean"]) if lean and (1.0 - p_over) >= float(prm["lean_min_under"]) else 0.0
+            p_anchor = float(min(max(p_over - lean_v, 0.02), 0.98))
             m, c = anchor_params(np.asarray(x, dtype=float)[plays], float(row["line"]), p_anchor, u[plays],
                                  prm["tol"], tuple(prm["strain_band"]))
             cache[key] = {"x": _transform(x, u, m, c), "m": m, "shift": c, "seed": seed, "dk": row,

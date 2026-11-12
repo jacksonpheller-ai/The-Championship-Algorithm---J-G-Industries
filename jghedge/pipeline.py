@@ -85,7 +85,8 @@ def slate_day(label: str, now: datetime | None = None) -> date:
 
 
 def run_plan(now: datetime | None = None) -> list[tuple[date, str]]:
-    """What an unlabelled run prices: tonight (the Eastern date) and tomorrow, so the page can offer both.
+    """What an unlabelled run prices: tonight (the Eastern date) and tomorrow, so the page can offer both
+    (tomorrow is priced even before its lines are posted: the page then shows each game's own number).
     Tonight's label follows the clock (opener before 06:00 ET, morning, pretip, afternoon; an evening look
     at games that have not tipped is 'afternoon'); a look at tomorrow is always an 'opener'."""
     now = now or datetime.now(timezone.utc)
@@ -105,11 +106,6 @@ def run_plan(now: datetime | None = None) -> list[tuple[date, str]]:
 def fetch_slate(f, day: date) -> list[dict]:
     """The games of `day` that can still be bet: not tipped, both teams known."""
     return [g for g in espn.scoreboard(f, day) if g["state"] == "pre" and g["home"] in TEAMS and g["away"] in TEAMS]
-
-
-def has_total(slate: list[dict]) -> bool:
-    """True once a sportsbook total is posted for at least one game (tomorrow is worth pricing from then)."""
-    return any((((g.get("odds") or {}).get("close") or {}).get("total")) is not None for g in slate or [])
 
 
 def pick_slates(today: dict | None, tomorrow: dict | None) -> tuple[dict | None, dict | None]:

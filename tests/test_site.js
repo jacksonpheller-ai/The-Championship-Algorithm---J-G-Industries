@@ -359,6 +359,30 @@ async function openAt(browser, opts, slate, offsetHours) {
     await late.goto(file + "#tonight"); await late.waitForTimeout(300);
     assert(await late.evaluate(() => window.JG_DEBUG.VIEWDAY === "next" && document.querySelectorAll("#mapGames .erow").length === 3), "after tonight's last tip the page opens on tomorrow's slate");
     await late.close();
+    // tomorrow before its lines are posted: the switch is still there, and each game shows the opening line that would be a bet
+    if (real.live_pricing) {
+      const bare = JSON.parse(JSON.stringify(nextSlate));
+      Object.assign(bare, { bets: [], parlays: [], portfolio: { ids: [], mu: [], cov: [] }, live_pricing: real.live_pricing, picks: {} });
+      bare.props.rows = []; bare.allocations.reference.items = []; bare.night = Object.assign({}, bare.night, { verdict: "PASS", score: 0, would_change: [] });
+      fs.writeFileSync(path.join(OUT, "bare.html"), render(fixture, { next: bare, build: bare.generated }));
+      const w = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
+      const werr = []; w.on("pageerror", (e) => werr.push(String(e)));
+      await w.goto("file://" + path.join(OUT, "bare.html") + "#tonight"); await w.waitForTimeout(300);
+      assert(/lines not posted yet/.test(await w.evaluate(() => document.getElementById("daySwitch").textContent)), "tomorrow without lines is still offered, and the switch says its lines are not posted");
+      await w.click("#daySwitch button[data-day='2026-11-08']"); await w.waitForTimeout(500);
+      const wr = await w.evaluate(() => { const D = window.JG_DEBUG, dec = 1 + 100 / 110, LPm = JSON.parse(document.getElementById("jg-data").textContent).next.live_pricing;
+        const rows = Array.from(document.querySelectorAll("#mapGames [data-wait]")).map((el) => ({ id: el.dataset.wait, txt: el.textContent }));
+        const g = D.GAMES[rows[0].id], p = D.preLine(g);
+        const ev = (side, L) => { const a = D.liveProbs(p.w * p.tm + (1 - p.w) * L + (g.model.total_context || 0), L), pw = side === "over" ? a.over : a.under; return pw * (dec - 1) - (1 - pw - a.push); };
+        return { rows, p, head: document.getElementById("tHead").textContent, sub: document.getElementById("tSub").textContent, floor: LPm.floor / LPm.s, minEv: LPm.min_ev,
+          atOver: ev("over", p.over), pastOver: ev("over", p.over + 1), atUnder: ev("under", p.under), pastUnder: ev("under", p.under - 1) }; });
+      assert(wr.rows.length === 3 && wr.rows.every((r) => /line not posted yet/.test(r.txt) && /Over at [\d.]+ or lower/.test(r.txt) && /Under at [\d.]+ or higher/.test(r.txt)), "every game waiting for a line shows the opening lines that would give it an edge");
+      const bar = Math.max(wr.floor, wr.minEv);
+      assert(wr.p.over < wr.p.tm && wr.p.tm < wr.p.under && wr.atOver >= bar - 1e-9 && wr.pastOver < bar && wr.atUnder >= bar - 1e-9 && wr.pastUnder < bar, "those lines are the last ones that clear the desk's bar (Over " + wr.p.over + ", our total " + wr.p.tm + ", Under " + wr.p.under + ")");
+      assert(/No bets for/.test(wr.head) && /opening line that would give it an edge/.test(wr.sub), "the headline says there is nothing to bet yet and points to the opening lines (" + wr.head + ")");
+      assert(werr.length === 0, "no page errors on a slate without lines: " + JSON.stringify(werr));
+      await w.close();
+    }
     // one slate only: no switch
     const one = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
     await one.goto("file://" + path.join(OUT, "fixture.html") + "#tonight"); await one.waitForTimeout(200);

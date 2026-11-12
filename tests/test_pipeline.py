@@ -406,16 +406,32 @@ def test_run_plan_prices_tonight_and_tomorrow():
     assert pipeline.run_plan(datetime(2026, 11, 13, 5, 7, tzinfo=timezone.utc)) == [(d13, "opener"), (date(2026, 11, 14), "opener")]
 
 
-def test_pick_slates_and_has_total():
-    game = lambda total: {"id": "g", "odds": {"close": {"total": total}}}
-    assert pipeline.has_total([game(None), game(221.5)]) and not pipeline.has_total([game(None)]) and not pipeline.has_total([])
-    assert not pipeline.has_total([{"id": "g", "odds": None}])
+def test_pick_slates():
     today, tomorrow, empty = {"date": "a", "games": [1]}, {"date": "b", "games": [1]}, {"date": "c", "games": []}
     assert pipeline.pick_slates(today, tomorrow) == (today, tomorrow)                   # both: tonight leads, tomorrow rides along
     assert pipeline.pick_slates(today, None) == (today, None)
     assert pipeline.pick_slates(empty, tomorrow) == (tomorrow, None)                    # tonight is over: tomorrow is the page
     assert pipeline.pick_slates(None, tomorrow) == (tomorrow, None)
     assert pipeline.pick_slates(empty, None) == (empty, None)                           # nothing anywhere: the empty night is published
+
+
+def test_line_snapshots_skip_games_without_a_line():
+    from jghedge.data import lines
+    with tempfile.TemporaryDirectory() as td:
+        old_dir = lines.LINES_DIR
+        lines.LINES_DIR = Path(td)
+        try:
+            posted = {"id": "1", "odds": {"close": {"total": 221.5, "over_price": -110, "under_price": -110}}}
+            waiting = {"id": "2", "odds": {"close": {}}}
+            none = {"id": "3", "odds": None}
+            lines.record("2099-01-02", "opener", [waiting, none])                 # tomorrow before any line: no snapshot at all
+            assert lines.load("2099-01-02") == []
+            lines.record("2099-01-02", "opener", [posted, waiting, none])
+            snaps = lines.load("2099-01-02")
+            assert len(snaps) == 1 and list(snaps[0]["games"]) == ["1"]
+            assert lines.first_snapshot("2099-01-02", "2") is None and lines.first_snapshot("2099-01-02", "1")["total"] == 221.5
+        finally:
+            lines.LINES_DIR = old_dir
 
 
 def test_write_outputs_main_and_next():

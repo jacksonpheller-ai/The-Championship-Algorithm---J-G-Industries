@@ -45,6 +45,8 @@ def record(date, label: str, games: list[dict], models: dict[str, dict] | None =
         m = (models or {}).get(g["id"], {})
         rec["model_margin"] = m.get("margin")
         rec["model_total"] = m.get("total")
+        if all(close.get(k) is None for k in FIELDS):
+            continue        # no line posted for this game yet: nothing to snapshot
         entry["games"][str(g["id"])] = rec
     if not entry["games"]:
         return _path(date)

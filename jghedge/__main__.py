@@ -62,7 +62,8 @@ def cmd_run(args):
         runs.append(pipeline.run(day=d, n_sims=args.sims, update=not args.no_update, with_props=not args.no_props, label=args.label))
         main, nxt = runs[0], None
     else:
-        # the usual run prices tonight and, once a total is posted, tomorrow: the page offers both
+        # the usual run prices tonight and tomorrow: the page offers both (before tomorrow's lines are posted it
+        # shows each game's own number and the opening line that would be a bet)
         f = Fetcher()
         (d0, lab0), (d1, lab1) = pipeline.run_plan()
         s0, s1 = pipeline.fetch_slate(f, d0), pipeline.fetch_slate(f, d1)
@@ -70,7 +71,7 @@ def cmd_run(args):
         if s0 or not s1:
             today = pipeline.run(day=d0, n_sims=args.sims, update=not args.no_update, with_props=not args.no_props, label=lab0, slate=s0)
             runs.append(today)
-        if s1 and (pipeline.has_total(s1) or not s0):
+        if s1:
             tomorrow = pipeline.run(day=d1, n_sims=args.sims, update=not args.no_update and not runs, with_props=not args.no_props,
                                     label=lab1, slate=s1)
             runs.append(tomorrow)

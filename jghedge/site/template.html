@@ -364,7 +364,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <p>The desk does one thing: it finds bets that win more often than their price assumes, and tells you how much of tonight's amount to put on each. Most nights that is very little, and some nights it is nothing.</p>
 
       <h2>1. What happens each day</h2>
-      <p><b>The model runs 13 times a day, at set times.</b> 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am. Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times, prices every bet and grades any finished night. Every run prices tonight's games and, as soon as a sportsbook total is posted for it, tomorrow's slate too, so a new line is seen within about an hour of being posted: the totals edge is at the opening line, before it settles. A separate scheduler starts these runs on time; GitHub's own schedule, which started runs hours late, is kept as a backup.</p>
+      <p><b>The model runs 13 times a day, at set times.</b> 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am. Each run pulls the schedule, the injury report, and DraftKings' lines and player props through ESPN, rebuilds every team and player rating from games already played, simulates every game 20,000 times, prices every bet and grades any finished night. Every run prices tonight's games and tomorrow's slate (the switch at the top shows either). Before tomorrow's lines are posted, each game shows the opening line that would give it an edge; once they are posted a new line is seen within about an hour: the totals edge is at the opening line, before it settles. A separate scheduler starts these runs on time; GitHub's own schedule, which started runs hours late, is kept as a backup.</p>
       <p><b>The page keeps itself current in between.</b> While it is open it reads the current DraftKings totals straight from ESPN every 90 seconds and re-prices each game in your browser exactly as the model run did: the same blend of our number with the market's, the same error table, the same safety cut and floor. The header line says "lines live" when that is working. A live line can take a bet off tonight's plan; it never adds a stake the model run did not make. Every few minutes the page also asks whether a newer model run exists and loads it in place. Player props are not re-priced live: DraftKings' prop prices change only with a model run, and Fliff's numbers are the ones you type. Games that have tipped drop off by your device's clock.</p>
 
       <h2>2. Where the edge comes from</h2>
@@ -535,10 +535,11 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   var NEXTDAY = VIEWDAY === "next" || (S.date && S.date > usToday());   // looking at a slate that is not today's
   function renderDaySwitch() {
     var el = $("daySwitch"); if (!S1) { el.hidden = true; return; }
+    var seen = {}; (S1.bets || []).forEach(function (b) { if (b.kind === "total") seen[b.game_id] = 1; }); var n1 = Object.keys(seen).length;
     var btn = function (s, which) { return "<button type='button' data-day='" + esc(s.date) + "' aria-pressed='" + (VIEWDAY === which ? "true" : "false") + "'>" + esc((s.date === usToday() ? "Tonight · " : s.date === plusDay(usToday(), 1) ? "Tomorrow · " : "") + dayName(s.date)) + "</button>"; };
     el.innerHTML = btn(S0, "main") + btn(S1, "next") + "<span class='note'>" + (VIEWDAY === "next"
-      ? "Showing " + esc(dayName(S1.date)) + " at the opening lines. Lines and injury news will move before tip; every run re-prices it."
-      : esc(dayName(S1.date)) + " is priced too, at the opening lines: " + (S1.games || []).length + " game" + ((S1.games || []).length === 1 ? "" : "s") + ".") + "</span>";
+      ? "Showing " + esc(dayName(S1.date)) + (n1 ? " at the opening lines. Lines and injury news will move before tip; every run re-prices it." : ": its lines are not posted yet. Each game shows the opening line that would make it a bet.")
+      : esc(dayName(S1.date)) + ": " + (S1.games || []).length + " game" + ((S1.games || []).length === 1 ? "" : "s") + ", " + (n1 ? (n1 === (S1.games || []).length ? "priced at the opening lines." : n1 + " with a line posted so far.") : "lines not posted yet (the view shows the opening line that would make each a bet).")) + "</span>";
     el.querySelectorAll("[data-day]").forEach(function (b) { b.addEventListener("click", function () {
       if (b.getAttribute("aria-pressed") === "true") return;
       try { sessionStorage.setItem("jg.day", b.dataset.day); } catch (e) {}
@@ -750,6 +751,24 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var tm = md.t_model != null ? md.t_model : md.total_model;
     return { c: w * tm + (1 - w) * mt + (md.total_context || 0), w: w, mt: mt, pOver: pOver };
   }
+  function preLine(g) {   // a game with no line yet: the highest opening line at which the Over, and the lowest at which the Under, would clear the desk's bar at −110
+    var md = g.model || {}, tm = md.t_model != null ? md.t_model : md.total_model; if (!LP || tm == null || (LP.resid || []).length < 10) return null;
+    var w = wTime((Date.parse(g.tip) - NOW) / 3600000), dec = 1 + 100 / 110, ctx = md.total_context || 0, out = { tm: tm, w: w, over: null, under: null }, base = Math.round(tm) + 0.5;
+    var ok = function (side, L) { var a = liveProbs(w * tm + (1 - w) * L + ctx, L), pw = side === "over" ? a.over : a.under, ev = pw * (dec - 1) - (1 - pw - a.push); return ev >= LP.min_ev && LP.s * ev >= LP.floor; };
+    for (var k = -40; k <= 40; k++) { var L = base + k;   // half-point lines within 40 points of our number
+      if (ok("over", L)) out.over = out.over == null ? L : Math.max(out.over, L);
+      if (ok("under", L)) out.under = out.under == null ? L : Math.min(out.under, L); }
+    return out;
+  }
+  function waitRow(g) {   // a game whose total is not posted yet
+    var p = preLine(g), md = g.model || {}, tm = p ? p.tm : md.total_model;
+    var act = (tm != null ? "Our total: " + num(tm, 1) + ". " : "") + (p && (p.over != null || p.under != null)
+      ? "It has an edge if Fliff opens the " + [p.over != null ? "Over at " + fline(p.over) + " or lower" : "", p.under != null ? "Under at " + fline(p.under) + " or higher" : ""].filter(Boolean).join(", or the ") + " (at −110). The desk prices it for real on the first run after the line is posted."
+      : "The desk prices it on the first run after the line is posted.");
+    return "<article class='erow s-none' data-wait='" + esc(g.id) + "'><div class='what'><b>" + esc(g.away.abbr + " @ " + g.home.abbr) + "</b> · line not posted yet<span class='sub'>" + esc(gameName(g.id)) + " · " + tipTime(g.tip) + "</span></div><div class='cm'></div>" +
+      "<div class='side'><span class='tag'>Waiting</span></div><div class='act'>" + esc(act) + "</div></article>";
+  }
+  function waiting() { return (S.games || []).filter(function (g) { return !started(g.tip) && !bestTotal(g.id); }); }
   function liveReprice(g, mkt) {   // the two totals of game g at a live market -> fields to lay over BETS[...]; null when it cannot be priced
     var srv = SRVMKT[g.id], md = g.model || {};
     if (!LP || !srv || srv.total == null || mkt.total == null || (md.t_model == null && md.total_model == null)) return null;
@@ -999,7 +1018,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     else { head = NEXTDAY ? "No bets for " + (DAYWORD === "Tomorrow" ? "tomorrow" : DAYWORD) + " yet." : "No bets tonight."; sub.push("Keep your " + usd(A) + "."); }
     if (A > 0 && (liveGames || !nGames)) {
       if (!nG) { if (VERDICT === "PASS" || !pl.nGameCandidates) { var nT = (S.games || []).filter(function (g) { return !started(g.tip) && bestTotal(g.id); }).length; var ed = edgeTotals();
-          sub.push(!nT ? "No game totals are posted yet." : ed.length ? "The desk passes on games: " + (ed.length === 1 ? "one total has an edge (" : ed.length + " totals have an edge (") + ed.map(function (b) { return (b.side === "over" ? "Over " : "Under ") + fline(b.line) + " in " + gameName(b.game_id) + ", " + sgn(evS(b) * 100) + "%"; }).join("; ") + "), but with so little to bet the night's expected profit is under the desk's bar, so it stakes nothing. " + (ed.length === 1 ? "It is" : "They are") + " marked Edge below." : "None of tonight's " + nT + " game totals has enough edge after the safety cut. " + closestMiss()); } else if (pl.why && !nP) sub.push("There are game bets, but " + pl.why + "."); }
+          sub.push(!nT ? "No game totals are posted yet" + (waiting().length ? ": each game below shows the opening line that would give it an edge." : ".") : ed.length ? "The desk passes on games: " + (ed.length === 1 ? "one total has an edge (" : ed.length + " totals have an edge (") + ed.map(function (b) { return (b.side === "over" ? "Over " : "Under ") + fline(b.line) + " in " + gameName(b.game_id) + ", " + sgn(evS(b) * 100) + "%"; }).join("; ") + "), but with so little to bet the night's expected profit is under the desk's bar, so it stakes nothing. " + (ed.length === 1 ? "It is" : "They are") + " marked Edge below." : "None of tonight's " + nT + " game totals has enough edge after the safety cut. " + closestMiss()); } else if (pl.why && !nP) sub.push("There are game bets, but " + pl.why + "."); }
       if (!nP) {
         var livePr = PROWS.filter(function (r) { return !started(r.tip); }), chk = livePr.filter(function (r) { return propNow(r).confirmed; }).length, nE = pl.propEdges.length;
         if (nE) sub.push("Player props: " + (nE === 1 ? "one prop has" : nE + " props have") + " an edge at Fliff's number, but " + (nE === 1 ? "its" : "each one's") + " share of " + usd(A) + " is under Fliff's " + usd(pl.step) + " minimum bet.");
@@ -1043,7 +1062,8 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function propRank(r) { var e = propNow(r); return (e.confirmed ? (e.ok ? 3 : 2) : typed[r.id] ? 1 : 0) * 10 + (e.ev != null ? Math.max(-0.5, Math.min(0.5, e.ev)) : -1); }
   function renderEdgeMap() {
     var gs = (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(Boolean).sort(function (x, y) { return (started(x.tip) - started(y.tip)) || (evS(y) - evS(x)); });
-    $("mapGames").innerHTML = gs.length ? "<div class='elist'>" + gs.map(function (b) { return gameRow(b, false); }).join("") + "</div>" : "<div class='empty'>No game totals are posted for this slate yet.</div>";
+    var wt = waiting();
+    $("mapGames").innerHTML = gs.length || wt.length ? "<div class='elist'>" + gs.map(function (b) { return gameRow(b, false); }).join("") + wt.map(waitRow).join("") + "</div>" : "<div class='empty'>No game totals are posted for this slate yet.</div>";
     bindWhy($("mapGames"), renderEdgeMap);
     var live = PROWS.filter(function (r) { return !started(r.tip); });
     if (!PR || !live.length) { $("mapPropsNote").textContent = ""; $("mapProps").innerHTML = "<div class='empty'>" + (PROWS.length ? "Every game with a priced prop has tipped off." : "No player props priced (no sportsbook props posted yet).") + "</div>"; return; }
@@ -1062,7 +1082,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     if (moved.length) li.push("Moved past our number since it was priced (skip): " + moved.map(function (id) { var b = BETS[id]; return (b ? b.label : id) + " " + fline(MOVED[id].line_then) + " → " + fline(MOVED[id].line_now); }).join("; ") + ".");
     if ((fl.lineup_uncertainty || []).length) li.push("Starters listed as game-time decisions in " + fl.lineup_uncertainty.map(function (g) { var G = GAMES[g]; return G ? G.away.abbr + "@" + G.home.abbr : g; }).join(", ") + ". A late scratch changes the total; later runs re-price.");
     ((NIGHT && NIGHT.would_change) || []).filter(function (w) { return !/^GTD/.test(w); }).slice(0, 2).forEach(function (w) { li.push(String(w).replace(/max line/g, "worst line")); });
-    if (fl.hours_to_first_tip != null && fl.hours_to_first_tip >= 0) li.push("Priced " + num(fl.hours_to_first_tip, 1) + " h before the first tip" + (S.run_label ? " (" + S.run_label + " run)" : "") + ". The desk re-prices at 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am. Tomorrow's slate is priced as soon as its lines are posted: use the switch at the top.");
+    if (fl.hours_to_first_tip != null && fl.hours_to_first_tip >= 0) li.push("Priced " + num(fl.hours_to_first_tip, 1) + " h before the first tip" + (S.run_label ? " (" + S.run_label + " run)" : "") + ". The desk re-prices at 8 am, noon and 2 pm Eastern, then every hour from 4 pm to 1 am. Tomorrow's slate is on the switch at the top.");
     li.push("Only bet money you can afford to lose. Help: 1-800-GAMBLER.");
     $("checkList").innerHTML = li.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("");
   }
@@ -1092,7 +1112,8 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   // ---------------------------------------------------------------- games tab
   function renderGames() {
     var gs = (S.games || []).map(function (g) { return bestTotal(g.id); }).filter(Boolean).sort(function (x, y) { return (started(x.tip) - started(y.tip)) || (evS(y) - evS(x)); });
-    $("gameRows").innerHTML = gs.length ? "<div class='elist'>" + gs.map(function (b) { return gameRow(b, true); }).join("") + "</div>" : "<div class='empty'>No game totals are posted for this slate yet.</div>";
+    var wt = waiting();
+    $("gameRows").innerHTML = gs.length || wt.length ? "<div class='elist'>" + gs.map(function (b) { return gameRow(b, true); }).join("") + wt.map(waitRow).join("") + "</div>" : "<div class='empty'>No game totals are posted for this slate yet.</div>";
     bindWhy($("gameRows"), renderGames);
     var ps = (S.parlays || []).slice().sort(function (a, b) { return parlayEvS(b) - parlayEvS(a); });
     $("parlayWrap").hidden = !ps.length;
@@ -1409,6 +1430,6 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   // live lines every 90 seconds and a build check every 5 minutes, only while the page is visible
   if (LIVE.on) { fetchLive(); TIMERS.live = setInterval(fetchLive, 90000); }
   if (JG.live !== false) { setTimeout(checkForUpdate, 4000); TIMERS.upd = setInterval(checkForUpdate, 300000); }
-  window.JG_DEBUG = { VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, item: item, IDS: IDS, gameWeights: gameWeights, gameStatus: gameStatus, settlePickem: settlePickem, settleBet: settleBet, PRBY: PRBY, PRULE: PRULE, typed: function () { return typed; }, setTyped: function (id, v) { if (v) typed[id] = v; else delete typed[id]; saveTyped(); renderPropRows(); renderTonight(); }, propEval: propEval, propNow: propNow, propProbs: propProbs, propStatus: propStatus, propBets: propBets, propCheck: propCheck, takeAm: takeAm, takeText: takeText };
+  window.JG_DEBUG = { VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, item: item, IDS: IDS, gameWeights: gameWeights, gameStatus: gameStatus, settlePickem: settlePickem, settleBet: settleBet, PRBY: PRBY, PRULE: PRULE, typed: function () { return typed; }, setTyped: function (id, v) { if (v) typed[id] = v; else delete typed[id]; saveTyped(); renderPropRows(); renderTonight(); }, propEval: propEval, propNow: propNow, propProbs: propProbs, propStatus: propStatus, propBets: propBets, propCheck: propCheck, preLine: preLine, takeAm: takeAm, takeText: takeText };
 })();
 </script>

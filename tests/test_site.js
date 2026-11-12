@@ -1,13 +1,14 @@
 // Dashboard checks with playwright (node tests/test_site.js [outdir]).
 // Renders jghedge/site/template.html the way jghedge/site/__init__.py does, against three slates:
-//   fixture  tests/fixtures/latest_sample.json (full data contract: policy, night, props, fliff, lines)
+//   fixture  tests/fixtures/latest_sample.json (full data contract: policy, night, pickem, fliff, lines)
 //   real     docs/data/latest.json (whatever the nightly job last produced)
 //   empty    {} (no slate at all)
 // and asserts: no console/page errors, no horizontal overflow at 390px on every tab, no bankroll input
-// (tonight's amount is the only stake input), how tonight's amount is split (everything on Fliff: props
-// first at a quarter of Kelly, at most half and one per player; game bets with the rest by the night's
-// call, nothing moved past our number or info-only), Fliff prop pricing (the page's arithmetic equals the engine's, a prop is staked only at a
-// Fliff number, typed numbers are re-priced, validated and remembered), grading, and the old links.
+// (tonight's amount is the only stake input), the page's exact slip value equals the engine's for every
+// published slip (including the void rule), one pick per player, how tonight's amount is split
+// (PrizePicks minimum only when it is at most half the amount, game bets by the night's call, nothing
+// moved past our number or info-only), line re-pricing, the Tonight / Tomorrow switch, the opening-line
+// targets of games with no line yet, and the old #desk / #pickem links.
 // Writes light/dark screenshots of Tonight and Player props at 1280px into outdir.
 const fs = require("fs"), path = require("path");
 const { chromium } = require("playwright");
@@ -79,54 +80,42 @@ async function openAt(browser, opts, slate, offsetHours) {
   const perr = []; p.on("pageerror", (e) => perr.push(String(e)));
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#tonight"); await p.waitForTimeout(400);
   assert(await p.evaluate(() => document.getElementById("answer").dataset.verdict) === String(fixture.night.verdict).toUpperCase(), "answer carries the night's call (" + fixture.night.verdict + ")");
-  // how tonight's amount is split: everything on Fliff, props first (at most half), game bets with the rest by the night's call
+  // how tonight's amount is split
   const byId = {}; fixture.bets.forEach((b) => { byId[b.id] = b; });
   const moved = new Set((fixture.lines.moved || []).filter((m) => m.still_ok === false).map((m) => m.bet_id));
-  const FACT = { BET: 1, LIGHT: 0.5, PASS: 0 };
-  const feedOk = fixture.props.rows.filter((r) => r.ok).map((r) => r.id);
+  const factor = { BET: 1, LIGHT: 0.5, PASS: 0 }[String(fixture.night.verdict).toUpperCase()];
   for (const A of [3, 8, 10, 40, 250]) {
-    const pl = await p.evaluate((a) => { const x = window.JG_DEBUG.plan(a); return { total: x.total, games: x.games, props: x.props, verdict: x.verdict, rows: x.rows.map((r) => ({ id: r.id, prop: !!r.prop, stake: r.stake, legs: r.legs.map((l) => l.id) })) }; }, A);
-    assert(pl.total <= A + 1e-9 && pl.games <= (A - pl.props) * FACT[pl.verdict] + 1e-9, "$" + A + ": game bets use at most " + FACT[pl.verdict] + " of what props leave on a " + pl.verdict + " night (games " + pl.games + ", props " + pl.props + ")");
-    assert(pl.props <= A / 2 + 1e-9, "$" + A + ": props get at most half of the amount (" + pl.props + ")");
-    assert(pl.rows.every((r) => Math.abs(r.stake / 0.25 - Math.round(r.stake / 0.25)) < 1e-9), "$" + A + ": stakes are whole Fliff-minimum steps");
-    assert(pl.rows.filter((r) => !r.prop).every((r) => r.legs.every((id) => byId[id] && byId[id].kind === "total" && !byId[id].info_only && !moved.has(id))), "$" + A + ": game bets are totals only, nothing info-only or moved past our number");
-    assert(pl.rows.filter((r) => r.prop).every((r) => feedOk.includes(r.id)), "$" + A + ": the only props staked are ones priced at a Fliff number with an edge");
+    const pl = await p.evaluate((a) => { const x = window.JG_DEBUG.plan(a); return { total: x.total, games: x.games, pp: x.pp ? x.pp.stake : 0, rows: x.rows.map((r) => ({ id: r.id, stake: r.stake, legs: r.legs.map((l) => l.id) })), slip: !!x.slip }; }, A);
+    assert(pl.total <= A + 1e-9, "$" + A + ": plan stakes no more than the amount (" + pl.total + ")");
+    assert(pl.pp === 0 || (pl.pp === 5 && 5 <= A / 2 + 1e-9), "$" + A + ": PrizePicks gets the $5 minimum only when it is at most half the amount (pp " + pl.pp + ")");
+    if (pl.slip && A >= 10) assert(pl.pp === 5, "$" + A + ": a slip with an edge gets the minimum entry");
+    assert(pl.games <= (A - pl.pp) * factor + 1e-9, "$" + A + ": game bets use at most " + factor + " of what is left (" + pl.games + ")");
+    assert(pl.rows.every((r) => Math.abs(r.stake / 0.25 - Math.round(r.stake / 0.25)) < 1e-9), "$" + A + ": game stakes are whole Fliff-minimum steps");
+    assert(pl.rows.every((r) => r.legs.every((id) => byId[id] && byId[id].kind === "total" && !byId[id].info_only && !moved.has(id))), "$" + A + ": only totals, nothing info-only or moved past our number");
   }
   assert(await p.evaluate(() => window.JG_DEBUG.plan(0).total === 0), "$0: nothing staked");
   await p.fill("#amount", "0"); await p.waitForTimeout(100);
   assert(/Enter tonight's amount/.test(await p.evaluate(() => document.getElementById("tHead").textContent)), "amount 0 asks for an amount");
   await p.fill("#amount", "20"); await p.waitForTimeout(100);
   assert(await p.evaluate(() => localStorage.getItem("jg.amount")) === "20", "tonight's amount is remembered on this device");
-  const planCards = await p.evaluate(() => document.querySelectorAll("#plan .bet:not(.chk):not(.off)").length);
-  const expect = await p.evaluate(() => window.JG_DEBUG.plan(20).rows.length);
-  assert(planCards === expect && !/PrizePicks/.test(await p.evaluate(() => document.getElementById("view-tonight").textContent)), "Tonight shows one card per planned bet, all on Fliff (" + planCards + ")");
-  // a prop is never staked at DraftKings' stand-in number: only the row Fliff's board was read for is in the plan
+  const planCards = await p.evaluate(() => document.querySelectorAll("#plan .bet").length);
+  const expect = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return x.rows.length + (x.pp ? 1 : 0); });
+  assert(planCards === expect, "Tonight shows one card per planned bet (" + planCards + ")");
+  // the slip on Tonight is checked against the app in place: a much harder line turns it into a skip, reset restores it
   {
-    const st = await p.evaluate(() => { const D = window.JG_DEBUG; return Object.keys(D.PRBY).map((id) => { const e = D.propNow(D.PRBY[id]); return { id, src: e.src, confirmed: !!e.confirmed, ok: !!e.ok, tag: D.propStatus(D.PRBY[id]).tag }; }); });
-    assert(st.filter((x) => x.src === "dk").every((x) => !x.confirmed && x.tag === "Check Fliff"), "rows without a Fliff number are tagged Check Fliff and never staked");
-    assert(st.filter((x) => x.confirmed && x.ok).map((x) => x.id).join() === feedOk.join() && feedOk.length === 1, "the row with a softer Fliff line (read by the model run) is the one prop with an edge");
-    const bets = await p.evaluate(() => window.JG_DEBUG.propBets().map((x) => x.r.id));
-    assert(bets.join() === feedOk.join(), "that prop is the one in tonight's plan");
-  }
-  // the recommendation checks player props: the closest to an edge are listed as "bet it only if Fliff shows X or better"
-  {
-    const rowsBy = {}; fixture.props.rows.forEach((r) => { rowsBy[r.id] = r; });
-    const ck = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return { checks: x.checks.map((c) => ({ id: c.r.id, pid: c.r.player_id, side: c.side, take: c.take, stake: c.stake, tip: c.r.tip })), firm: x.rows.filter((r) => r.prop).map((r) => r.row.player_id),
-      cards: Array.from(document.querySelectorAll("#plan .bet.chk")).map((el) => ({ id: el.dataset.check, txt: el.textContent, boxes: el.querySelectorAll("input[data-fl]").length })) }; });
-    assert(ck.checks.length >= 3 && ck.checks.length <= 5 && ck.cards.length === ck.checks.length && ck.cards.every((c) => c.boxes === 3), "Tonight lists " + ck.checks.length + " props to check on Fliff, each with boxes for Fliff's number");
-    assert(ck.checks.every((c) => c.take === (c.side === "under" ? rowsBy[c.id].take_under : rowsBy[c.id].take_over)) && ck.cards.every((c) => /Bet it only if Fliff shows/.test(c.txt)), "each check card names the engine's take-it price");
-    assert(new Set(ck.checks.map((c) => c.pid)).size === ck.checks.length && ck.checks.every((c) => !ck.firm.includes(c.pid) && rowsBy[c.id].ref === "dk" && Date.parse(c.tip) > Date.parse(fixture.generated)), "check cards: one per player, none already bet, none already checked, none tipped");
-    // type a clearing number on a check card: it becomes a firm bet; a worse number makes it a skip
-    const c0 = ck.checks[0], sel = "#plan input[data-fl='" + c0.side + "'][data-id='" + c0.id + "']";
-    await p.fill(sel, String(c0.take)); await p.dispatchEvent(sel, "change"); await p.waitForTimeout(150);
-    const firm = await p.evaluate((id) => ({ inPlan: window.JG_DEBUG.plan(20).rows.some((r) => r.id === id), chk: !!document.querySelector("#plan .bet.chk[data-check='" + id + "']"), cards: document.querySelectorAll("#plan .bet:not(.chk):not(.off)").length, rows: window.JG_DEBUG.plan(20).rows.length }), c0.id);
-    assert(firm.inPlan && !firm.chk && firm.cards === firm.rows, "a check card whose Fliff number clears becomes a firm bet with a stake");
-    const worse = c0.take - 15 > -100 && c0.take - 15 < 100 ? -115 : c0.take - 15;
-    await p.fill(sel, String(worse)); await p.dispatchEvent(sel, "change"); await p.waitForTimeout(150);
-    const skip = await p.evaluate((id) => ({ inPlan: window.JG_DEBUG.plan(20).rows.some((r) => r.id === id), skip: (document.querySelector("#plan .bet.off[data-skip='" + id + "']") || {}).textContent || "" }), c0.id);
-    assert(!skip.inPlan && /Skip/.test(skip.skip) && /the desk needs \+3%/.test(skip.skip), "a check card whose Fliff number does not clear is listed as a skip, with the price it would need");
-    await p.click("#plan .bet.off[data-skip='" + c0.id + "'] [data-flclear]"); await p.waitForTimeout(150);
-    assert(await p.evaluate((id) => !!document.querySelector("#plan .bet.chk[data-check='" + id + "']") && Object.keys(window.JG_DEBUG.typed()).length === 0, c0.id), "clearing the number puts the prop back on the check list");
+    const slipIds = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return x.pp ? x.pp.slip.legs : []; });
+    if (slipIds.length) {
+      assert(await p.evaluate(() => document.querySelectorAll("#plan .bet.pp input[data-slipline]").length) === slipIds.length, "the slip card has a line box for every pick (" + slipIds.length + ")");
+      const leg = fixture.pickem.legs.find((l) => l.id === slipIds[0]), worse = leg.side === "more" ? leg.line + 3 : leg.line - 3;
+      const sel = "#plan input[data-slipline='" + leg.id + "']";
+      await p.fill(sel, String(worse)); await p.dispatchEvent(sel, "change"); await p.waitForTimeout(150);
+      const after = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return { skip: x.pp.skip, stake: x.pp.stake, total: x.total, off: !!document.querySelector("#plan .bet.pp.off"), acts: document.getElementById("planActs").hidden, txt: document.querySelector("#plan .bet.pp").textContent }; });
+      const calc = await p.evaluate(() => window.JG_DEBUG.slipNow(window.JG_DEBUG.plan(20).pp.slip));
+      assert(calc.edited && (calc.good ? !after.skip : after.skip && after.stake === 0 && after.off), "a typed line re-prices the slip; a slip without an edge is marked Skip and stakes nothing (" + (calc.good ? "still good" : "skip") + ")");
+      await p.click("#slipReset"); await p.waitForTimeout(150);
+      const back = await p.evaluate(() => { const x = window.JG_DEBUG.plan(20); return { skip: x.pp.skip, edited: x.pp.calc.edited, stake: x.pp.stake }; });
+      assert(!back.edited && !back.skip && back.stake === 5, "Reset lines restores the suggested slip");
+    }
   }
   // the edge map lists every game with a posted total
   const nTotals = new Set(fixture.bets.filter((b) => b.kind === "total").map((b) => b.game_id)).size;
@@ -137,66 +126,28 @@ async function openAt(browser, opts, slate, offsetHours) {
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#games"); await p.waitForTimeout(300);
   await p.click("#gameRows .whybtn[data-why]"); await p.waitForTimeout(100);
   assert(/How we got our total/.test(await p.evaluate(() => document.getElementById("gameRows").textContent)), "game Details shows how we got our total");
-  // props tab: type Fliff's number on a row and it is re-priced, staked, remembered, and cleared again
+  // props: tick a suggested slip's legs into the builder
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#props"); await p.waitForTimeout(300);
-  {
-    const rows = fixture.props.rows, pick = rows.find((r) => r.ref === "dk" && r.stat === "pra"), other = rows.find((r) => r.player_id === pick.player_id && r.id !== pick.id);
-    const box = (id, k) => "#prRows input[data-fl='" + k + "'][data-id='" + id + "']";
-    const type = async (id, k, v) => { await p.fill(box(id, k), String(v)); await p.dispatchEvent(box(id, k), "change"); await p.waitForTimeout(120); };
-    const tagOf = (id) => p.evaluate((i) => document.getElementById("p-" + i).querySelector(".side .tag").textContent, id);
-    assert(await p.evaluate(() => document.querySelectorAll("#prRows .erow").length) === rows.filter((r) => Date.parse(r.tip) > Date.parse(fixture.generated)).length, "the props tab lists every priced prop that has not tipped");
-    assert(await tagOf(pick.id) === "Check Fliff", "a row starts as Check Fliff");
-    // the take-it price on the row is the engine's
-    const take = await p.evaluate((i) => { const D = window.JG_DEBUG, r = D.PRBY[i], pr = D.propProbs(r, r.line); return { u: D.takeAm(pr.under, pr.tie), o: D.takeAm(pr.over, pr.tie), txt: document.getElementById("p-" + i).querySelector(".act").textContent }; }, pick.id);
-    assert(take.u === pick.take_under && take.o === pick.take_over && take.txt.includes("Under " + pick.line + " at"), "the take-it price on the row equals the engine's (under " + take.u + ", over " + take.o + ")");
-    // worse than the take price: not a bet
-    await type(pick.id, "under", pick.take_under - 12);
-    assert(["None", "Close"].includes(await tagOf(pick.id)), "odds worse than the take-it price are not a bet (" + (await tagOf(pick.id)) + ")");
-    // at the take price: an edge, in the plan, one card more
-    const before = await p.evaluate(() => window.JG_DEBUG.plan(40).rows.length);
-    await type(pick.id, "under", pick.take_under);
-    const at = await p.evaluate((i) => { const D = window.JG_DEBUG, x = D.plan(40); return { tag: D.propStatus(D.PRBY[i]).tag, rows: x.rows.length, inPlan: x.rows.some((r) => r.id === i), props: x.props, stored: JSON.parse(localStorage.getItem("jg.fliff." + D.date)).rows[i] }; }, pick.id);
-    assert(at.tag === "Edge" && at.inPlan && at.rows === before + 1 && at.props <= 20 + 1e-9, "at the take-it price the prop is an Edge and joins the plan");
-    assert(at.stored && at.stored.under === pick.take_under, "the typed Fliff number is remembered on this device");
-    // a softer line with the same odds is better still; a harder line is worse
-    const evAt = (i) => p.evaluate((id) => window.JG_DEBUG.propNow(window.JG_DEBUG.PRBY[id]).ev, i);
-    const ev0 = await evAt(pick.id);
-    await type(pick.id, "line", pick.line + 1); const evUp = await evAt(pick.id);
-    await type(pick.id, "line", pick.line - 1); const evDn = await evAt(pick.id);
-    assert(evUp > ev0 + 0.01 && evDn < ev0 - 0.01, "a higher Fliff line helps the under, a lower one hurts it (" + ev0.toFixed(3) + " → " + evUp.toFixed(3) + " / " + evDn.toFixed(3) + ")");
-    await type(pick.id, "line", pick.line);
-    // one prop per player: a second edge on the same player is marked but not staked
-    await type(other.id, "under", 130);
-    const two = await p.evaluate((ids) => { const D = window.JG_DEBUG, x = D.plan(40); return { n: x.rows.filter((r) => ids.includes(r.id)).length, tags: ids.map((i) => D.propStatus(D.PRBY[i])) }; }, [pick.id, other.id]);
-    assert(two.n === 1 && two.tags.every((s) => s.tag === "Edge") && two.tags.some((s) => /one prop per player/.test(s.act)), "two edges on one player: both tagged Edge, one staked");
-    // odds that are not American odds are refused
-    await type(other.id, "under", 50);
-    assert(await p.evaluate((sel) => document.querySelector(sel).getAttribute("aria-invalid") === "true", box(other.id, "under")) && (await p.evaluate((i) => window.JG_DEBUG.typed()[i].under, other.id)) === 130, "odds between −100 and +100 are marked invalid and ignored");
-    // a line far outside the table is not priced
-    await type(pick.id, "line", pick.line + 9);
-    assert(await tagOf(pick.id) === "Re-check", "a Fliff line far from DraftKings' is flagged, not priced");
-    // a wrong sign is called out
-    await type(pick.id, "line", pick.line); await type(pick.id, "under", 150);
-    assert(/check the sign/.test(await p.evaluate((i) => window.JG_DEBUG.propStatus(window.JG_DEBUG.PRBY[i]).act, pick.id)), "odds far better than DraftKings' ask you to check the sign");
-    // sizing: a quarter of Kelly, counting the nightly amount as a tenth of the bankroll, in Fliff steps; props together at most half
-    const sz = await p.evaluate(() => { const D = window.JG_DEBUG, x = D.plan(40); return x.rows.filter((r) => r.prop).map((r) => ({ stake: r.stake, want: Math.round(4000 * r.e.frac / 0.10 / 25) * 0.25 })); });
-    assert(sz.length >= 2 && sz.reduce((s, r) => s + r.stake, 0) <= 20 + 1e-9 && sz.some((r) => Math.abs(r.stake - r.want) < 1e-9) && sz.every((r) => r.stake <= r.want + 1e-9), "each prop is staked at a quarter of Kelly on a tenth-of-bankroll night, and props stay within half the amount (" + sz.map((r) => r.stake).join(", ") + ")");
-    // find box and clearing
-    await p.fill("#propFind", "early"); await p.waitForTimeout(100);
-    assert(await p.evaluate(() => { const r = document.querySelectorAll("#prRows .erow"); return r.length === 1 && /Early Tipper/.test(r[0].textContent); }), "the find box narrows the list to a player");
-    await p.fill("#propFind", ""); await p.waitForTimeout(100);
-    await p.click("#prClearAll"); await p.waitForTimeout(150);
-    const cleared = await p.evaluate((i) => ({ n: Object.keys(window.JG_DEBUG.typed()).length, tag: window.JG_DEBUG.propStatus(window.JG_DEBUG.PRBY[i]).tag, bets: window.JG_DEBUG.propBets().length }), pick.id);
-    assert(cleared.n === 0 && cleared.tag === "Check Fliff" && cleared.bets === feedOk.length, "clearing the typed numbers puts every row back to Check Fliff");
-    // details and the bar's explanation
-    await p.click("#p-" + pick.id + " .whybtn[data-why]"); await p.waitForTimeout(100);
-    assert(/DraftKings' price/.test(await p.evaluate((i) => document.getElementById("p-" + i).textContent, pick.id)), "prop Details shows where the chance comes from");
-    // a placed prop is graded from the box score like any single
-    const graded = await p.evaluate(() => { const D = window.JG_DEBUG, leg = { game_id: "g", kind: "prop", side: "under", line: 24.5, player_id: "7", stat: "pts", dec: 1.9 };
-      const day = (v) => ({ games: { g: { hs: 100, as: 90 } }, players: { g: v == null ? {} : { "7": { pts: v } } } });
-      const bet = { type: "single", stake: 2, dec: 1.9, legs: [leg] };
-      return [D.settleBet(bet, day(20)), D.settleBet(bet, day(30)), D.settleBet(bet, day(null))]; });
-    assert(graded[0].result === "win" && Math.abs(graded[0].pnl - 1.8) < 1e-9 && graded[1].result === "loss" && graded[1].pnl === -2 && graded[2].result === "void" && graded[2].pnl === 0, "a prop single grades as win / loss, and as void (stake back) when the player does not play");
+  await p.click("#pkMore").catch(() => {});
+  const legIds = fixture.pickem.slips[0].legs;
+  for (const id of legIds) await p.check("input[data-pk='" + id + "']");
+  const outTxt = await p.evaluate(() => document.getElementById("pkCustomOut").textContent);
+  assert(/Back per \$1/.test(outTxt) && /All \d hit/.test(outTxt), "slip builder shows the chance all hit and the return per $1");
+  const legs = fixture.pickem.legs, dupPlayer = legs.find((l) => legs.filter((x) => x.player_id === l.player_id).length > 1);
+  if (dupPlayer) {
+    await p.click("#pkClear");
+    await p.check("input[data-pk='" + dupPlayer.id + "']");
+    const other = legs.find((l) => l.player_id === dupPlayer.player_id && l.id !== dupPlayer.id);
+    assert(await p.evaluate((id) => document.querySelector("input[data-pk='" + id + "']").disabled, other.id), "one pick per player: a second pick for " + dupPlayer.player + " is disabled");
+  }
+  // typing PrizePicks' line re-prices the pick from its table
+  const qLeg = legs.find((l) => (l.q || []).length > 2);
+  if (qLeg) {
+    const before = await p.evaluate((id) => document.getElementById("p-" + id).querySelector(".cm .lab").textContent, qLeg.id);
+    const easier = qLeg.side === "more" ? qLeg.line - 1 : qLeg.line + 1;
+    await p.fill("input[data-pkline='" + qLeg.id + "']", String(easier)); await p.dispatchEvent("input[data-pkline='" + qLeg.id + "']", "change"); await p.waitForTimeout(100);
+    const after = await p.evaluate((id) => document.getElementById("p-" + id).querySelector(".cm .lab").textContent, qLeg.id);
+    assert(parseFloat(after) > parseFloat(before), "an easier PrizePicks line raises the pick's chance (" + before + " → " + after + ")");
   }
   // old links still land somewhere sensible
   await p.goto("file://" + path.join(OUT, "fixture.html") + "#desk"); await p.waitForTimeout(150);
@@ -207,16 +158,14 @@ async function openAt(browser, opts, slate, offsetHours) {
   await p.close();
   // ---- a total with an edge on a PASS night: named as an edge, not staked, and the page does not claim there is none
   {
-    const pe = JSON.parse(JSON.stringify(fixture)); pe.night.verdict = "PASS"; pe.night.score = 0; pe.lines.moved = [];
+    const pe = JSON.parse(JSON.stringify(fixture)); pe.night.verdict = "PASS"; pe.lines.moved = [];
     pe.bets.forEach((x) => { if (x.id === "401909940-to-u") Object.assign(x, { eligible: true, shrunk_ev: 0.028, p_shrunk: 0.54, ev: 0.056 }); if (x.id === "401909940-to-o") Object.assign(x, { eligible: false, shrunk_ev: -0.12, p_shrunk: 0.46 }); });
     fs.writeFileSync(path.join(OUT, "passedge.html"), render(pe));
     const q = await openAt(browser, { viewport: { width: 1280, height: 900 } }, pe);
     await q.goto("file://" + path.join(OUT, "passedge.html") + "#tonight"); await q.waitForTimeout(300);
-    const t = await q.evaluate(() => ({ sub: document.getElementById("tSub").textContent, head: document.getElementById("tHead").textContent, rows: window.JG_DEBUG.plan(50).rows.filter((r) => !r.prop).length, all: window.JG_DEBUG.plan(50).rows.length, verdict: document.getElementById("answer").dataset.verdict,
+    const t = await q.evaluate(() => ({ sub: document.getElementById("tSub").textContent, rows: window.JG_DEBUG.plan(50).rows.length,
       edge: Array.from(document.querySelectorAll("#mapGames .erow.s-edge")).map((r) => r.querySelector(".act").textContent) }));
     assert(t.rows === 0, "PASS night with an edge: no game bets staked");
-    // the night's call is about game bets: a prop with an edge at Fliff's number is still staked on a pass night
-    assert(t.all === 1 && t.verdict === "PASS" && /one player prop/.test(t.head), "PASS night with a prop edge: the prop is staked, the call stays pass (" + t.head + ")");
     assert(/passes on games/.test(t.sub) && !/None of tonight's/.test(t.sub), "PASS night with an edge: the summary names the edge instead of saying there is none");
     assert(t.edge.length === 1 && /desk passes on the night/.test(t.edge[0]) && !/^Bet /.test(t.edge[0]), "PASS night with an edge: the row is tagged Edge and explains the pass");
     await q.close();
@@ -240,24 +189,21 @@ async function openAt(browser, opts, slate, offsetHours) {
     assert(done.cards === 0 && done.total === 0 && done.picks === 0 && /have started/.test(done.head), "after every game has tipped nothing is offered (" + done.head + ")");
     await over.close();
   }
-  // ---- engine and page price a prop the same way: the page's arithmetic on the published rows equals the engine's
+  // ---- engine and page price a slip the same way: the page's exact value from the published legs equals the engine's
   {
     const rr = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
     await rr.goto("file://" + path.join(OUT, "real.html") + "#props"); await rr.waitForTimeout(300);
-    const rows = ((real.props || {}).rows || []);
-    if (rows.length) {
-      const got = await rr.evaluate(() => { const D = window.JG_DEBUG; return Object.keys(D.PRBY).map((id) => { const r = D.PRBY[id], e = D.propNow(r), pr = D.propProbs(r, r.line); return { id, side: e.side, ev: e.ev, src: e.src, confirmed: !!e.confirmed, u: D.takeAm(pr.under, pr.tie), o: D.takeAm(pr.over, pr.tie) }; }); });
-      const by = {}; rows.forEach((r) => { by[r.id] = r; });
-      const worst = Math.max(...got.map((g) => Math.abs(g.ev - by[g.id].ev)));
-      assert(got.length === rows.length && worst < 2e-3 && got.every((g) => g.side === by[g.id].side || Math.abs(g.ev - by[g.id].ev) < 2e-3), "page and engine agree on the value of all " + rows.length + " published props (max EV gap " + worst.toFixed(5) + ")");
-      // the published chances are rounded to 4 places, so a price can differ by a cent where the exact price sits on a whole number
-      const off = got.filter((g) => Math.abs((g.u == null ? 0 : g.u) - (by[g.id].take_under == null ? 0 : by[g.id].take_under)) > 1 || Math.abs((g.o == null ? 0 : g.o) - (by[g.id].take_over == null ? 0 : by[g.id].take_over)) > 1);
-      assert(off.length === 0, "page and engine agree on every take-it price to the cent of rounding (" + off.length + " off)");
-      if ((real.props || {}).source === "dk_proxy") assert(got.every((g) => !g.confirmed) && (await rr.evaluate(() => window.JG_DEBUG.propBets().length)) === 0, "real slate without Fliff's board: no prop is staked until a Fliff number is typed");
+    const slips = ((real.pickem || {}).slips || []).filter((x) => x.ev_shrunk != null);
+    let worst = 0, worstAll = 0;
+    for (const x of slips) {
+      const v = await rr.evaluate((sl) => { const D = window.JG_DEBUG, legs = sl.legs.map((id) => D.PKBY[id]), be = D.beFor(sl.type);
+        return D.slipValue(legs.map((l) => D.legP(l, true, be)), legs.map((l) => D.legVoid(l)), D.slipKind(sl.type)); }, x);
+      worst = Math.max(worst, Math.abs(v.ev - x.ev_shrunk)); worstAll = Math.max(worstAll, Math.abs(v.dist[v.dist.length - 1] - x.p_dist_shrunk[x.p_dist_shrunk.length - 1]));
     }
-    // by hand: 56% at -110 is +6.9% a dollar; half the edge is kept (54.2%); quarter Kelly on that is 0.95% of the bankroll
-    const hand = await rr.evaluate(() => window.JG_DEBUG.propEval(0.56, 0, -110));
-    assert(Math.abs(hand.ev - (0.56 * (1 + 100 / 110) - 1)) < 1e-12 && Math.abs(hand.pCut - (110 / 210 + 0.5 * (0.56 - 110 / 210))) < 1e-12 && Math.abs(hand.frac - 0.25 * (hand.pCut * (210 / 110) - 1) / (100 / 110)) < 1e-12 && hand.ok, "prop arithmetic by hand: 56% at −110 is worth +6.9%, cut to 54.2%, staked at a quarter of Kelly");
+    if (slips.length) assert(worst < 3e-3 && worstAll < 1e-3, "page and engine agree on the value of all " + slips.length + " published slips (max EV diff " + worst.toFixed(5) + ")");
+    // a pick whose player may sit: the void rule, by hand (two picks at 0.6, one 10% to sit -> 0.9 x (3 x 0.36 - 1))
+    const hand = await rr.evaluate(() => window.JG_DEBUG.slipValue([0.6, 0.6], [0.1, 0], "power").ev);
+    assert(Math.abs(hand - 0.9 * (3 * 0.36 - 1)) < 1e-12, "void rule in the page: a 2-pick with one pick 10% to sit is worth 0.9 x (3 x 0.36 - 1)");
     await rr.close();
   }
   // ---- live lines: the page reads ESPN's totals and re-prices each game the way the engine did
@@ -318,7 +264,7 @@ async function openAt(browser, opts, slate, offsetHours) {
     // while a line is typed the page asks instead of reloading
     served.v = later;
     await up.focus("#amount"); await up.evaluate(() => { window.JG_DEBUG.checkForUpdate(); }); await up.waitForTimeout(500);
-    assert(await up.evaluate((g) => !document.getElementById("upd").hidden && /newer model run/.test(document.getElementById("upd").textContent) && document.getElementById("jg-data").textContent.includes(g), real.generated), "a newer build while a line is typed is offered, not forced");
+    assert(await up.evaluate((g) => !document.getElementById("upd").hidden && /newer model run/.test(document.getElementById("upd").textContent) && document.getElementById("jg-data").textContent.includes(g), real.generated), "a newer build while a box is in use is offered, not forced");
     await up.click("#updGo"); await up.waitForTimeout(900);
     assert(await up.evaluate((g) => document.getElementById("jg-data").textContent.includes(g) && !!window.JG_DEBUG && document.getElementById("tHead").textContent.length > 0, later), "the newer build is loaded in place and runs");
     await up.close();
@@ -327,29 +273,30 @@ async function openAt(browser, opts, slate, offsetHours) {
   {
     const nextSlate = JSON.parse(JSON.stringify(fixture)), dayMs = 24 * 3600 * 1000, shift = (iso) => new Date(Date.parse(iso) + dayMs).toISOString().replace(".000Z", "Z");
     nextSlate.date = "2026-11-08"; nextSlate.run_label = "opener"; nextSlate.generated = "2026-11-07T19:29:50+00:00";
-    nextSlate.games.forEach((g) => { g.tip = shift(g.tip); }); nextSlate.bets.forEach((b) => { if (b.tip) b.tip = shift(b.tip); }); nextSlate.props.rows.forEach((r) => { r.tip = shift(r.tip); });
+    nextSlate.games.forEach((g) => { g.tip = shift(g.tip); }); nextSlate.bets.forEach((b) => { if (b.tip) b.tip = shift(b.tip); }); nextSlate.pickem.legs.forEach((l) => { l.tip = shift(l.tip); });
     nextSlate.games = nextSlate.games.slice(0, 3);
     fs.writeFileSync(path.join(OUT, "twoday.html"), render(fixture, { next: nextSlate, build: nextSlate.generated }));
     const file = "file://" + path.join(OUT, "twoday.html");
     const d = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
     const derr = []; d.on("pageerror", (e) => derr.push(String(e)));
     await d.goto(file + "#tonight"); await d.waitForTimeout(300);
-    const a0 = await d.evaluate(() => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, hidden: document.getElementById("daySwitch").hidden, btns: Array.from(document.querySelectorAll("#daySwitch button")).map((b) => [b.dataset.day, b.getAttribute("aria-pressed")]), head: document.getElementById("tHead").textContent }));
+    const a0 = await d.evaluate(() => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, hidden: document.getElementById("daySwitch").hidden, btns: Array.from(document.querySelectorAll("#daySwitch button")).map((b) => [b.dataset.day, b.getAttribute("aria-pressed")]) }));
     assert(a0.view === "main" && a0.date === fixture.date && !a0.hidden && a0.btns.length === 2 && a0.btns[0][1] === "true" && a0.btns[1][0] === "2026-11-08", "with tomorrow priced, a switch offers both days and tonight is shown first");
     await d.fill("#amount", "20");
+    // a PrizePicks line typed for tonight is kept for tonight only
+    const legT = fixture.pickem.legs.find((l) => (l.q || []).length > 2);
+    await d.evaluate((a) => { window.JG_DEBUG.pk.edited[a.id] = a.line + 1; window.JG_DEBUG.savePk(); }, { id: legT.id, line: legT.line });
     await d.click("#daySwitch button[data-day='2026-11-08']"); await d.waitForTimeout(500);
-    const a1 = await d.evaluate(() => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, games: document.querySelectorAll("#mapGames .erow").length, kicker: document.getElementById("tDate").textContent, label: document.getElementById("amountLabel").textContent, pressed: document.querySelector("#daySwitch button[aria-pressed='true']").dataset.day, started: Array.from(document.querySelectorAll("#mapGames .erow .tag")).filter((x) => x.textContent === "Started").length, amount: document.getElementById("amount").value }));
+    const a1 = await d.evaluate(() => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, games: document.querySelectorAll("#mapGames .erow").length, kicker: document.getElementById("tDate").textContent, label: document.getElementById("amountLabel").textContent, pressed: document.querySelector("#daySwitch button[aria-pressed='true']").dataset.day,
+      started: Array.from(document.querySelectorAll("#mapGames .erow .tag")).filter((x) => x.textContent === "Started").length, amount: document.getElementById("amount").value, edited: Object.keys(window.JG_DEBUG.pk.edited).length }));
     assert(a1.view === "next" && a1.date === "2026-11-08" && a1.games === 3 && a1.pressed === "2026-11-08" && a1.started === 0 && /Nov 8/.test(a1.kicker), "the switch loads tomorrow's slate: its date, its 3 games, none started (" + a1.kicker.slice(0, 40) + ")");
-    assert(!/tonight\?/.test(a1.label) && a1.amount === "20", "tomorrow's view asks about that day's games and keeps the amount");
-    // a Fliff number typed for tomorrow stays with tomorrow
-    const rid = nextSlate.props.rows.find((r) => r.ref === "dk").id;
-    await d.evaluate((i) => window.JG_DEBUG.setTyped(i, { line: window.JG_DEBUG.PRBY[i].line, over: null, under: 120, at: 1 }), rid);
+    assert(!/tonight\?/.test(a1.label) && a1.amount === "20" && a1.edited === 0, "tomorrow's view asks about that day's games, keeps the amount, and starts without tonight's typed lines");
     await d.goto(file + "#games"); await d.waitForTimeout(300);
     assert(await d.evaluate(() => window.JG_DEBUG.VIEWDAY === "next" && getComputedStyle(document.getElementById("daySwitch")).display !== "none"), "the choice holds across tabs and reloads, and the switch is on the Games tab too");
     await d.goto(file + "#tonight"); await d.waitForTimeout(300);
     await d.click("#daySwitch button[data-day='" + fixture.date + "']"); await d.waitForTimeout(500);
-    const a2 = await d.evaluate((i) => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, typedHere: Object.keys(window.JG_DEBUG.typed()).length, kept: !!(JSON.parse(localStorage.getItem("jg.fliff.2026-11-08") || "{}").rows || {})[i] }), rid);
-    assert(a2.view === "main" && a2.date === fixture.date && a2.typedHere === 0 && a2.kept, "switching back shows tonight; a number typed for tomorrow is kept for tomorrow only");
+    const a2 = await d.evaluate((id) => ({ view: window.JG_DEBUG.VIEWDAY, date: window.JG_DEBUG.date, kept: window.JG_DEBUG.pk.edited[id] }), legT.id);
+    assert(a2.view === "main" && a2.date === fixture.date && a2.kept === legT.line + 1, "switching back shows tonight, with the PrizePicks line typed earlier still there");
     await d.goto(file + "#method"); await d.waitForTimeout(200);
     assert(await d.evaluate(() => getComputedStyle(document.getElementById("daySwitch")).display === "none"), "the switch is hidden on tabs that are not about a slate");
     assert(derr.length === 0, "no page errors with two slates: " + JSON.stringify(derr));
@@ -363,7 +310,7 @@ async function openAt(browser, opts, slate, offsetHours) {
     if (real.live_pricing) {
       const bare = JSON.parse(JSON.stringify(nextSlate));
       Object.assign(bare, { bets: [], parlays: [], portfolio: { ids: [], mu: [], cov: [] }, live_pricing: real.live_pricing, picks: {} });
-      bare.props.rows = []; bare.allocations.reference.items = []; bare.night = Object.assign({}, bare.night, { verdict: "PASS", score: 0, would_change: [] });
+      bare.pickem.legs = []; bare.pickem.slips = []; bare.allocations.reference.items = []; bare.night = Object.assign({}, bare.night, { verdict: "PASS", score: 0, would_change: [] });
       fs.writeFileSync(path.join(OUT, "bare.html"), render(fixture, { next: bare, build: bare.generated }));
       const w = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
       const werr = []; w.on("pageerror", (e) => werr.push(String(e)));
@@ -389,6 +336,76 @@ async function openAt(browser, opts, slate, offsetHours) {
     assert(await one.evaluate(() => document.getElementById("daySwitch").hidden && window.JG_DEBUG.VIEWDAY === "main"), "with one slate there is no switch");
     await one.close();
   }
+  // ---- tracking: say which of the plan's bets we placed, add a bet by hand, remove one, log the slate
+  {
+    const tr = await openAt(browser, { viewport: { width: 1280, height: 900 } }, fixture);
+    const terr = []; tr.on("pageerror", (e) => terr.push(String(e)));
+    const file = "file://" + path.join(OUT, "fixture.html");
+    await tr.goto(file + "#tonight"); await tr.waitForTimeout(300);
+    await tr.fill("#amount", "40"); await tr.waitForTimeout(200);
+    const planned = await tr.evaluate(() => { const x = window.JG_DEBUG.plan(40); return x.rows.length + (x.pp && !x.pp.skip ? 1 : 0); });
+    const boxes = await tr.evaluate(() => Array.from(document.querySelectorAll("#plan input[data-log]")).map((c) => [c.dataset.log, c.checked]));
+    assert(boxes.length === planned && planned >= 1 && boxes.every((b) => b[1]), "every planned bet has a ticked 'We placed this' box (" + boxes.length + ")");
+    await tr.uncheck("#plan input[data-log='" + boxes[0][0] + "']");
+    await tr.click("#placed"); await tr.waitForTimeout(250);
+    const n1 = await tr.evaluate(() => window.JG_DEBUG.loadPlaced().length);
+    assert(n1 === boxes.length - 1, "only the ticked bets are logged (" + n1 + " of " + boxes.length + ")");
+    await tr.check("#plan input[data-log='" + boxes[0][0] + "']");
+    await tr.click("#placed"); await tr.waitForTimeout(250);
+    const n2 = await tr.evaluate(() => window.JG_DEBUG.loadPlaced().length);
+    assert(n2 === boxes.length, "ticking it again and logging adds it without duplicating the others (" + n2 + ")");
+    // add a game total by hand on the Record tab, at the number we actually got
+    await tr.goto(file + "#record"); await tr.waitForTimeout(250);
+    await tr.click("#addBet summary");
+    const g0 = fixture.games[0], under = fixture.bets.find((b) => b.id === g0.id + "-to-u");
+    await tr.selectOption("#abType", "total"); await tr.selectOption("#abWhat", g0.id); await tr.selectOption("#abSide", "under");
+    const pre = await tr.evaluate(() => ({ line: Number(document.getElementById("abLine").value), odds: Number(document.getElementById("abOdds").value) }));
+    assert(pre.line === under.line && pre.odds === under.price, "the entry starts from the sportsbook's current line and odds (" + pre.line + ", " + pre.odds + ")");
+    await tr.fill("#abOdds", "50"); await tr.fill("#abStake", "2"); await tr.click("#abAdd"); await tr.waitForTimeout(100);
+    const refused = await tr.evaluate(() => ({ msg: document.getElementById("abMsg").textContent, n: window.JG_DEBUG.loadPlaced().length }));
+    assert(/odds/.test(refused.msg) && refused.n === n2, "odds that are not American odds are refused");
+    await tr.fill("#abLine", String(under.line + 1)); await tr.fill("#abOdds", "-105"); await tr.fill("#abStake", "2.5"); await tr.click("#abAdd"); await tr.waitForTimeout(250);
+    const st = await tr.evaluate(() => { const a = window.JG_DEBUG.loadPlaced(), e = a[a.length - 1]; return { n: a.length, e, rows: document.querySelectorAll("#ourTbl tbody tr").length, msg: document.getElementById("abMsg").textContent }; });
+    assert(st.n === n2 + 1 && st.e.manual === true && st.e.type === "single" && st.e.stake === 2.5 && st.e.price === -105 && st.e.legs[0].kind === "total" && st.e.legs[0].side === "under" && st.e.legs[0].line === under.line + 1 && st.e.legs[0].game_id === g0.id && st.rows === st.n && /Added/.test(st.msg),
+      "a bet typed by hand is stored with the line, odds and stake we got, and listed");
+    const gr = await tr.evaluate((gid) => { const D = window.JG_DEBUG, a = D.loadPlaced(), e = a[a.length - 1], L = e.legs[0].line, day = (h, w) => ({ games: { [gid]: { hs: h, as: w } }, players: {} });
+      return [D.settleBet(e, day(Math.floor(L / 2) - 5, Math.floor(L / 2) - 5)), D.settleBet(e, day(Math.ceil(L / 2) + 5, Math.ceil(L / 2) + 5))]; }, g0.id);
+    assert(gr[0].result === "win" && Math.abs(gr[0].pnl - 2.5 * (100 / 105)) < 1e-9 && gr[1].result === "loss" && gr[1].pnl === -2.5, "a hand-entered Under grades as a win below the line and a loss above it");
+    // a single player prop
+    await tr.selectOption("#abType", "prop"); await tr.waitForTimeout(100);
+    const propKey = await tr.evaluate(() => document.getElementById("abWhat").value);
+    if (propKey) {
+      await tr.selectOption("#abSide", "over"); await tr.fill("#abOdds", "-112"); await tr.fill("#abStake", "1"); await tr.click("#abAdd"); await tr.waitForTimeout(250);
+      const pe = await tr.evaluate(() => { const a = window.JG_DEBUG.loadPlaced(); return a[a.length - 1]; });
+      assert(pe.manual && pe.legs[0].kind === "prop" && pe.legs[0].side === "over" && pe.legs[0].player_id === propKey.split("|")[0] && pe.legs[0].stat === propKey.split("|")[1] && pe.legs[0].line > 0, "a single player prop can be logged by hand (" + pe.label + ")");
+    }
+    const nManual = await tr.evaluate(() => window.JG_DEBUG.loadPlaced().filter((e) => e.manual).length);
+    // the shared-record link carries every bet logged for the slate
+    const link = await tr.evaluate(() => { const a = document.getElementById("logOurs"); return { hidden: a.hidden, href: a.href }; });
+    const body = decodeURIComponent((link.href.split("body=")[1] || ""));
+    const payload = JSON.parse((body.split("```json\n")[1] || "{}").split("\n```")[0] || "{}");
+    assert(!link.hidden && /Bets%202026-11-07/.test(link.href) && payload.date === fixture.date && payload.bets.length === (await tr.evaluate(() => window.JG_DEBUG.loadPlaced().length)) && payload.bets.every((b) => b.stake > 0 && b.legs.length >= 1),
+      "the shared-record link carries every bet logged for the slate (" + (payload.bets || []).length + ")");
+    // logging the plan again never wipes a bet typed by hand
+    await tr.goto(file + "#tonight"); await tr.waitForTimeout(250);
+    await tr.click("#placed"); await tr.waitForTimeout(250);
+    assert(await tr.evaluate((n) => window.JG_DEBUG.loadPlaced().filter((e) => e.manual).length === n, nManual), "logging the plan again keeps the bets typed by hand (" + nManual + ")");
+    // removing a logged bet takes two presses
+    await tr.goto(file + "#record"); await tr.waitForTimeout(250);
+    const before = await tr.evaluate(() => window.JG_DEBUG.loadPlaced().length);
+    await tr.click("#ourTbl [data-rm]"); await tr.waitForTimeout(100);
+    const mid = await tr.evaluate(() => ({ n: window.JG_DEBUG.loadPlaced().length, txt: document.querySelector("#ourTbl [data-rm]").textContent }));
+    await tr.click("#ourTbl [data-rm]"); await tr.waitForTimeout(150);
+    const after = await tr.evaluate(() => ({ n: window.JG_DEBUG.loadPlaced().length, rows: document.querySelectorAll("#ourTbl tbody tr").length }));
+    assert(mid.n === before && /Remove\?/.test(mid.txt) && after.n === before - 1 && after.rows === after.n, "a logged bet is removed on the second press (" + before + " → " + after.n + ")");
+    assert(terr.length === 0, "no page errors while tracking bets: " + JSON.stringify(terr));
+    await tr.close();
+    // phone: the entry form does not overflow
+    const ph = await openAt(browser, { viewport: { width: 390, height: 844 } }, fixture);
+    await ph.goto(file + "#record"); await ph.waitForTimeout(250); await ph.click("#addBet summary"); await ph.waitForTimeout(150);
+    assert(await ph.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "the bet-entry form fits a phone screen");
+    await ph.close();
+  }
   // ---- what a percentage means: every bar opens an explanation, and the explainer does the arithmetic
   {
     const ex = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
@@ -399,11 +416,11 @@ async function openAt(browser, opts, slate, offsetHours) {
     }
     if (await ex.$("#mapProps button.cm")) {
       await ex.click("#mapProps button.cm"); await ex.waitForTimeout(100);
-      assert(/is our chance this bet wins/.test(await ex.evaluate(() => document.getElementById("mapProps").textContent)) && /stand-in/.test(await ex.evaluate(() => document.getElementById("mapProps").textContent)), "tapping a prop's bar explains its percentage and says the number is a stand-in");
+      assert(/is our chance this pick hits/.test(await ex.evaluate(() => document.getElementById("mapProps").textContent)), "tapping a pick's bar explains what it needs in each slip");
     }
     await ex.goto("file://" + path.join(OUT, "real.html") + "#method/percent"); await ex.waitForTimeout(300);
     const at60 = await ex.evaluate(() => document.getElementById("pctOut").textContent);
-    assert(/60 wins in 100/.test(at60) && /1\.15×/.test(at60) && /\+\$14\.55/.test(at60) && /1\.08×/.test(at60), "the explainer at 60%: a -110 bet returns 1.15x (+$14.55 per 100 bets), a -125 prop 1.08x");
+    assert(/60 wins in 100/.test(at60) && /1\.15×/.test(at60) && /\+\$14\.55/.test(at60) && /1\.08×/.test(at60), "the explainer at 60%: a -110 total returns 1.15x (+$14.55 per 100 bets), a 2-pick Power 1.08x");
     await ex.fill("#pctSlider", "52"); await ex.dispatchEvent("#pctSlider", "input"); await ex.waitForTimeout(100);
     assert(/−\$0\.73/.test(await ex.evaluate(() => document.getElementById("pctOut").textContent)), "the explainer at 52%: a -110 total loses $0.73 per 100 bets");
     await ex.close();
@@ -412,11 +429,6 @@ async function openAt(browser, opts, slate, offsetHours) {
   const r = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
   await r.goto("file://" + path.join(OUT, "real.html") + "#tonight"); await r.waitForTimeout(300);
   if (real.night && String(real.night.verdict).toUpperCase() === "PASS") assert(await r.evaluate(() => [10, 100, 1000].every((a) => window.JG_DEBUG.plan(a).rows.length === 0)), "real slate (PASS): no game bets at any amount");
-  // with nothing firm to bet, the headline still sends you to the props worth checking
-  {
-    const rs = await r.evaluate(() => ({ head: document.getElementById("tHead").textContent, n: window.JG_DEBUG.plan(10).checks.length, rows: window.JG_DEBUG.plan(10).rows.length, live: Object.values(window.JG_DEBUG.PRBY).filter((x) => Date.parse(x.tip) > Date.now()).length }));
-    if (rs.rows === 0 && rs.live > 0) assert(rs.n > 0 && /check (one prop|\d+ props) on Fliff/.test(rs.head), "real slate: no firm bets, so the headline points to " + rs.n + " props to check (" + rs.head + ")");
-  }
   await r.close();
   await browser.close();
   console.log("\n" + (checks - failures) + "/" + checks + " checks passed; screenshots in " + OUT);

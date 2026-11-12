@@ -3,10 +3,8 @@
 Growth rebuild (research memo, 2026-11-07): the desk is sized on SHRUNK payoffs (s = 0.5 on
 totals and parlays, s = 0 on props), with a per-bet growth gate, an adaptive Kelly tier by
 bankroll in units and a nightly verdict (PASS / LIGHT / BET) evaluated on a reference ticket
-of $100 at $0.50 units. Everything is bet on Fliff: game totals from the reference ticket, and
-player props as straight bets where Fliff's number beats the DraftKings-based fair price
-(jghedge.fliffprops; PrizePicks pick'em was retired on 2026-11-12). Every run records the lines
-it saw (data/lines/<date>.json) for closing-line value.
+of $100 at $0.50 units. Game bets are for Fliff, player pick'em slips for PrizePicks. Every
+run records the lines it saw (data/lines/<date>.json) for closing-line value.
 """
 from __future__ import annotations
 
@@ -22,10 +20,10 @@ import pandas as pd
 
 from . import BRAND, __version__
 from . import growth as growth_mod
-from . import fliffprops, pickem
-from .config import (CURRENT_SEASON, DATA_DIR, FLIFF_MIN_BET, PICKEM_LEAN, PROPS_REGIME,
+from . import pickem
+from .config import (CURRENT_SEASON, DATA_DIR, FLIFF_MIN_BET, PICKEM_LEAN, PICKEM_MIN_ENTRY, PICKEM_PAYOUTS, PROPS_REGIME,
                      REF_BANKROLL, REF_UNIT, RUN_LABEL_HOURS_ET, SITE_DATA, load_params)
-from .data import espn, history, oddsapi
+from .data import espn, history, oddsapi, prizepicks
 from .data import lines as lines_mod
 from .data.http import Fetcher
 from .loader import bbref_table, build_engine
@@ -48,7 +46,8 @@ ET = ZoneInfo("America/New_York")
 PROPS_LOG_DIR = DATA_DIR / "props_log"
 GROWTH_CACHE = DATA_DIR / "growth_grid.json"
 MAX_PROPS_SHOWN = 300
-FLIFF_PROP_HOURS = 12.0         # Fliff's own prop board is fetched (Odds API) for games tipping within this
+MAX_PICKEM_LEGS = 40
+MAX_PICKEM_DRAWS = 20000
 GTD_STARTER_MIN = 24.0          # a 'starter' for the lineup-uncertainty flag: >= 24 typical minutes
 
 
@@ -348,8 +347,7 @@ def fliff_instruction(b: dict) -> str:
 
 def fliff_block(ticket_bets: list[dict], ticket_parlays: list[dict], best_prices: bool) -> dict:
     notes = [f"Fliff minimum wager assumed ${FLIFF_MIN_BET:.2f} (ASSUMPTION, unverified; configurable in jghedge.config).",
-             "Game totals, cross-game parlays of totals and player props; spreads and moneylines are informational (lost in two of three replayed seasons).",
-             "Player props are staked only at a Fliff line and price that beat the DraftKings-based fair price (typed into the page, or read through an Odds API key).",
+             "Game totals and cross-game parlays only; spreads and moneylines are informational (lost in two of three replayed seasons).",
              "Lines are DraftKings via ESPN unless an Odds API key supplies Fliff's own number; bet the number shown or better."]
     if best_prices:
         notes.append("Odds API prices attached: fliff_line/fliff_price on each total are Fliff's own numbers at run time.")
@@ -409,7 +407,12 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
     now = datetime.now(timezone.utc)
 
     # optional outside feeds (never in replay)
+    pp_rows, pp_err, pp_fetched = [], None, None
     odds_events, odds_map, odds_budget = {}, {}, None
+    if not replay and with_props:
+        pp_rows, pp_err = prizepicks.fetch_projections(f)
+        pp_fetched = now.isoformat(timespec="seconds") if pp_rows else None
+        log(f"PrizePicks board: {len(pp_rows)} rows" + (f" ({pp_err})" if pp_err else ""))
     if not replay and oddsapi.available():
         try:
             odds_budget = oddsapi.Budget()
@@ -786,51 +789,91 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
             sgp.append({"game_id": gm["id"], "legs": [b["id"] for b in gl], "p_hit": _r(fair["p_hit"], 4),
                         "fair_american": _r(decimal_to_american(fair["fair_dec"]), 0) if fair["fair_dec"] else None})
 
-    # ----------------------------------------------------------- player props (Fliff, straight bets)
+    # ----------------------------------------------------------- pick'em (PrizePicks)
+    pickem_block = pickem.empty_block(notes=["Props disabled for this run."])
     lean = pickem_lean(regime)
-    props_block = fliffprops.empty_block(notes=["Props disabled for this run."])
+    pk_source, pk_notes = "dk_proxy", []
+    if pp_err:
+        pk_notes.append(f"PrizePicks board unavailable: {pp_err}; DraftKings lines used as the proxy.")
     if pm is not None and pk_inputs:
+        pp_source_rows = pp_rows
+        if pp_rows:
+            pk_source = "prizepicks"
+        elif odds_events and odds_budget is not None:
+            # Odds API fallback: PrizePicks lines (region us_dfs) for at most 3 games with the most DK candidates
+            ranked = sorted(pk_inputs.items(), key=lambda kv: -sum(1 for r in kv[1][1] if r.get("kind") == "ou"))[:3]
+            rows = []
+            for gid, (tp, _pl, _gm) in ranked:
+                eid = espn_to_event.get(gid)
+                if not eid:
+                    continue
+                try:
+                    props_ev = oddsapi.fetch_event_props(f, eid, budget=odds_budget)
+                except Exception:  # noqa: BLE001
+                    props_ev = {}
+                for (pname, stat), books in props_ev.items():
+                    for bk in ("prizepicks",):        # Underdog / Pick6 lines are not PrizePicks lines
+                        if bk in books and books[bk].get("line") is not None:
+                            rows.append({"name": pname, "team": None, "stat": stat, "line": books[bk]["line"],
+                                         "odds_type": "standard", "status": "pre_game", "supported": True,
+                                         "projection_id": None})
+                            break
+            if rows:
+                pp_source_rows, pk_source = rows, "oddsapi_prizepicks"
+                pk_notes.append("PrizePicks lines via the Odds API (us_dfs) for the top 3 games; the rest use the DK proxy.")
         legs_all: list[dict] = []
-        fliff_board: dict = {}
+        sims_all: dict[str, dict] = {}
         for gid, (team_players, plines, gmeta) in pk_inputs.items():
-            # every DraftKings main line (Fliff prices lopsided markets too), anchored to its no-vig price minus the lean
-            legs_all += pickem.build_legs([t[0] for t in team_players.values()], {pid: t[1] for pid, t in team_players.items()},
-                                          plines, [], {"s": fliffprops.PARAMS["s"], "lean": lean["value"], "proxy_p_band": (0.02, 0.98),
-                                                       "lean_min_under": fliffprops.PARAMS["lean_min_under"],
-                                                       "q_halfwidth": fliffprops.PARAMS["q_halfwidth"]}, game=gmeta)
-            eid = espn_to_event.get(gid)
-            hrs = next((gm["hours_to_tip"] for gm in games_out if gm["id"] == gid), None)
-            if eid and odds_budget is not None and hrs is not None and hrs <= FLIFF_PROP_HOURS:
-                try:        # Fliff's own board (optional feed; never fail the night)
-                    ev_props = oddsapi.fetch_event_props(f, eid, regions="us2", markets=oddsapi.PROP_MARKETS[:5], budget=odds_budget)
-                    fliff_board.update(fliffprops.fliff_board(ev_props, {pid: t[0]["name"] for pid, t in team_players.items()},
-                                                              team_of={pid: t[2] for pid, t in team_players.items()}))
-                except Exception as e:  # noqa: BLE001
-                    log(f"Fliff props unavailable for {gid}: {e}")
-        pr_notes = ["Fair chance: DraftKings' no-vig price moved by the under lean, read at the line Fliff shows.",
-                    "At DraftKings' own prices props have returned about nothing (unders -0.2% on 8,009 lines), so a prop is "
-                    "staked only where Fliff's line or price is better than the fair price."]
-        if not fliff_board:
-            pr_notes.append("Fliff's board was not read by this run (no Odds API key, or no credit left): "
-                            "type Fliff's line and odds into the page to price a prop.")
-        props_block = fliffprops.build_block(legs_all, fliff_board, lean=lean, notes=pr_notes)
-    props_block["props_regime"] = regime["regime"]
-    pickem_block = pickem.empty_block(notes=["PrizePicks pick'em was retired on 2026-11-12: player props are bet on Fliff."])
-    pickem_block["mode"] = "retired"
+            id_to_name = {pid: t[0]["name"] for pid, t in team_players.items()}
+            pp_game = []
+            if pp_source_rows:
+                pp_game, _ = prizepicks.match_players(pp_source_rows, id_to_name,
+                                                      team_of={pid: t[2] for pid, t in team_players.items()})
+                pp_game = [r for r in pp_game if r.get("player_id")]
+            legs = pickem.build_legs([t[0] for t in team_players.values()], {pid: t[1] for pid, t in team_players.items()},
+                                     plines, pp_game, {"s": policy.shrink_factor("pickem"), "payouts": PICKEM_PAYOUTS,
+                                                       "lean": lean["value"]},
+                                     game=gmeta)
+            if pk_source == "oddsapi_prizepicks":
+                for l in legs:
+                    if l.get("line_source") == "prizepicks":
+                        l["line_source"] = "oddsapi_prizepicks"
+            legs_all += legs
+            for pid in {l["player_id"] for l in legs}:
+                sims_all[pid] = team_players[pid][1]
+        legs_all.sort(key=lambda l: (-l["p_side_shrunk"], l["id"]))
+        legs_all = legs_all[:MAX_PICKEM_LEGS]
+        keep_pids = {l["player_id"] for l in legs_all}
+        sims_all = {pid: s for pid, s in sims_all.items() if pid in keep_pids}
+        if n > MAX_PICKEM_DRAWS:
+            sims_all = {pid: {k: v[:MAX_PICKEM_DRAWS] for k, v in s.items()} for pid, s in sims_all.items()}
+        pk_notes.append(f"The reference ledger records at most {int(policy.NIGHT_CAP * REF_BANKROLL // PICKEM_MIN_ENTRY)} "
+                        f"${PICKEM_MIN_ENTRY:g} entries per night (the 10% night cap on $100); slips are ranked.")
+        pk_notes.append("Pick'em edges are PROVISIONAL: no historical PrizePicks line archive exists, so the leg "
+                        "probabilities are market-anchored (DraftKings) and shrunk at s = 0.5 until the live ledger "
+                        "grades enough slips.")
+        pickem_block = pickem.build_pickem_block(legs_all, sims_all, source=pk_source, fetched_at=pp_fetched,
+                                                 payouts=PICKEM_PAYOUTS, min_entry=PICKEM_MIN_ENTRY,
+                                                 s=policy.shrink_factor("pickem"), notes=pk_notes,
+                                                 max_sim_legs=MAX_PICKEM_LEGS, bankroll_ref=REF_BANKROLL)
+    pickem_block["props_regime"] = regime["regime"]
     pickem_block["lean"] = lean
-    # props join the nightly verdict as a reason; the page adds a prop's growth once Fliff's number is known
-    n_rows, n_ok = len(props_block["rows"]), int(props_block.get("n_ok") or 0)
-    if n_ok:
+    # pick'em status joins the nightly verdict as a reason (it never raises the Fliff score)
+    pk_legs = pickem_block.get("legs", [])
+    if pickem_block.get("mode") == "check_lines" and pk_legs:
+        pk_take = [l for l in pk_legs if l.get("more_if_at_most") is not None or l.get("less_if_at_least") is not None]
         night.setdefault("reasons", []).append(
-            f"Player props: {n_ok} Fliff prop(s) beat the DraftKings-based fair price by the {fliffprops.PARAMS['min_ev']:.0%} rule.")
-        night["props_status"] = "edge"
-    elif n_rows:
+            f"PrizePicks: the board could not be read from the server, so {len(pk_take)} player legs come with take-it "
+            "thresholds instead of picks. Check them in the app; a slip is worth playing only where its lines meet the thresholds.")
+        night["pickem_status"] = "check_lines"
+    elif pk_legs:
+        n_play = sum(1 for x in pickem_block.get("slips", []) if x.get("verdict") == "play")
         night.setdefault("reasons", []).append(
-            f"Player props: {n_rows} lines priced. None is a bet at DraftKings' own number; a prop becomes a bet where "
-            "Fliff's line or price is better than the take-it price on the Player props tab.")
-        night["props_status"] = "check" if props_block["source"] == "dk_proxy" else "none"
+            f"PrizePicks: {n_play} slip(s) grow a $100 bankroll at the ${PICKEM_MIN_ENTRY:g} entry on live lines." if n_play
+            else "PrizePicks: no slip grows a $100 bankroll at the minimum entry tonight.")
+        night["pickem_status"] = "play" if n_play else "pass"
     else:
-        night["props_status"] = "none"
+        night["pickem_status"] = "none"
 
     # ----------------------------------------------------------- lines snapshot + movement
     lines_block = {"snapshots_file": f"data/lines/{day}.json", "label": label, "moved": []}
@@ -865,7 +908,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         "same_game_fair": sgp, "allocations": allocations, "picks": picks, "teams": teams_tbl,
         "portfolio": portfolio, "_R": R, "_R_shrunk": R_s, "_meta": meta,
         "policy": policy.POLICY, "night": night,
-        "props": props_block, "pickem": pickem_block,
+        "pickem": pickem_block,
         "fliff": fliff_block(ticket_bets, ticket_parlays, bool(odds_events)),
         "growth": growth_block, "lines": lines_block,
         "props_regime": regime, "context": {"kill_switch": kill, "params": ctx.CONTEXT_PARAMS},
@@ -882,8 +925,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
         "counts": {"games": len(games_out), "bets_priced": len(bets), "eligible": len(kept),
                    "placeable_ref": int((ref_units > 0).sum()) if ids else 0,
                    "props_priced": sum(1 for b in bets if b["kind"] == "prop"),
-                   "fliff_props": len(props_block["rows"]), "fliff_props_ok": int(props_block.get("n_ok") or 0),
-                   "pickem_legs": 0, "pickem_slips_play": 0},
+                   "pickem_legs": len(pickem_block.get("legs", [])),
+                   "pickem_slips_play": sum(1 for s_ in pickem_block.get("slips", []) if s_.get("verdict") == "play")},
     }
     return result
 

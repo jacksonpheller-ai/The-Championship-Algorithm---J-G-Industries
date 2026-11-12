@@ -69,7 +69,10 @@ DEFAULT_PARAMS = {
     "be_ref": None,             # leg-level reference break-even; None -> power2's
     "strain_band": (0.6, 1.6),  # anchoring multipliers outside this are flagged
     "lean": 0.0,                # under lean: points moved from P(more) to P(less) at the DK line (config.PICKEM_LEAN)
-    "lean_min_under": 0.0,      # the lean applies only where DK's no-vig under is at least this (Fliff props: 0.45)
+    # The lean applies only where DK's no-vig under is at least this. Where the under is the longshot (below 45%)
+    # the lean measured about zero (+0.6 points, se 1.5, on 1,080 lines). Kept at 0 for pick'em on purpose:
+    # there the lean only lowers More picks, which is the cautious side to err on.
+    "lean_min_under": 0.0,
 }
 
 

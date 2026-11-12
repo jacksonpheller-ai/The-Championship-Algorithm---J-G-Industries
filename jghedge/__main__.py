@@ -91,10 +91,12 @@ def cmd_run(args):
     ledger.publish()
     out = build_standalone()
     for res in runs:
-        nt, pr = res["night"], res["props"]
+        nt, pk = res["night"], res["pickem"]
+        top = pk["slips"][0] if pk["slips"] else None
         print(f"Night {res['date']} ({res['run_label']}{', main' if res is main else ', next' if res is nxt else ''}): {nt['verdict']} "
-              f"score {nt['score']:.6f} | {res['counts']['placeable_ref']} placeable at $100/$0.50 | Fliff props ({pr['source']}): "
-              f"{len(pr['rows'])} priced, {pr.get('n_ok', 0)} with an edge at Fliff's number")
+              f"score {nt['score']:.6f} | {res['counts']['placeable_ref']} placeable at $100/$0.50 | pick'em {pk['source']}: "
+              f"{len(pk['legs'])} legs, top slip {top['label'] if top else 'none'}" + (f" ({top['type']}, {top['verdict']})" if top else "")
+              + (" [stand-in lines: check the app]" if pk.get("mode") == "check_lines" else ""))
         print(nt["headline"])
     print("Dashboard data:", SITE_DATA / "latest.json", "| standalone:", out)
 

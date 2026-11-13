@@ -2974,10 +2974,13 @@
     "tip": "2026-11-13T01:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909976-pk-5124612-ast-3.5-less+401909977-pk-3157465-ast-2.5-less+401909977-pk-4432166-stl-1.5-less+401909978-pk-3138160-ast-1.5-less+401909978-pk-4278594-reb-3.5-less",
   "recorded_at": "2026-11-12T09:56:15+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": -0.6,
+  "hits": 3,
+  "graded": "2026-11-13T04:08:42+00:00"
  },
  {
   "date": "2026-11-13",

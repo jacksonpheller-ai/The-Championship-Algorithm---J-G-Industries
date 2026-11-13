@@ -739,13 +739,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   }
   function refreshSlips() { if (PK) PK.slips = BOARD || CUSTOMPAY ? buildSlips() : SRVSLIPS; }   // the model run's slips stand until the lines or the payouts are the reader's own
   function applyBoard(rows, at) {   // lay PrizePicks' standard lines over the pool; returns what was found
-    var by = {}, legs = [], seen = {}, st = { at: at, lines: 0, alt: 0, matched: 0, differ: 0, far: 0, unknown: 0 };
-    POOL.forEach(function (r) { var k = normName(r.player) + "|" + r.stat; (by[k] = by[k] || []).push(r); });
+    var by = {}, byId = {}, legs = [], seen = {}, st = { at: at, lines: 0, alt: 0, matched: 0, differ: 0, far: 0, unknown: 0 };
+    POOL.forEach(function (r) { var k = normName(r.player) + "|" + r.stat; (by[k] = by[k] || []).push(r); byId[r.player_id + "|" + r.stat] = [r]; });
     (rows || []).forEach(function (x) {
-      if (!x || !x.stat || !x.name) return;
+      if (!x || !x.stat || (!x.name && !x.pid)) return;
       if (x.odds_type !== "standard") { st.alt++; return; }
       st.lines++;
-      var c = by[normName(x.name) + "|" + x.stat]; if (!c || c.length !== 1) { st.unknown++; return; }
+      var c = x.pid ? byId[x.pid + "|" + x.stat] : by[normName(x.name) + "|" + x.stat]; if (!c || c.length !== 1) { st.unknown++; return; }
       var r = c[0]; if (seen[r.id] || started(r.tip)) return;
       var leg = liveLeg(r, x.line); if (!leg) { st.far++; return; }
       seen[r.id] = 1; st.matched++; if (x.line !== r.line) st.differ++; legs.push(leg);
@@ -760,11 +760,23 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     BOARD = null; PKLEGS = SRVLEGS; PKBY = {}; PKLEGS.forEach(function (l) { PKBY[l.id] = l; }); pk.ticked = []; pk.edited = {}; savePk();
     if (PK) PK.mode = SRVMODE; refreshSlips(); store.set(BKEY, ""); PPUI = { state: "idle" };
   }
-  function useBoard(rows, at, quiet) {   // rows from PrizePicks (or the copy kept on this device) -> the page
+  function useBoard(rows, at, quiet, from) {   // rows from PrizePicks, from a partner, or from the copy kept on this device -> the page
     var st = applyBoard(rows, at || Date.now());
-    if (st.matched) { PPUI = { state: "loaded" }; if (!quiet) { savePk(); store.set(BKEY, JSON.stringify({ at: st.at, rows: rows.filter(function (x) { return x && x.stat && x.name; }).map(function (x) { return [x.name, x.stat, x.line, x.odds_type === "standard" ? 0 : 1]; }) })); } }
+    if (st.matched) { st.from = from || null; if (from && from.alt) st.alt = from.alt; PPUI = { state: "loaded" };
+      if (!quiet) { savePk(); store.set(BKEY, JSON.stringify({ at: st.at, from: st.from, rows: rows.filter(function (x) { return x && x.stat && (x.name || x.pid); }).map(function (x) { return [x.name || "", x.stat, x.line, x.odds_type === "standard" ? 0 : 1, x.pid || ""]; }) })); } }
     else PPUI = { state: "nomatch", st: st };
     return st;
+  }
+  // The hand-off. The device that can read PrizePicks copies the lines it matched as one short line of text
+  // ("JGPP1 <slate date> <when> <demons and goblins left out> id:stat:line,..."); the other device pastes it.
+  function shareText() {
+    if (!BOARD) return "";
+    return "JGPP1 " + S.date + " " + BOARD.at + " " + (BOARD.alt || 0) + " " + PKLEGS.map(function (l) { return l.player_id + ":" + l.stat + ":" + l.line; }).join(",");
+  }
+  function readShared(text) {   // -> { date, at, alt, rows } or null when the text is not a hand-off
+    var m = /^JGPP1\s+(\d{4}-\d{2}-\d{2})\s+(\d+)\s+(\d+)\s+(\S+)\s*$/.exec(String(text || "").trim()); if (!m) return null;
+    var rows = []; m[4].split(",").forEach(function (tok) { var p = tok.split(":"), line = Number(p[2]); if (p.length === 3 && p[0] && p[1] && p[2] !== "" && !isNaN(line)) rows.push({ pid: p[0], stat: p[1], line: line, odds_type: "standard" }); });
+    return { date: m[1], at: Number(m[2]), alt: Number(m[3]), rows: rows };
   }
   function loadBoard() {   // this browser asks PrizePicks for its board; if PrizePicks does not let another page read it, the reader pastes it instead
     if (typeof fetch !== "function") { PPUI = { state: "blocked" }; redrawPicks(); return; }
@@ -776,6 +788,13 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     step(PP_URL).then(function () { useBoard(rows); redrawPicks(); }).catch(function (e) { PPUI = { state: "blocked", said: e && e.said ? String(e.said) : null }; redrawPicks(); });
   }
   function pasteBoard(text) {
+    var sh = readShared(text);
+    if (sh) {   // lines a partner loaded and sent over
+      if (sh.date !== S.date) { PPUI = { state: "paste", note: "Those lines are for " + dayName(sh.date) + ", and this page is showing " + dayName(S.date) + ". Switch the day at the top, or ask for that day's lines." }; redrawPicks(); return; }
+      useBoard(sh.rows, sh.at, false, { partner: true, alt: sh.alt });
+      if (PPUI.state !== "loaded") PPUI = { state: "paste", note: "None of those lines matched a player priced on this slate. Reload both pages so they are on the same model run, then copy and paste again." };
+      redrawPicks(); return;
+    }
     var j = null; try { j = JSON.parse(String(text || "").trim()); } catch (e) { j = null; }
     var rows = j ? parseBoard(j) : null;
     if (j && typeof j.error === "string") { PPUI = { state: "blocked", said: j.error }; redrawPicks(); return; }   // PrizePicks' own refusal, pasted
@@ -786,15 +805,17 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function boardBar() {   // one bar, shown on Tonight and on Player props
     if (!PK || (!POOL.length && !BOARD)) return "";
     var s = PPUI.state, st = BOARD;
-    if (s === "loaded" && st) return "<div class='row'><span><b>PrizePicks' lines loaded " + esc(new Date(st.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + ".</b> " + st.matched + " picks priced at PrizePicks' own line" +
+    var pasteBox = "<textarea data-pp='text' placeholder='Paste the lines your partner copied' aria-label='Lines copied by a partner'></textarea><div class='row'><button type='button' class='btn sm' data-pp='paste'>Use the pasted lines</button></div>";
+    if (s === "paste") return "<div><b>Paste the lines your partner copied.</b> On their device they press “Load PrizePicks' board”, then “Copy lines for my partner”, and send you the text." + (PPUI.note ? " <b>" + esc(PPUI.note) + "</b>" : "") + "</div>" + pasteBox + "<div class='row'><button type='button' class='btn ghost sm' data-pp='idle'>Cancel</button></div>";
+    if (s === "loaded" && st) return "<div class='row'><span><b>PrizePicks' lines " + (st.from && st.from.partner ? "from your partner, read " : "loaded ") + esc(new Date(st.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + ".</b> " + st.matched + " picks priced at PrizePicks' own line" +
       (st.differ ? ", " + st.differ + " of them at a different line from DraftKings'" : "") + "." + (st.alt ? " " + st.alt + " demon and goblin lines were left out: they pay differently." : "") + (st.unknown ? " " + st.unknown + " lines are for players or stats we have no sportsbook price for." : "") +
-      "</span><button type='button' class='btn ghost sm' data-pp='load'>Load again</button><button type='button' class='btn ghost sm' data-pp='forget'>Back to DraftKings' lines</button></div>";
+      "</span><button type='button' class='btn sm' data-pp='share'>Copy lines for my partner</button>" + (st.from && st.from.partner ? "<button type='button' class='btn ghost sm' data-pp='askpaste'>Paste newer lines</button>" : "<button type='button' class='btn ghost sm' data-pp='load'>Load again</button>") + "<button type='button' class='btn ghost sm' data-pp='forget'>Back to DraftKings' lines</button></div>";
     if (s === "loading") return "<div class='row'><span>Asking PrizePicks for its board…</span></div>";
     if (s === "nomatch") return "<div class='row'><span>PrizePicks' board was read, but none of its " + ((PPUI.st || {}).lines || 0) + " standard lines matched a player priced on this slate" + (((PPUI.st || {}).far || 0) ? " (" + PPUI.st.far + " were too far from DraftKings' line to price)" : "") + ". The lines below are still DraftKings'.</span><button type='button' class='btn ghost sm' data-pp='load'>Try again</button></div>";
-    if (s === "blocked" && PPUI.said) return "<div><b>PrizePicks answered: “" + esc(PPUI.said) + "”</b> Its board can only be read from a connection PrizePicks serves, so it cannot be loaded here. Whoever enters the slips where PrizePicks operates can press this button on their own device. Until then, type each pick's line from the app into its Line box and the slip is re-priced.</div><div class='row'><button type='button' class='btn ghost sm' data-pp='load'>Try again</button></div>";
+    if (s === "blocked" && PPUI.said) return "<div><b>PrizePicks answered: “" + esc(PPUI.said) + "”</b> Its board can only be read from a connection PrizePicks serves, so it cannot be loaded here. Whoever enters the slips where PrizePicks operates can press this button on their own device. If your partner has loaded it, paste the lines they copied:</div>" + pasteBox + "<div class='row'><button type='button' class='btn ghost sm' data-pp='load'>Try loading again</button></div>";
     if (s === "blocked") return "<div><b>" + (PPUI.bad ? "That did not read as PrizePicks' board." : "This browser was not allowed to read PrizePicks' board directly.") + "</b> Do it by hand, about ten seconds:</div><ol><li>Open <a href='" + PP_URL + "' target='_blank' rel='noopener'>PrizePicks' board address</a> in a new tab. It shows a page of text.</li><li>Select all of it and copy.</li><li>Paste it here and press the button.</li></ol>" +
       "<textarea data-pp='text' placeholder='Paste the copied text here' aria-label='PrizePicks board text'></textarea><div class='row'><button type='button' class='btn sm' data-pp='paste'>Use the pasted board</button><button type='button' class='btn ghost sm' data-pp='load'>Try loading again</button></div>";
-    return "<div class='row'><span><b>These are DraftKings' lines, standing in for PrizePicks'.</b> Load PrizePicks' own lines and every pick and slip is re-priced at them. Your browser asks PrizePicks directly.</span><button type='button' class='btn sm' data-pp='load'>Load PrizePicks' board</button></div>";
+    return "<div class='row'><span><b>These are DraftKings' lines, standing in for PrizePicks'.</b> Load PrizePicks' own lines and every pick and slip is re-priced at them. Your browser asks PrizePicks directly.</span><button type='button' class='btn sm' data-pp='load'>Load PrizePicks' board</button><button type='button' class='btn ghost sm' data-pp='askpaste'>Paste lines from a partner</button></div>";
   }
   function renderBoardBar() {
     var html = boardBar();
@@ -804,12 +825,14 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       el.hidden = !html || (id === "ppBarT" && !PKLEGS.length && !BOARD); el.innerHTML = html;
       var ta = el.querySelector("textarea[data-pp='text']"); if (ta && typed) ta.value = typed;
       el.querySelectorAll("[data-pp]").forEach(function (b) { if (b.tagName !== "BUTTON") return; b.addEventListener("click", function () {
-        var what = b.dataset.pp; if (what === "load") loadBoard(); else if (what === "forget") { forgetBoard(); redrawPicks(); } else if (what === "paste") pasteBoard((el.querySelector("textarea[data-pp='text']") || {}).value); }); });
+        var what = b.dataset.pp; if (what === "load") loadBoard(); else if (what === "forget") { forgetBoard(); redrawPicks(); } else if (what === "paste") pasteBoard((el.querySelector("textarea[data-pp='text']") || {}).value);
+        else if (what === "askpaste") { PPUI = { state: "paste" }; renderBoardBar(); } else if (what === "idle") { PPUI = { state: BOARD ? "loaded" : "idle" }; renderBoardBar(); }
+        else if (what === "share") copyText(shareText(), b, "Copy lines for my partner"); }); });
     });
   }
   // a payout table typed earlier on this device, and a board loaded in the last three hours for this slate, apply from the start
   try { var spay = JSON.parse(store.get("jg.pay") || "null"); if (spay && spay.power && spay.flex) setPayouts(spay, true); } catch (e) {}
-  try { var sb = JSON.parse(store.get(BKEY) || "null"); if (sb && sb.rows && Date.now() - sb.at < 3 * 3600 * 1000) useBoard(sb.rows.map(function (x) { return { name: x[0], stat: x[1], line: x[2], odds_type: x[3] ? "alt" : "standard" }; }), sb.at, true); } catch (e) {}
+  try { var sb = JSON.parse(store.get(BKEY) || "null"); if (sb && sb.rows && Date.now() - sb.at < 3 * 3600 * 1000) useBoard(sb.rows.map(function (x) { return { name: x[0], stat: x[1], line: x[2], odds_type: x[3] ? "alt" : "standard", pid: x[4] || null }; }), sb.at, true, sb.from || null); } catch (e) {}
   restorePk();
   refreshSlips();
   function pAt(l) {   // chance at the (possibly typed) line, from the pick's price table
@@ -1667,6 +1690,6 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   // live lines every 90 seconds and a build check every 5 minutes, only while the page is visible
   if (LIVE.on) { fetchLive(); TIMERS.live = setInterval(fetchLive, 90000); }
   if (JG.live !== false) { setTimeout(checkForUpdate, 4000); TIMERS.upd = setInterval(checkForUpdate, 300000); }
-  window.JG_DEBUG = { board: function () { return BOARD; }, legs: function () { return PKLEGS; }, pay: function () { return PAY; }, be: function () { return BE; }, parseBoard: parseBoard, useBoard: useBoard, buildSlips: buildSlips, breakEven: breakEven, normName: normName, ppui: function () { return PPUI; }, settleBet: settleBet, loadPlaced: loadPlaced, VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, preLine: preLine, savePk: savePk, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
+  window.JG_DEBUG = { shareText: shareText, readShared: readShared, board: function () { return BOARD; }, legs: function () { return PKLEGS; }, pay: function () { return PAY; }, be: function () { return BE; }, parseBoard: parseBoard, useBoard: useBoard, buildSlips: buildSlips, breakEven: breakEven, normName: normName, ppui: function () { return PPUI; }, settleBet: settleBet, loadPlaced: loadPlaced, VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, preLine: preLine, savePk: savePk, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
 })();
 </script>

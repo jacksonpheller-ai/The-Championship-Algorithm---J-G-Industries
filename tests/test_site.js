@@ -436,6 +436,8 @@ async function openAt(browser, opts, slate, offsetHours) {
     assert(served >= 1 && got.b && got.b.matched === expectMatched && got.n === expectMatched && got.b.differ === expectDiffer && got.b.alt === 1 && got.b.far === 1 && got.b.unknown === 1 && got.srcs.join() === "prizepicks",
       "the board is read and matched: " + got.b.matched + " picks at PrizePicks' line (" + got.b.differ + " differ from DraftKings'), the demon left out, the far line and the unknown player skipped");
     assert(/PrizePicks' lines loaded/.test(got.bar) && got.stored, "the bar says PrizePicks' lines are loaded, and the board is kept on this device");
+    const shared = await bp.evaluate(() => window.JG_DEBUG.shareText());
+    assert(shared.startsWith("JGPP1 " + real.date + " ") && shared.split(",").length === expectMatched && shared.length < 40 * expectMatched && !!(await bp.$("#pkBanner [data-pp='share']")), "a loaded board can be copied for a partner as one short line of text (" + shared.length + " characters)");
     // a pick at a line one point above DraftKings' is priced from its table at that line: Less gets easier
     const moved = picks.find((r, i) => i % 5 === 0 && lineOk(r, r.line + 1));
     const chk = await bp.evaluate((a) => { const l = window.JG_DEBUG.legs().find((x) => x.id === a.id); return { line: l.line, pm: l.p_more, dk: l.dk_line }; }, { id: moved.id });
@@ -473,8 +475,29 @@ async function openAt(browser, opts, slate, offsetHours) {
     await geo.goto(file + "#props"); await geo.waitForTimeout(300);
     await geo.click("#pkBanner [data-pp='load']"); await geo.waitForTimeout(500);
     const gs = await geo.evaluate(() => ({ txt: document.getElementById("pkBanner").textContent, ta: !!document.querySelector("#pkBanner textarea"), legs: window.JG_DEBUG.legs()[0].line_source, board: window.JG_DEBUG.board() }));
-    assert(/unavailable in your location/.test(gs.txt) && /cannot be loaded here/.test(gs.txt) && !gs.ta && gs.legs === "dk" && !gs.board, "PrizePicks' own refusal is shown as it is: no paste box, the stand-in lines stay");
+    assert(/unavailable in your location/.test(gs.txt) && /cannot be loaded here/.test(gs.txt) && /paste the lines they copied/.test(gs.txt) && gs.ta && gs.legs === "dk" && !gs.board, "PrizePicks' own refusal is shown as it is, with a box for lines a partner loaded; the stand-in lines stay");
+    // lines for another day are refused with the reason
+    await geo.fill("#pkBanner textarea[data-pp='text']", shared.replace("JGPP1 " + real.date, "JGPP1 2020-01-01")); await geo.click("#pkBanner [data-pp='paste']"); await geo.waitForTimeout(250);
+    const wrongDay = await geo.evaluate(() => ({ txt: document.getElementById("pkBanner").textContent, board: window.JG_DEBUG.board() }));
+    assert(!wrongDay.board && /Those lines are for/.test(wrongDay.txt), "lines copied for another day are refused, and the page says why");
+    // the partner's lines give this device the same picks, at the same lines
+    await geo.fill("#pkBanner textarea[data-pp='text']", shared); await geo.click("#pkBanner [data-pp='paste']"); await geo.waitForTimeout(400);
+    const handed = await geo.evaluate((a) => { const D = window.JG_DEBUG, b = D.board(), l = D.legs().find((x) => x.id === a.id); return { matched: b && b.matched, partner: !!(b && b.from && b.from.partner), alt: b && b.alt, line: l && l.line, src: l && l.line_source, txt: document.getElementById("pkBanner").textContent,
+      slip: (D.plan(40).pp || {}).slip ? D.plan(40).pp.slip.verdict : null, again: D.shareText() }; }, { id: moved.id });
+    assert(handed.matched === expectMatched && handed.partner && handed.alt === 1 && handed.line === moved.line + 1 && handed.src === "prizepicks" && /from your partner/.test(handed.txt) && handed.slip !== "check_lines",
+      "pasting the partner's lines gives this device the same " + expectMatched + " picks at PrizePicks' lines");
+    assert(handed.again.split(" ")[4] === shared.split(" ")[4], "the lines can be passed on again unchanged");
+    await geo.reload(); await geo.waitForTimeout(400);
+    assert(await geo.evaluate((n) => { const b = window.JG_DEBUG.board(); return !!b && b.matched === n && b.from && b.from.partner === true; }, expectMatched), "the partner's lines are still applied after a reload");
     await geo.close();
+    // without any refusal, the paste box is one press away
+    const idle = await openAt(browser, { viewport: { width: 390, height: 844 } }, real);
+    await idle.goto(file + "#props"); await idle.waitForTimeout(300);
+    await idle.click("#pkBanner [data-pp='askpaste']"); await idle.waitForTimeout(150);
+    assert(await idle.evaluate(() => !!document.querySelector("#pkBanner textarea[data-pp='text']") && /Paste the lines your partner copied/.test(document.getElementById("pkBanner").textContent) && document.documentElement.scrollWidth <= document.documentElement.clientWidth), "“Paste lines from a partner” opens the paste box (and it fits a phone)");
+    await idle.fill("#pkBanner textarea[data-pp='text']", "hello"); await idle.click("#pkBanner [data-pp='paste']"); await idle.waitForTimeout(200);
+    assert(await idle.evaluate(() => !window.JG_DEBUG.board()), "text that is neither a hand-off nor a board changes nothing");
+    await idle.close();
     // names join across sites
     const nm = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
     await nm.goto(file + "#method"); await nm.waitForTimeout(300);

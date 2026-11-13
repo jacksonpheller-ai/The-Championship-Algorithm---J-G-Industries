@@ -770,14 +770,15 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     if (typeof fetch !== "function") { PPUI = { state: "blocked" }; redrawPicks(); return; }
     PPUI = { state: "loading" }; redrawPicks();
     var rows = [], pages = 0;
-    var step = function (url) { return fetch(url, { headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (j) {
+    var step = function (url) { return fetch(url, { headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" }).then(function (r) { return r.json().catch(function () { return null; }).then(function (j) { if (j && typeof j.error === "string") throw { said: j.error }; if (!r.ok) throw new Error("HTTP " + r.status); return j; }); }).then(function (j) {
       var got = parseBoard(j); if (!got) throw new Error("not a board"); rows = rows.concat(got); pages++;
       var next = j.links && j.links.next; if (next && pages < 8 && /^https:\/\/api\.prizepicks\.com\//.test(String(next))) return step(String(next)); }); };
-    step(PP_URL).then(function () { useBoard(rows); redrawPicks(); }).catch(function () { PPUI = { state: "blocked" }; redrawPicks(); });
+    step(PP_URL).then(function () { useBoard(rows); redrawPicks(); }).catch(function (e) { PPUI = { state: "blocked", said: e && e.said ? String(e.said) : null }; redrawPicks(); });
   }
   function pasteBoard(text) {
     var j = null; try { j = JSON.parse(String(text || "").trim()); } catch (e) { j = null; }
     var rows = j ? parseBoard(j) : null;
+    if (j && typeof j.error === "string") { PPUI = { state: "blocked", said: j.error }; redrawPicks(); return; }   // PrizePicks' own refusal, pasted
     if (!rows) { PPUI = { state: "blocked", bad: true }; redrawPicks(); return; }
     useBoard(rows); redrawPicks();
   }
@@ -790,6 +791,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       "</span><button type='button' class='btn ghost sm' data-pp='load'>Load again</button><button type='button' class='btn ghost sm' data-pp='forget'>Back to DraftKings' lines</button></div>";
     if (s === "loading") return "<div class='row'><span>Asking PrizePicks for its board…</span></div>";
     if (s === "nomatch") return "<div class='row'><span>PrizePicks' board was read, but none of its " + ((PPUI.st || {}).lines || 0) + " standard lines matched a player priced on this slate" + (((PPUI.st || {}).far || 0) ? " (" + PPUI.st.far + " were too far from DraftKings' line to price)" : "") + ". The lines below are still DraftKings'.</span><button type='button' class='btn ghost sm' data-pp='load'>Try again</button></div>";
+    if (s === "blocked" && PPUI.said) return "<div><b>PrizePicks answered: “" + esc(PPUI.said) + "”</b> Its board can only be read from a connection PrizePicks serves, so it cannot be loaded here. Whoever enters the slips where PrizePicks operates can press this button on their own device. Until then, type each pick's line from the app into its Line box and the slip is re-priced.</div><div class='row'><button type='button' class='btn ghost sm' data-pp='load'>Try again</button></div>";
     if (s === "blocked") return "<div><b>" + (PPUI.bad ? "That did not read as PrizePicks' board." : "This browser was not allowed to read PrizePicks' board directly.") + "</b> Do it by hand, about ten seconds:</div><ol><li>Open <a href='" + PP_URL + "' target='_blank' rel='noopener'>PrizePicks' board address</a> in a new tab. It shows a page of text.</li><li>Select all of it and copy.</li><li>Paste it here and press the button.</li></ol>" +
       "<textarea data-pp='text' placeholder='Paste the copied text here' aria-label='PrizePicks board text'></textarea><div class='row'><button type='button' class='btn sm' data-pp='paste'>Use the pasted board</button><button type='button' class='btn ghost sm' data-pp='load'>Try loading again</button></div>";
     return "<div class='row'><span><b>These are DraftKings' lines, standing in for PrizePicks'.</b> Load PrizePicks' own lines and every pick and slip is re-priced at them. Your browser asks PrizePicks directly.</span><button type='button' class='btn sm' data-pp='load'>Load PrizePicks' board</button></div>";

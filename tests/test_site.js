@@ -467,6 +467,14 @@ async function openAt(browser, opts, slate, offsetHours) {
     assert(await bq.evaluate((n) => { const b = window.JG_DEBUG.board(); return !!b && b.matched === n && window.JG_DEBUG.ppui().state === "loaded"; }, expectMatched), "a pasted board is matched and applied like a fetched one");
     assert(qerr.length === 0, "no page errors on the paste route: " + JSON.stringify(qerr));
     await bq.close();
+    // PrizePicks' own refusal is shown as it is, with no paste box that could not work
+    const geo = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
+    await geo.route("https://api.prizepicks.com/**", (route) => route.fulfill({ status: 403, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ error: "PrizePicks is currently unavailable in your location." }) }));
+    await geo.goto(file + "#props"); await geo.waitForTimeout(300);
+    await geo.click("#pkBanner [data-pp='load']"); await geo.waitForTimeout(500);
+    const gs = await geo.evaluate(() => ({ txt: document.getElementById("pkBanner").textContent, ta: !!document.querySelector("#pkBanner textarea"), legs: window.JG_DEBUG.legs()[0].line_source, board: window.JG_DEBUG.board() }));
+    assert(/unavailable in your location/.test(gs.txt) && /cannot be loaded here/.test(gs.txt) && !gs.ta && gs.legs === "dk" && !gs.board, "PrizePicks' own refusal is shown as it is: no paste box, the stand-in lines stay");
+    await geo.close();
     // names join across sites
     const nm = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
     await nm.goto(file + "#method"); await nm.waitForTimeout(300);

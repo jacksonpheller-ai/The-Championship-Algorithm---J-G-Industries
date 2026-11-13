@@ -2852,10 +2852,13 @@
     "tip": "2026-11-13T02:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909976-pk-5124612-ast-3.5-less+401909977-pk-3157465-ast-2.5-less+401909977-pk-5160992-blk-1.5-less+401909978-pk-3138160-ast-1.5-less+401909979-pk-4278585-ast-3.5-less",
   "recorded_at": "2026-11-12T09:56:15+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": -0.6,
+  "hits": 3,
+  "graded": "2026-11-13T05:08:40+00:00"
  },
  {
   "date": "2026-11-12",
@@ -3065,6 +3068,250 @@
   "result": null,
   "key": "parlay:401909296-to-u+401909300-to-o",
   "recorded_at": "2026-11-13T00:08:43+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-13",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Keegan Murray Less 1.5 3PM + Reed Sheppard Less 2.5 3PM + Josh Green Less 2.5 Reb + Toumani Camara Less 6.5 Reb+Ast + Deni Avdija Less 7.5 Reb",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0827,
+  "ev": 0.4995,
+  "ev_shrunk": 0.2304,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909303-pk-4594327-fg3m-1.5-less",
+    "game_id": "401909303",
+    "kind": "pickem",
+    "label": "Keegan Murray Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4594327",
+    "player": "Keegan Murray",
+    "p_final": 0.6182,
+    "matchup": "POR @ SAC",
+    "tip": "2026-11-14T03:00Z"
+   },
+   {
+    "id": "401909301-pk-4711272-fg3m-2.5-less",
+    "game_id": "401909301",
+    "kind": "pickem",
+    "label": "Reed Sheppard Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4711272",
+    "player": "Reed Sheppard",
+    "p_final": 0.6167,
+    "matchup": "UTAH @ HOU",
+    "tip": "2026-11-14T01:30Z"
+   },
+   {
+    "id": "401909301-pk-4432811-reb-2.5-less",
+    "game_id": "401909301",
+    "kind": "pickem",
+    "label": "Josh Green Less 2.5 Reb",
+    "side": "less",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "4432811",
+    "player": "Josh Green",
+    "p_final": 0.6145,
+    "matchup": "UTAH @ HOU",
+    "tip": "2026-11-14T01:30Z"
+   },
+   {
+    "id": "401909303-pk-4431736-ra-6.5-less",
+    "game_id": "401909303",
+    "kind": "pickem",
+    "label": "Toumani Camara Less 6.5 Reb+Ast",
+    "side": "less",
+    "line": 6.5,
+    "stat": "ra",
+    "player_id": "4431736",
+    "player": "Toumani Camara",
+    "p_final": 0.5958,
+    "matchup": "POR @ SAC",
+    "tip": "2026-11-14T03:00Z"
+   },
+   {
+    "id": "401909303-pk-4683021-reb-7.5-less",
+    "game_id": "401909303",
+    "kind": "pickem",
+    "label": "Deni Avdija Less 7.5 Reb",
+    "side": "less",
+    "line": 7.5,
+    "stat": "reb",
+    "player_id": "4683021",
+    "player": "Deni Avdija",
+    "p_final": 0.5923,
+    "matchup": "POR @ SAC",
+    "tip": "2026-11-14T03:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909301-pk-4432811-reb-2.5-less+401909301-pk-4711272-fg3m-2.5-less+401909303-pk-4431736-ra-6.5-less+401909303-pk-4594327-fg3m-1.5-less+401909303-pk-4683021-reb-7.5-less",
+  "recorded_at": "2026-11-13T05:08:28+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-13",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Keegan Murray Less 1.5 3PM + Reed Sheppard Less 2.5 3PM + Josh Green Less 2.5 Reb + Fred VanVleet Less 3.5 Reb + Darryn Peterson Less 4.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.081,
+  "ev": 0.4775,
+  "ev_shrunk": 0.221,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909303-pk-4594327-fg3m-1.5-less",
+    "game_id": "401909303",
+    "kind": "pickem",
+    "label": "Keegan Murray Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4594327",
+    "player": "Keegan Murray",
+    "p_final": 0.6182,
+    "matchup": "POR @ SAC",
+    "tip": "2026-11-14T03:00Z"
+   },
+   {
+    "id": "401909301-pk-4711272-fg3m-2.5-less",
+    "game_id": "401909301",
+    "kind": "pickem",
+    "label": "Reed Sheppard Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4711272",
+    "player": "Reed Sheppard",
+    "p_final": 0.6167,
+    "matchup": "UTAH @ HOU",
+    "tip": "2026-11-14T01:30Z"
+   },
+   {
+    "id": "401909301-pk-4432811-reb-2.5-less",
+    "game_id": "401909301",
+    "kind": "pickem",
+    "label": "Josh Green Less 2.5 Reb",
+    "side": "less",
+    "line": 2.5,
+    "stat": "reb",
+    "player_id": "4432811",
+    "player": "Josh Green",
+    "p_final": 0.6145,
+    "matchup": "UTAH @ HOU",
+    "tip": "2026-11-14T01:30Z"
+   },
+   {
+    "id": "401909301-pk-2991230-reb-3.5-less",
+    "game_id": "401909301",
+    "kind": "pickem",
+    "label": "Fred VanVleet Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "2991230",
+    "player": "Fred VanVleet",
+    "p_final": 0.5879,
+    "matchup": "UTAH @ HOU",
+    "tip": "2026-11-14T01:30Z"
+   },
+   {
+    "id": "401909301-pk-5041955-ast-4.5-less",
+    "game_id": "401909301",
+    "kind": "pickem",
+    "label": "Darryn Peterson Less 4.5 Ast",
+    "side": "less",
+    "line": 4.5,
+    "stat": "ast",
+    "player_id": "5041955",
+    "player": "Darryn Peterson",
+    "p_final": 0.5879,
+    "matchup": "UTAH @ HOU",
+    "tip": "2026-11-14T01:30Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909301-pk-2991230-reb-3.5-less+401909301-pk-4432811-reb-2.5-less+401909301-pk-4711272-fg3m-2.5-less+401909301-pk-5041955-ast-4.5-less+401909303-pk-4594327-fg3m-1.5-less",
+  "recorded_at": "2026-11-13T05:08:28+00:00",
   "run_label": "opener"
  }
 ]

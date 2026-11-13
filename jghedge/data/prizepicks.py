@@ -24,16 +24,10 @@ NBA_LEAGUE_ID = 7
 TTL = 120            # seconds: the board moves; a stale copy is worse than none
 MAX_PAGES = 8        # follow links.next at most this far (NBA fits in one or two pages)
 
-# Browser-like headers on top of the Fetcher's desktop User-Agent.
-HEADERS = {
-    "Accept": "application/json",
-    "Accept-Language": "en-US,en;q=0.9",
-    "Origin": "https://app.prizepicks.com",
-    "Referer": "https://app.prizepicks.com/",
-    "Sec-Fetch-Dest": "empty",
-    "Sec-Fetch-Mode": "cors",
-    "Sec-Fetch-Site": "same-site",
-}
+# A plain request: the server does not present itself as PrizePicks' own web app. PrizePicks refuses cloud
+# servers (HTTP 403), so the board is normally read by the reader's own browser instead (the page's
+# "Load PrizePicks' board" button), and this fetch is only a chance that it is ever allowed.
+HEADERS = {"Accept": "application/json"}
 
 # PrizePicks stat_type -> our stat keys (jghedge.model.props.STATS + COMBOS).
 STAT_MAP = {

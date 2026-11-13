@@ -688,6 +688,29 @@ def enumerate_slips(legs: list[dict], hits: np.ndarray | None = None, payouts: d
 
 
 # ------------------------------------------------------------------ assembly
+def pool_rows(legs: list[dict], halfwidth: float = 3.0) -> list[dict]:
+    """Every market-anchored (player, stat) at DraftKings' line, compact: what the page needs to price a
+    PrizePicks line it has read itself. One row per player and stat; `q` is [line, P(more), P(tie)] at each
+    half-point within `halfwidth` of DraftKings' line (P(less) = 1 - P(more), both given no tie)."""
+    out, seen = [], set()
+    for l in legs:
+        if l.get("dk_line") is None or not l.get("q"):
+            continue
+        rid = f"{l.get('game_id') or 'na'}-pp-{l['player_id']}-{l['stat']}"
+        if rid in seen:
+            continue
+        seen.add(rid)
+        c = float(l["dk_line"])
+        out.append({"id": rid, "player": l.get("player"), "player_id": l["player_id"], "team": l.get("team"), "matchup": l.get("matchup"),
+                    "game_id": l.get("game_id"), "tip": l.get("tip"), "stat": l["stat"], "line": c,
+                    "dk_over_price": l.get("dk_over_price"), "dk_under_price": l.get("dk_under_price"), "p_over_mkt": l.get("p_over_mkt"),
+                    "lean": l.get("lean"), "play_prob": l.get("play_prob"), "p_void": l.get("p_void"), "proj": l.get("proj"),
+                    "exp_min": l.get("exp_min"), "strain": bool(l.get("anchor_strain")),
+                    "q": [[float(q["line"]), float(q["p_more"]), float(q.get("p_tie") or 0.0)] for q in l["q"]
+                          if abs(float(q["line"]) - c) <= halfwidth + 1e-9]})
+    return _round(out)
+
+
 def _round(obj, nd: int = 4):
     if isinstance(obj, float):
         return None if (math.isnan(obj) or math.isinf(obj)) else round(obj, nd)

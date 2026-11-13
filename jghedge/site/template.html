@@ -57,6 +57,12 @@ main { padding-block: 20px 60px; }
 section.view { display: grid; gap: 22px; }
 section.view > * { min-width: 0; }
 .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r); padding: 16px 18px; min-width: 0; }
+.ppbar { display: grid; gap: 8px; } .ppbar .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ppbar textarea { width: 100%; min-height: 70px; font: 12px var(--f-mono); padding: 8px; border-radius: var(--r); border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
+.ppbar ol { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.paygrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 8px 18px; margin-top: 8px; }
+.paygrid .prow2 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; } .paygrid .prow2 b { min-width: 104px; font-weight: 500; }
+.paygrid input { width: 62px; font: 14px var(--f-mono); padding: 5px 6px; text-align: right; border-radius: var(--r); border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
 .logit { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-2); margin-top: 2px; cursor: pointer; width: fit-content; }
 .logit input { width: 16px; height: 16px; accent-color: var(--accent); }
 button.rm { font: inherit; font-size: 12px; color: var(--bad); background: none; border: 1px solid var(--rule); border-radius: 999px; padding: 1px 9px; cursor: pointer; white-space: nowrap; }
@@ -280,6 +286,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <div class="quick" id="quick"></div>
       <p class="hint">The desk only puts money where it finds an edge, so it may use less than this, or none of it. <a href="#method/split">How it splits the amount</a></p>
     </div>
+    <div class="banner ppbar" id="ppBarT" hidden></div>
     <div class="answer" id="answer">
       <p class="kicker" id="tDate"></p>
       <h1 id="tHead"></h1>
@@ -320,7 +327,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   <!-- ================================================================ PLAYER PROPS -->
   <section class="view" id="view-props" hidden>
     <div><h2>Player props</h2><p class="lede" style="margin-top:6px">We play player props on PrizePicks, which pays a fixed multiple for getting k of n picks right, whatever the odds. Our chance for each pick comes from the sportsbook's own price (we don't trust our own player projections), so the edge is a PrizePicks line that is easier than the sportsbook's. A pick makes money when it hits more often than the slip's break-even:</p><div class="bes" id="bes"></div></div>
-    <div class="banner" id="pkBanner" hidden></div>
+    <div class="banner ppbar" id="pkBanner" hidden></div>
     <div>
       <div class="sechead"><h3>Best slips tonight</h3><span class="small" id="pkSlipsNote"></span></div>
       <div class="cards" id="pkSlips"></div>
@@ -445,7 +452,10 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
         <label class="field" for="fliffMin">Fliff smallest bet<div class="money"><span>$</span><input id="fliffMin" type="number" inputmode="decimal" min="0.01" step="0.05"></div></label>
         <label class="field" for="ppMin">PrizePicks minimum entry<div class="money"><span>$</span><input id="ppMin" type="number" inputmode="decimal" min="0.5" step="0.5"></div></label>
       </div>
+      <h3 style="margin:18px 0 4px">What PrizePicks pays</h3>
       <p class="small muted" id="payNote"></p>
+      <div class="paygrid" id="payGrid"></div>
+      <div class="acts" style="margin-top:8px"><button class="btn ghost sm" type="button" id="payReset" hidden>Back to the default table</button></div>
 
       <h2 id="glossary">Words on this page</h2>
       <dl class="gloss">
@@ -641,6 +651,18 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   var BE = (PK && PK.breakeven) || { power2: 0.5774 };
   var BEV = Object.keys(BE).map(function (k) { return BE[k]; }).filter(function (x) { return x > 0 && x < 1; });
   var BE_HI = BEV.length ? Math.max.apply(null, BEV) : 0.5774, BE_LO = BEV.length ? Math.min.apply(null, BEV) : 0.5421;
+  var PAY0 = JSON.parse(JSON.stringify(PAY)), CUSTOMPAY = false, SLIPTYPES = ["power2", "power3", "power4", "power5", "power6", "flex3", "flex4", "flex5", "flex6"];
+  function breakEven(type) {   // the chance each pick needs for the slip to return $1 per $1, from the payout table in force
+    var kind = slipKind(type), n = Number(String(type).replace(/\D/g, "")), lo = 0.2, hi = 0.99; if (!payVec(kind, n)) return null;
+    for (var i = 0; i < 44; i++) { var m = (lo + hi) / 2, ps = [], vs = []; for (var k = 0; k < n; k++) { ps.push(m); vs.push(0); } if (slipValue(ps, vs, kind).evm > 1) hi = m; else lo = m; }
+    return (lo + hi) / 2;
+  }
+  function setPayouts(pay, custom) {   // a payout table typed from the app replaces the assumed one everywhere: break-evens, pick statuses, slips
+    PAY = pay; CUSTOMPAY = !!custom; BE = {};
+    SLIPTYPES.forEach(function (ty) { var b = breakEven(ty); if (b != null && b > 0.2 && b < 0.99) BE[ty] = b; });
+    BEV = Object.keys(BE).map(function (k) { return BE[k]; });
+    BE_HI = BEV.length ? Math.max.apply(null, BEV) : 0.5774; BE_LO = BEV.length ? Math.min.apply(null, BEV) : 0.5421;
+  }
   function beFor(type) { return BE[type] || BE.power2 || 0.5774; }
   function slipName(t) { var m = /^(power|flex)(\d+)$/.exec(String(t)); return m ? m[2] + "-pick " + (m[1] === "power" ? "Power" : "Flex") : String(t); }
   function payVec(kind, n) { var v = new Array(n + 1).fill(0); if (kind === "power") { if (!PAY.power || PAY.power[String(n)] == null) return null; v[n] = PAY.power[String(n)]; } else { var f = (PAY.flex || {})[String(n)]; if (!f) return null; f.forEach(function (m, i) { v[n - i] = m; }); } return v; }
@@ -666,9 +688,128 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   }
   function slipMath(dist, pay) { var evm = 0; dist.forEach(function (p, k) { evm += p * pay[k]; }); return { evm: evm, ev: evm - 1 }; }
   var pk = { ticked: [], edited: {}, showAll: false }, PKKEY = "jg.pp." + (S.date || "none");
-  try { var pks = JSON.parse(store.get(PKKEY) || "null"); if (pks && typeof pks === "object") Object.keys(pks).forEach(function (id) { if (PKBY[id] && typeof pks[id] === "number") pk.edited[id] = pks[id]; }); } catch (e) {}
   function savePk() { store.set(PKKEY, JSON.stringify(pk.edited)); }
+  function restorePk() { try { var pks = JSON.parse(store.get(PKKEY) || "null"); if (pks && typeof pks === "object") Object.keys(pks).forEach(function (id) { if (PKBY[id] && typeof pks[id] === "number") pk.edited[id] = pks[id]; }); } catch (e) {} }
   function curLine(l) { return pk.edited[l.id] != null ? pk.edited[l.id] : l.line; }
+
+  // PrizePicks' own board. PrizePicks refuses our server, so the reader's browser asks for it (or the reader pastes it).
+  // Every (player, stat) the model anchored to DraftKings is in POOL with its chance at each nearby line, so a PrizePicks
+  // line is priced by looking it up. Standard lines only: demons and goblins pay differently and are counted, not priced.
+  var PP_URL = "https://api.prizepicks.com/projections?league_id=7&per_page=250&single_stat=true";
+  var PP_STATS = { "points": "pts", "rebounds": "reb", "assists": "ast", "3-pt made": "fg3m", "3-pointers made": "fg3m", "3pt made": "fg3m", "pts+rebs+asts": "pra", "pts+reb+ast": "pra", "points + rebounds + assists": "pra",
+    "pts+rebs": "pr", "points + rebounds": "pr", "pts+asts": "pa", "points + assists": "pa", "rebs+asts": "ra", "rebounds + assists": "ra", "steals": "stl", "blocked shots": "blk", "blocks": "blk", "turnovers": "tov" };
+  var POOL = (PK && PK.pool) || [], SRVLEGS = PKLEGS, SRVSLIPS = (PK && PK.slips) || [], SRVMODE = PK ? PK.mode : null, BOARD = null, PPUI = { state: "idle" }, BKEY = "jg.ppboard." + (S.date || "none");
+  function normName(s) { return String(s || "").normalize("NFKD").replace(/[^\x00-\x7f]/g, "").toLowerCase().replace(/[.'`\-]/g, "").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "").replace(/\s+/g, " ").trim(); }
+  function parseBoard(j) {   // PrizePicks' JSON -> [{name, stat, line, odds_type}] (mirrors jghedge/data/prizepicks.parse_projections); null when it is not a board
+    if (!j || typeof j !== "object" || !Array.isArray(j.data)) return null;
+    var who = {}, rows = [];
+    (j.included || []).forEach(function (inc) { if (inc && inc.type === "new_player") { var a = inc.attributes || {}; who[String(inc.id)] = a.display_name || a.name || ""; } });
+    j.data.forEach(function (d) {
+      if (!d || (d.type && d.type !== "projection")) return;
+      var a = d.attributes || {}, rel = (((d.relationships || {}).new_player || {}).data) || {}, line = Number(a.line_score);
+      if (a.line_score == null || a.line_score === "" || isNaN(line)) return;
+      rows.push({ name: who[String(rel.id)] || "", stat: PP_STATS[String(a.stat_type || "").replace(/\s+/g, " ").trim().toLowerCase()] || null, line: line, odds_type: String(a.odds_type || "standard").toLowerCase() });
+    });
+    return rows;
+  }
+  function liveLeg(r, line) {   // a pool row at PrizePicks' line, in the shape of a pick the model run publishes; null when the line is outside the row's table
+    var q = (r.q || []).map(function (e) { return { line: e[0], p_more: e[1], p_less: 1 - e[1], p_tie: e[2] || 0 }; });
+    var e = q.filter(function (z) { return Math.abs(z.line - line) < 1e-9; })[0]; if (!e) return null;
+    var more = null, less = null;   // the clear-take lines: where each side reaches 60%
+    q.forEach(function (z) { if (Math.abs(z.line - Math.round(z.line)) < 0.25) return; if (z.p_more >= 0.60) more = z.line; if (z.p_less >= 0.60 && less == null) less = z.line; });
+    var side = e.p_more >= e.p_less ? "more" : "less", p = Math.max(e.p_more, e.p_less);
+    return { id: r.id, player: r.player, player_id: r.player_id, team: r.team, matchup: r.matchup, game_id: r.game_id, tip: r.tip, stat: r.stat, line: line, line_source: "prizepicks",
+      dk_line: r.line, dk_over_price: r.dk_over_price, dk_under_price: r.dk_under_price, p_over_mkt: r.p_over_mkt, p_over_anchor: r.p_over_mkt != null ? r.p_over_mkt - (r.lean || 0) : null, lean: r.lean || 0, market_median: null,
+      p_more: e.p_more, p_less: e.p_less, p_tie: e.p_tie, side: side, p_side: p, p_side_shrunk: shrPk(p, beFor("power2")), play_prob: r.play_prob, p_void: r.p_void || 0, proj: r.proj, exp_min: r.exp_min,
+      anchor_strain: !!r.strain, q: q, more_if_at_most: more, less_if_at_least: less };
+  }
+  function buildSlips() {   // suggested slips from the picks on screen: for each slip size the strongest picks, one per player, from at least two teams, priced exactly
+    var cands = [], seen = {}, out = [];
+    PKLEGS.filter(function (l) { return !started(l.tip) && legP(l, false) != null; }).sort(function (a, b) { return legP(b, false) - legP(a, false); }).forEach(function (l) { if (!seen[l.player_id]) { seen[l.player_id] = 1; cands.push(l); } });
+    cands = cands.slice(0, 14);
+    Object.keys(BE).forEach(function (type) {
+      var kind = slipKind(type), n = Number(String(type).replace(/\D/g, "")); if (!payVec(kind, n) || cands.length < n) return;
+      var pick = cands.slice(0, n);
+      if (pick.every(function (l) { return l.team === pick[0].team; })) { var other = cands.slice(n).filter(function (l) { return l.team !== pick[0].team; })[0]; if (!other) return; pick[n - 1] = other; }
+      var be = beFor(type), val = slipValue(pick.map(function (l) { return legP(l, true, be); }), pick.map(legVoid), kind);
+      out.push({ id: "eng-" + type, type: type, engine: true, legs: pick.map(function (l) { return l.id; }), ev_shrunk: val.ev, p_dist_shrunk: val.dist, growth_at_min_entry_per_100: val.g * 100,
+        verdict: val.ev > 0 && val.g > 0 ? (BOARD ? "play" : "check_lines") : val.ev > 0 ? "marginal" : "skip", label: pick.map(function (l) { return (l.player || "") + " " + pickText(l); }).join(" + ") });
+    });
+    return out.sort(function (a, b) { return b.growth_at_min_entry_per_100 - a.growth_at_min_entry_per_100; });
+  }
+  function refreshSlips() { if (PK) PK.slips = BOARD || CUSTOMPAY ? buildSlips() : SRVSLIPS; }   // the model run's slips stand until the lines or the payouts are the reader's own
+  function applyBoard(rows, at) {   // lay PrizePicks' standard lines over the pool; returns what was found
+    var by = {}, legs = [], seen = {}, st = { at: at, lines: 0, alt: 0, matched: 0, differ: 0, far: 0, unknown: 0 };
+    POOL.forEach(function (r) { var k = normName(r.player) + "|" + r.stat; (by[k] = by[k] || []).push(r); });
+    (rows || []).forEach(function (x) {
+      if (!x || !x.stat || !x.name) return;
+      if (x.odds_type !== "standard") { st.alt++; return; }
+      st.lines++;
+      var c = by[normName(x.name) + "|" + x.stat]; if (!c || c.length !== 1) { st.unknown++; return; }
+      var r = c[0]; if (seen[r.id] || started(r.tip)) return;
+      var leg = liveLeg(r, x.line); if (!leg) { st.far++; return; }
+      seen[r.id] = 1; st.matched++; if (x.line !== r.line) st.differ++; legs.push(leg);
+    });
+    if (!legs.length || !PK) return st;
+    PKLEGS = legs; PKBY = {}; legs.forEach(function (l) { PKBY[l.id] = l; });
+    pk.ticked = []; pk.edited = {}; BOARD = st; PK.mode = "live_lines";
+    refreshSlips();
+    return st;
+  }
+  function forgetBoard() {
+    BOARD = null; PKLEGS = SRVLEGS; PKBY = {}; PKLEGS.forEach(function (l) { PKBY[l.id] = l; }); pk.ticked = []; pk.edited = {}; savePk();
+    if (PK) PK.mode = SRVMODE; refreshSlips(); store.set(BKEY, ""); PPUI = { state: "idle" };
+  }
+  function useBoard(rows, at, quiet) {   // rows from PrizePicks (or the copy kept on this device) -> the page
+    var st = applyBoard(rows, at || Date.now());
+    if (st.matched) { PPUI = { state: "loaded" }; if (!quiet) { savePk(); store.set(BKEY, JSON.stringify({ at: st.at, rows: rows.filter(function (x) { return x && x.stat && x.name; }).map(function (x) { return [x.name, x.stat, x.line, x.odds_type === "standard" ? 0 : 1]; }) })); } }
+    else PPUI = { state: "nomatch", st: st };
+    return st;
+  }
+  function loadBoard() {   // this browser asks PrizePicks for its board; if PrizePicks does not let another page read it, the reader pastes it instead
+    if (typeof fetch !== "function") { PPUI = { state: "blocked" }; redrawPicks(); return; }
+    PPUI = { state: "loading" }; redrawPicks();
+    var rows = [], pages = 0;
+    var step = function (url) { return fetch(url, { headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" }).then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then(function (j) {
+      var got = parseBoard(j); if (!got) throw new Error("not a board"); rows = rows.concat(got); pages++;
+      var next = j.links && j.links.next; if (next && pages < 8 && /^https:\/\/api\.prizepicks\.com\//.test(String(next))) return step(String(next)); }); };
+    step(PP_URL).then(function () { useBoard(rows); redrawPicks(); }).catch(function () { PPUI = { state: "blocked" }; redrawPicks(); });
+  }
+  function pasteBoard(text) {
+    var j = null; try { j = JSON.parse(String(text || "").trim()); } catch (e) { j = null; }
+    var rows = j ? parseBoard(j) : null;
+    if (!rows) { PPUI = { state: "blocked", bad: true }; redrawPicks(); return; }
+    useBoard(rows); redrawPicks();
+  }
+  function redrawPicks() { renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); }
+  function boardBar() {   // one bar, shown on Tonight and on Player props
+    if (!PK || (!POOL.length && !BOARD)) return "";
+    var s = PPUI.state, st = BOARD;
+    if (s === "loaded" && st) return "<div class='row'><span><b>PrizePicks' lines loaded " + esc(new Date(st.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + ".</b> " + st.matched + " picks priced at PrizePicks' own line" +
+      (st.differ ? ", " + st.differ + " of them at a different line from DraftKings'" : "") + "." + (st.alt ? " " + st.alt + " demon and goblin lines were left out: they pay differently." : "") + (st.unknown ? " " + st.unknown + " lines are for players or stats we have no sportsbook price for." : "") +
+      "</span><button type='button' class='btn ghost sm' data-pp='load'>Load again</button><button type='button' class='btn ghost sm' data-pp='forget'>Back to DraftKings' lines</button></div>";
+    if (s === "loading") return "<div class='row'><span>Asking PrizePicks for its board…</span></div>";
+    if (s === "nomatch") return "<div class='row'><span>PrizePicks' board was read, but none of its " + ((PPUI.st || {}).lines || 0) + " standard lines matched a player priced on this slate" + (((PPUI.st || {}).far || 0) ? " (" + PPUI.st.far + " were too far from DraftKings' line to price)" : "") + ". The lines below are still DraftKings'.</span><button type='button' class='btn ghost sm' data-pp='load'>Try again</button></div>";
+    if (s === "blocked") return "<div><b>" + (PPUI.bad ? "That did not read as PrizePicks' board." : "This browser was not allowed to read PrizePicks' board directly.") + "</b> Do it by hand, about ten seconds:</div><ol><li>Open <a href='" + PP_URL + "' target='_blank' rel='noopener'>PrizePicks' board address</a> in a new tab. It shows a page of text.</li><li>Select all of it and copy.</li><li>Paste it here and press the button.</li></ol>" +
+      "<textarea data-pp='text' placeholder='Paste the copied text here' aria-label='PrizePicks board text'></textarea><div class='row'><button type='button' class='btn sm' data-pp='paste'>Use the pasted board</button><button type='button' class='btn ghost sm' data-pp='load'>Try loading again</button></div>";
+    return "<div class='row'><span><b>These are DraftKings' lines, standing in for PrizePicks'.</b> Load PrizePicks' own lines and every pick and slip is re-priced at them. Your browser asks PrizePicks directly.</span><button type='button' class='btn sm' data-pp='load'>Load PrizePicks' board</button></div>";
+  }
+  function renderBoardBar() {
+    var html = boardBar();
+    ["pkBanner", "ppBarT"].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      var keep = el.querySelector("textarea[data-pp='text']"), typed = keep ? keep.value : "";
+      el.hidden = !html || (id === "ppBarT" && !PKLEGS.length && !BOARD); el.innerHTML = html;
+      var ta = el.querySelector("textarea[data-pp='text']"); if (ta && typed) ta.value = typed;
+      el.querySelectorAll("[data-pp]").forEach(function (b) { if (b.tagName !== "BUTTON") return; b.addEventListener("click", function () {
+        var what = b.dataset.pp; if (what === "load") loadBoard(); else if (what === "forget") { forgetBoard(); redrawPicks(); } else if (what === "paste") pasteBoard((el.querySelector("textarea[data-pp='text']") || {}).value); }); });
+    });
+  }
+  // a payout table typed earlier on this device, and a board loaded in the last three hours for this slate, apply from the start
+  try { var spay = JSON.parse(store.get("jg.pay") || "null"); if (spay && spay.power && spay.flex) setPayouts(spay, true); } catch (e) {}
+  try { var sb = JSON.parse(store.get(BKEY) || "null"); if (sb && sb.rows && Date.now() - sb.at < 3 * 3600 * 1000) useBoard(sb.rows.map(function (x) { return { name: x[0], stat: x[1], line: x[2], odds_type: x[3] ? "alt" : "standard" }; }), sb.at, true); } catch (e) {}
+  restorePk();
+  refreshSlips();
   function pAt(l) {   // chance at the (possibly typed) line, from the pick's price table
     var line = pk.edited[l.id]; if (line == null || line === l.line) return { p_more: l.p_more, p_less: l.p_less, ok: true };
     var q = l.q; if (!q || !q.length) return { p_more: null, p_less: null, ok: false };
@@ -1190,12 +1331,11 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   function distBar(dist, pay) { var mx = Math.max.apply(null, dist) || 1; return "<div class='dist'>" + dist.map(function (p, k) { return "<span class='" + (pay[k] > 1 ? "pay" : pay[k] > 0 ? "push" : "") + "' style='height:" + Math.max(2, p / mx * 100).toFixed(0) + "%' title='" + k + " hits: " + pct(p) + "'></span>"; }).join("") + "</div><div class='distlab'>" + dist.map(function (p, k) { return "<span>" + k + "·" + Math.round(p * 100) + "%</span>"; }).join("") + "</div>"; }
   function renderSlips() {
     $("bes").innerHTML = Object.keys(BE).sort(function (a, b) { return BE[b] - BE[a]; }).map(function (k) { return "<span class='chip'>" + esc(slipName(k)) + " " + pct(BE[k]) + "</span>"; }).join("");
-    if (!PK) { $("pkSlips").innerHTML = "<div class='empty'>No PrizePicks data in this build.</div>"; return; }
-    $("pkBanner").hidden = PK.mode !== "check_lines";
-    $("pkBanner").textContent = "PrizePicks' board couldn't be read tonight, so every line below is the sportsbook's (DraftKings). PrizePicks often posts a different number: compare in the app, or type its line into a pick and the chance is re-priced.";
+    if (!PK) { $("pkSlips").innerHTML = "<div class='empty'>No PrizePicks data in this build.</div>"; renderBoardBar(); return; }
+    renderBoardBar();
     var ranked = (PK.slips || []).filter(reachable).filter(function (x) { return x.legs.every(function (id) { return PKBY[id] && !started(PKBY[id].tip); }); }).slice().sort(function (a, b) { return (b.growth_at_min_entry_per_100 || -1) - (a.growth_at_min_entry_per_100 || -1); });
     var slips = [], overlap = function (a, b) { return a.legs.filter(function (x) { return b.legs.indexOf(x) >= 0; }).length / Math.min(a.legs.length, b.legs.length); };
-    ranked.forEach(function (x) { if (slips.length < 3 && slips.every(function (y) { return y.type !== x.type && overlap(x, y) < 0.5; })) slips.push(x); });
+    ranked.forEach(function (x) { if (slips.length < 3 && slips.every(function (y) { return y.type !== x.type && (x.engine || overlap(x, y) < 0.5); })) slips.push(x); });
     ranked.forEach(function (x) { if (slips.length < 3 && slips.indexOf(x) < 0 && slips.every(function (y) { return overlap(x, y) < 0.5; })) slips.push(x); });
     var best = bestSlip();
     $("pkSlipsNote").textContent = PK.mode === "check_lines" ? "worth entering only if PrizePicks shows every pick at its clear-take line or better" : "the first is the one on Tonight's plan";
@@ -1498,9 +1638,19 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     $("mPpMin").textContent = usd(state.ppMin); $("mFlMin").textContent = usd(state.fliffMin);
     if (PK && PK.lean && PK.lean.value != null) $("mLean").textContent = (PK.lean.value * 100).toFixed(1);
     $("fliffMin").value = state.fliffMin; $("ppMin").value = state.ppMin;
-    $("payNote").textContent = "PrizePicks payouts assumed: Power " + Object.keys(PAY.power || {}).map(function (k) { return k + "-pick " + PAY.power[k] + "×"; }).join(", ") + "; Flex " + Object.keys(PAY.flex || {}).map(function (k) { return k + "-pick " + PAY.flex[k].join("/") + "×"; }).join(", ") + " (all hit / one miss / two misses). A void pick is assumed to drop the slip one size; an entry is assumed to need players from two teams.";
+    $("payNote").textContent = (CUSTOMPAY ? "You changed this table. " : "The desk assumes this table. ") + "Open a slip in the PrizePicks app, read what each size pays, and type it here: every break-even, pick and slip on the page is recomputed from it. A void pick is assumed to drop the slip one size; an entry is assumed to need players from two teams.";
+    var rowsP = [];
+    Object.keys(PAY.power || {}).sort().forEach(function (n) { rowsP.push("<div class='prow2'><b>" + n + "-pick Power</b>all hit ×<input type='number' step='0.05' min='0' value='" + PAY.power[n] + "' data-pay='power|" + n + "|0' aria-label='" + n + "-pick Power payout'><span class='small muted'>needs " + pct(BE["power" + n]) + "</span></div>"); });
+    Object.keys(PAY.flex || {}).sort().forEach(function (n) { rowsP.push("<div class='prow2'><b>" + n + "-pick Flex</b>" + PAY.flex[n].map(function (m, i) { return (n - i) + " of " + n + " ×<input type='number' step='0.05' min='0' value='" + m + "' data-pay='flex|" + n + "|" + i + "' aria-label='" + n + "-pick Flex, " + (n - i) + " right'>"; }).join(" ") + "<span class='small muted'>needs " + pct(BE["flex" + n]) + "</span></div>"); });
+    $("payGrid").innerHTML = rowsP.join(""); $("payReset").hidden = !CUSTOMPAY;
+    $("payGrid").querySelectorAll("input[data-pay]").forEach(function (inp) { inp.addEventListener("change", function () {
+      var k = inp.dataset.pay.split("|"), v = Number(inp.value); if (inp.value === "" || isNaN(v) || v < 0) { inp.setAttribute("aria-invalid", "true"); return; }
+      var pay = JSON.parse(JSON.stringify(PAY)); if (k[0] === "power") pay.power[k[1]] = v; else pay.flex[k[1]][Number(k[2])] = v;
+      setPayouts(pay, true); store.set("jg.pay", JSON.stringify(pay)); refreshSlips(); renderMethod(); redrawPicks();
+    }); });
   }
   $("pctSlider").addEventListener("input", renderPercent);
+  $("payReset").addEventListener("click", function () { setPayouts(JSON.parse(JSON.stringify(PAY0)), false); store.set("jg.pay", ""); refreshSlips(); renderMethod(); redrawPicks(); });
   $("fliffMin").addEventListener("change", function () { var v = Number(this.value); if (v > 0) { state.fliffMin = v; store.set("jg.fliffmin", v); renderMethod(); renderTonight(); } });
   $("ppMin").addEventListener("change", function () { var v = Number(this.value); if (v > 0) { state.ppMin = v; store.set("jg.ppmin", v); if (Number($("pkEntry").value) < v) $("pkEntry").value = v; renderMethod(); renderTonight(); renderBuilder(); } });
   $("sharePanel").innerHTML = JG.raw_url ? "Share: <span class='mono' style='overflow-wrap:anywhere'>" + esc(JG.pages_url || JG.raw_url) + "</span> <button class='btn ghost sm' type='button' id='copyLink'>Copy link</button> The amount you type stays on your own device." : "";
@@ -1515,6 +1665,6 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   // live lines every 90 seconds and a build check every 5 minutes, only while the page is visible
   if (LIVE.on) { fetchLive(); TIMERS.live = setInterval(fetchLive, 90000); }
   if (JG.live !== false) { setTimeout(checkForUpdate, 4000); TIMERS.upd = setInterval(checkForUpdate, 300000); }
-  window.JG_DEBUG = { settleBet: settleBet, loadPlaced: loadPlaced, VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, preLine: preLine, savePk: savePk, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
+  window.JG_DEBUG = { board: function () { return BOARD; }, legs: function () { return PKLEGS; }, pay: function () { return PAY; }, be: function () { return BE; }, parseBoard: parseBoard, useBoard: useBoard, buildSlips: buildSlips, breakEven: breakEven, normName: normName, ppui: function () { return PPUI; }, settleBet: settleBet, loadPlaced: loadPlaced, VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, preLine: preLine, savePk: savePk, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
 })();
 </script>

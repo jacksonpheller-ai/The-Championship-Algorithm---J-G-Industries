@@ -406,6 +406,85 @@ async function openAt(browser, opts, slate, offsetHours) {
     assert(await ph.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "the bet-entry form fits a phone screen");
     await ph.close();
   }
+  // ---- PrizePicks' own board, read by the browser: fetch (or paste), match to the published price tables, re-price picks and slips
+  if (((real.pickem || {}).pool || []).length > 40) {
+    const PPNAME = { pts: "Points", reb: "Rebounds", ast: "Assists", fg3m: "3-PT Made", pra: "Pts+Rebs+Asts", pr: "Pts+Rebs", pa: "Pts+Asts", ra: "Rebs+Asts", stl: "Steals", blk: "Blocked Shots", tov: "Turnovers" };
+    const pool = real.pickem.pool, lineOk = (r, L) => r.q.some((e) => Math.abs(e[0] - L) < 1e-9);
+    // a board of 60 standard lines (every fifth one a point above DraftKings'), plus a demon, an unpriced stat, an unknown player and a line too far away
+    const picks = pool.filter((r, i) => PPNAME[r.stat] && i % 3 === 0).slice(0, 60);
+    const mk = (i, name, statType, line, odds) => ({ type: "projection", id: "p" + i, attributes: { line_score: line, stat_type: statType, odds_type: odds || "standard", status: "pre_game" }, relationships: { new_player: { data: { type: "new_player", id: "n" + i } } }, _name: name });
+    const data = picks.map((r, i) => mk(i, r.player, PPNAME[r.stat], i % 5 === 0 && lineOk(r, r.line + 1) ? r.line + 1 : r.line));
+    data.push(mk(900, picks[0].player, PPNAME[picks[0].stat], picks[0].line + 2, "demon"));
+    data.push(mk(901, picks[1].player, "Fantasy Score", 31.5));
+    data.push(mk(902, "Nobody Known", "Points", 12.5));
+    const farRow = pool.find((r) => PPNAME[r.stat] && !picks.includes(r));
+    data.push(mk(903, farRow.player, PPNAME[farRow.stat], farRow.line + 20));
+    const board = { data: data.map((d) => ({ type: d.type, id: d.id, attributes: d.attributes, relationships: d.relationships })), included: data.map((d) => ({ type: "new_player", id: d.relationships.new_player.data.id, attributes: { display_name: d._name } })), links: {} };
+    const expectMatched = picks.length, expectDiffer = picks.filter((r, i) => i % 5 === 0 && lineOk(r, r.line + 1)).length;
+    const file = "file://" + path.join(OUT, "real.html");
+    const bp = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
+    const berr = []; bp.on("pageerror", (e) => berr.push(String(e)));
+    let served = 0;
+    await bp.route("https://api.prizepicks.com/**", (route) => { served++; route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(board) }); });
+    await bp.goto(file + "#props"); await bp.waitForTimeout(300);
+    const before = await bp.evaluate(() => ({ legs: window.JG_DEBUG.legs().length, bar: document.getElementById("pkBanner").textContent, btn: !!document.querySelector("#pkBanner [data-pp='load']"), src: window.JG_DEBUG.legs()[0].line_source }));
+    assert(before.btn && /DraftKings' lines, standing in/.test(before.bar) && before.src === "dk", "before loading, the bar says the lines are DraftKings' stand-ins and offers to load PrizePicks' board");
+    await bp.click("#pkBanner [data-pp='load']"); await bp.waitForTimeout(500);
+    const got = await bp.evaluate(() => { const D = window.JG_DEBUG, b = D.board(), legs = D.legs(); return { b, n: legs.length, srcs: Array.from(new Set(legs.map((l) => l.line_source))), bar: document.getElementById("pkBanner").textContent,
+      slips: D.buildSlips().map((s) => ({ type: s.type, verdict: s.verdict, players: s.legs.map((id) => legs.find((l) => l.id === id).player_id), teams: s.legs.map((id) => legs.find((l) => l.id === id).team), ev: s.ev_shrunk })),
+      cards: document.querySelectorAll("#pkSlips .card").length, stored: !!localStorage.getItem("jg.ppboard." + D.date) }; });
+    assert(served >= 1 && got.b && got.b.matched === expectMatched && got.n === expectMatched && got.b.differ === expectDiffer && got.b.alt === 1 && got.b.far === 1 && got.b.unknown === 1 && got.srcs.join() === "prizepicks",
+      "the board is read and matched: " + got.b.matched + " picks at PrizePicks' line (" + got.b.differ + " differ from DraftKings'), the demon left out, the far line and the unknown player skipped");
+    assert(/PrizePicks' lines loaded/.test(got.bar) && got.stored, "the bar says PrizePicks' lines are loaded, and the board is kept on this device");
+    // a pick at a line one point above DraftKings' is priced from its table at that line: Less gets easier
+    const moved = picks.find((r, i) => i % 5 === 0 && lineOk(r, r.line + 1));
+    const chk = await bp.evaluate((a) => { const l = window.JG_DEBUG.legs().find((x) => x.id === a.id); return { line: l.line, pm: l.p_more, dk: l.dk_line }; }, { id: moved.id });
+    const qAt = (r, L) => r.q.find((e) => Math.abs(e[0] - L) < 1e-9)[1];
+    assert(chk.line === moved.line + 1 && chk.dk === moved.line && Math.abs(chk.pm - qAt(moved, moved.line + 1)) < 1e-9 && chk.pm < qAt(moved, moved.line), "a PrizePicks line a point above DraftKings' is priced from the table at that line (More " + (chk.pm * 100).toFixed(1) + "% against " + (qAt(moved, moved.line) * 100).toFixed(1) + "%)");
+    // slips are rebuilt from these picks: one per player, at least two teams, never "check the lines"
+    assert(got.slips.length >= 3 && got.slips.every((s) => new Set(s.players).size === s.players.length && new Set(s.teams).size >= 2 && s.verdict !== "check_lines") && got.cards >= 1, "slips are rebuilt from PrizePicks' lines: one pick per player, two teams or more, " + got.slips.length + " sizes priced");
+    await bp.goto(file + "#tonight"); await bp.waitForTimeout(300);
+    const ton = await bp.evaluate(() => ({ head: document.getElementById("tHead").textContent, bar: document.getElementById("ppBarT").hidden ? "" : document.getElementById("ppBarT").textContent, plan: window.JG_DEBUG.plan(40).pp ? window.JG_DEBUG.plan(40).pp.slip.verdict : null }));
+    assert(!/check the lines/.test(ton.head) && /PrizePicks' lines loaded/.test(ton.bar) && ton.plan !== "check_lines", "Tonight uses the loaded lines too: no 'check the lines' (" + ton.head + ")");
+    // the board survives a reload, and can be dropped
+    await bp.reload(); await bp.waitForTimeout(400);
+    assert(await bp.evaluate((n) => { const D = window.JG_DEBUG; return !!D.board() && D.legs().length === n && D.legs()[0].line_source === "prizepicks"; }, expectMatched), "after a reload the loaded board is still applied");
+    await bp.click("#ppBarT [data-pp='forget']"); await bp.waitForTimeout(300);
+    assert(await bp.evaluate((n) => { const D = window.JG_DEBUG; return !D.board() && D.legs().length === n && D.legs()[0].line_source === "dk" && !localStorage.getItem("jg.ppboard." + D.date); }, before.legs), "'Back to DraftKings' lines' restores the model run's picks");
+    assert(berr.length === 0, "no page errors loading the board: " + JSON.stringify(berr));
+    await bp.close();
+    // PrizePicks refuses the browser: the page asks for a paste instead, and the pasted board works the same
+    const bq = await openAt(browser, { viewport: { width: 390, height: 844 } }, real);
+    const qerr = []; bq.on("pageerror", (e) => qerr.push(String(e)));
+    await bq.route("https://api.prizepicks.com/**", (route) => route.abort());
+    await bq.goto(file + "#props"); await bq.waitForTimeout(300);
+    await bq.click("#pkBanner [data-pp='load']"); await bq.waitForTimeout(500);
+    const blocked = await bq.evaluate(() => ({ state: window.JG_DEBUG.ppui().state, ta: !!document.querySelector("#pkBanner textarea[data-pp='text']"), txt: document.getElementById("pkBanner").textContent, wide: document.documentElement.scrollWidth <= document.documentElement.clientWidth }));
+    assert(blocked.state === "blocked" && blocked.ta && /not allowed to read/.test(blocked.txt) && blocked.wide, "when the browser is refused, the page explains the copy-and-paste route (and it fits a phone)");
+    await bq.fill("#pkBanner textarea[data-pp='text']", "this is not a board"); await bq.click("#pkBanner [data-pp='paste']"); await bq.waitForTimeout(200);
+    assert(/did not read as PrizePicks' board/.test(await bq.evaluate(() => document.getElementById("pkBanner").textContent)), "text that is not a board is refused with a clear message");
+    await bq.fill("#pkBanner textarea[data-pp='text']", JSON.stringify(board)); await bq.click("#pkBanner [data-pp='paste']"); await bq.waitForTimeout(400);
+    assert(await bq.evaluate((n) => { const b = window.JG_DEBUG.board(); return !!b && b.matched === n && window.JG_DEBUG.ppui().state === "loaded"; }, expectMatched), "a pasted board is matched and applied like a fetched one");
+    assert(qerr.length === 0, "no page errors on the paste route: " + JSON.stringify(qerr));
+    await bq.close();
+    // names join across sites
+    const nm = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
+    await nm.goto(file + "#method"); await nm.waitForTimeout(300);
+    assert(await nm.evaluate(() => { const f = window.JG_DEBUG.normName; return f("Nikola Jokić") === "nikola jokic" && f("Jaren Jackson Jr.") === "jaren jackson" && f("Shai Gilgeous-Alexander") === "shai gilgeousalexander" && f("  P.J.  Washington ") === "pj washington"; }), "player names are matched without accents, dots, hyphens or suffixes");
+    // the payout table: the page's break-evens equal the engine's, and change with what the app pays
+    const be0 = await nm.evaluate(() => window.JG_DEBUG.be());
+    const worstBe = Math.max(...Object.keys(real.pickem.breakeven).map((k) => Math.abs((be0[k]) - real.pickem.breakeven[k])));
+    assert(worstBe < 2e-4, "the page's break-evens match the engine's for every slip size (max gap " + worstBe.toFixed(5) + ")");
+    assert(await nm.evaluate(() => Math.abs(window.JG_DEBUG.breakEven("power3") - Math.pow(6, -1 / 3)) < 1e-6 && Math.abs(window.JG_DEBUG.breakEven("power2") - Math.pow(3, -1 / 2)) < 1e-6), "a Power slip's break-even is the root of its payout (2-pick 57.7%, 3-pick 55.0% at 6x)");
+    await nm.fill("#payGrid input[data-pay='power|3|0']", "5"); await nm.dispatchEvent("#payGrid input[data-pay='power|3|0']", "change"); await nm.waitForTimeout(300);
+    const pe = await nm.evaluate(() => ({ be: window.JG_DEBUG.be().power3, pay: window.JG_DEBUG.pay().power["3"], reset: !document.getElementById("payReset").hidden, stored: !!localStorage.getItem("jg.pay"), engine: (window.JG_DEBUG.plan(40).slip || {}).engine === true || window.JG_DEBUG.buildSlips().length > 0, note: document.getElementById("payNote").textContent }));
+    assert(Math.abs(pe.be - Math.pow(5, -1 / 3)) < 1e-6 && pe.pay === 5 && pe.reset && pe.stored && /You changed this table/.test(pe.note), "typing 5x for a 3-pick Power moves its break-even to 58.5% and is remembered");
+    await nm.reload(); await nm.waitForTimeout(300);
+    assert(await nm.evaluate(() => Math.abs(window.JG_DEBUG.be().power3 - Math.pow(5, -1 / 3)) < 1e-6), "the typed payout is still in force after a reload");
+    await nm.click("#payReset"); await nm.waitForTimeout(300);
+    assert(await nm.evaluate(() => Math.abs(window.JG_DEBUG.be().power3 - Math.pow(6, -1 / 3)) < 1e-6 && !localStorage.getItem("jg.pay") && document.getElementById("payReset").hidden), "'Back to the default table' restores the assumed payouts");
+    await nm.close();
+  }
   // ---- what a percentage means: every bar opens an explanation, and the explainer does the arithmetic
   {
     const ex = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);

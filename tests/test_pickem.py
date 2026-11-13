@@ -293,7 +293,7 @@ class _Good(_Blocked):
     def get(self, url, ttl=None, kind="json", store=True):
         self.calls += 1
         assert "league_id=7" in url and "single_stat=true" in url
-        assert self.session.headers.get("Origin") == "https://app.prizepicks.com"   # browser-like headers applied
+        assert self.session.headers.get("Accept") == "application/json" and self.session.headers.get("Origin") is None   # a plain request: no web-app headers
         return _payload()
 
 
@@ -478,6 +478,34 @@ def test_under_lean_moves_more_to_less():
     assert lean["1"]["p_side"] < pickem.breakeven_probability("power2") < base["1"]["p_side"]
     ranked = pickem.build_legs(players, sims, dk, None, {"s": 0.5, "lean": 0.03}, game=game)
     assert ranked[0]["player_id"] == "2"
+
+
+def test_pool_rows_publish_every_anchor_compactly():
+    rng = np.random.default_rng(11)
+    players = [_player("1", "Alpha One", {"pts": 22.0, "reb": 7.0, "ast": 5.0}), _player("2", "Beta Two", {"pts": 14.0, "reb": 4.0, "ast": 3.0}, team="LAL")]
+    sims = {p["id"]: _sims(rng, 20000, {"pts": p["exp_line"]["pts"], "reb": p["exp_line"]["reb"], "ast": p["exp_line"]["ast"]}) for p in players}
+    dk = [_dk("1", "pts", 21.5, -115, -115), _dk("1", "reb", 7.0, -105, -125), _dk("2", "pts", 13.5, -240, 180), _dk("2", "ast", 2.5, 120, -150)]
+    # the wide band keeps lopsided markets too: all four lines are anchored, where the stand-in picks would keep only the near-even ones
+    wide = pickem.build_legs(players, sims, dk, [], {"lean": 0.03, "proxy_p_band": (0.02, 0.98)}, game={"id": "g9", "matchup": "LAL @ DEN", "tip": "2099-01-01T00:00Z"})
+    narrow = pickem.build_legs(players, sims, dk, [], {"lean": 0.03}, game={"id": "g9"})
+    assert len(wide) == 4 and len(narrow) < len(wide)
+    pool = pickem.pool_rows(wide)
+    assert len(pool) == 4 and len({r["id"] for r in pool}) == 4 and all(r["id"].startswith("g9-pp-") for r in pool)
+    by_leg = {(l["player_id"], l["stat"]): l for l in wide}
+    for r in pool:
+        l = by_leg[(r["player_id"], r["stat"])]
+        assert r["line"] == l["dk_line"] and r["dk_over_price"] == l["dk_over_price"] and r["matchup"] == "LAL @ DEN"
+        assert all(len(q) == 3 and abs(q[0] - r["line"]) <= 3.0 for q in r["q"]) and any(q[0] == r["line"] for q in r["q"])
+        full = {q["line"]: q for q in l["q"]}
+        assert all(abs(q[1] - full[q[0]]["p_more"]) < 1e-4 and abs(q[2] - full[q[0]]["p_tie"]) < 1e-4 for q in r["q"])     # the same chances, just packed
+        assert all(a[1] >= b[1] - 1e-9 for a, b in zip(r["q"], r["q"][1:]))                                             # P(more) falls as the line rises
+    whole = next(r for r in pool if r["stat"] == "reb")
+    assert any(q[2] > 0.03 for q in whole["q"] if float(q[0]).is_integer())                                             # a whole-number line can land exactly
+    assert pickem.pool_rows(wide + wide) == pool                                                                         # one row per player and stat
+
+
+def test_server_request_does_not_pose_as_the_prizepicks_app():
+    assert set(prizepicks.HEADERS) == {"Accept"}
 
 
 if __name__ == "__main__":

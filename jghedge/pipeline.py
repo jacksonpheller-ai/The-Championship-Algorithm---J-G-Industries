@@ -822,6 +822,7 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                 pp_source_rows, pk_source = rows, "oddsapi_prizepicks"
                 pk_notes.append("PrizePicks lines via the Odds API (us_dfs) for the top 3 games; the rest use the DK proxy.")
         legs_all: list[dict] = []
+        pool_all: list[dict] = []
         sims_all: dict[str, dict] = {}
         for gid, (team_players, plines, gmeta) in pk_inputs.items():
             id_to_name = {pid: t[0]["name"] for pid, t in team_players.items()}
@@ -830,10 +831,19 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                 pp_game, _ = prizepicks.match_players(pp_source_rows, id_to_name,
                                                       team_of={pid: t[2] for pid, t in team_players.items()})
                 pp_game = [r for r in pp_game if r.get("player_id")]
-            legs = pickem.build_legs([t[0] for t in team_players.values()], {pid: t[1] for pid, t in team_players.items()},
-                                     plines, pp_game, {"s": policy.shrink_factor("pickem"), "payouts": PICKEM_PAYOUTS,
-                                                       "lean": lean["value"]},
-                                     game=gmeta)
+            leg_prm = {"s": policy.shrink_factor("pickem"), "payouts": PICKEM_PAYOUTS, "lean": lean["value"]}
+            if pp_game:
+                legs = pickem.build_legs([t[0] for t in team_players.values()], {pid: t[1] for pid, t in team_players.items()},
+                                         plines, pp_game, leg_prm, game=gmeta)
+            else:
+                # No PrizePicks lines on the server: anchor every DraftKings main line once. All of them go to the
+                # pool (the page prices a PrizePicks line it reads itself against it); the stand-in picks are the
+                # near-even ones, as before (PrizePicks posts a different number on a lopsided market).
+                wide = pickem.build_legs([t[0] for t in team_players.values()], {pid: t[1] for pid, t in team_players.items()},
+                                         plines, [], {**leg_prm, "proxy_p_band": (0.02, 0.98)}, game=gmeta)
+                pool_all += wide
+                lo_p, hi_p = pickem.DEFAULT_PARAMS["proxy_p_band"]
+                legs = [l for l in wide if l.get("p_over_mkt") is not None and lo_p <= l["p_over_mkt"] <= hi_p]
             if pk_source == "oddsapi_prizepicks":
                 for l in legs:
                     if l.get("line_source") == "prizepicks":
@@ -856,6 +866,8 @@ def run(day: date | None = None, n_sims: int | None = None, update: bool = True,
                                                  payouts=PICKEM_PAYOUTS, min_entry=PICKEM_MIN_ENTRY,
                                                  s=policy.shrink_factor("pickem"), notes=pk_notes,
                                                  max_sim_legs=MAX_PICKEM_LEGS, bankroll_ref=REF_BANKROLL)
+        pickem_block["pool"] = pickem.pool_rows(pool_all)
+    pickem_block.setdefault("pool", [])
     pickem_block["props_regime"] = regime["regime"]
     pickem_block["lean"] = lean
     # pick'em status joins the nightly verdict as a reason (it never raises the Fliff score)

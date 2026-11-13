@@ -2978,5 +2978,90 @@
   "key": "flex5:401909976-pk-5124612-ast-3.5-less+401909977-pk-3157465-ast-2.5-less+401909977-pk-4432166-stl-1.5-less+401909978-pk-3138160-ast-1.5-less+401909978-pk-4278594-reb-3.5-less",
   "recorded_at": "2026-11-12T09:56:15+00:00",
   "run_label": "opener"
+ },
+ {
+  "date": "2026-11-13",
+  "ref": "401909296-to-u",
+  "type": "single",
+  "label": "NY/IND Under 221.5",
+  "kind": "total",
+  "price": -110.0,
+  "dec": 1.9091,
+  "p_final": 0.565,
+  "ev": 0.0786,
+  "ev_shrunk": 0.0393,
+  "max_line": 221.0,
+  "units": null,
+  "frac": 0.005,
+  "legs": [
+   {
+    "id": "401909296-to-u",
+    "game_id": "401909296",
+    "kind": "total",
+    "label": "NY/IND Under 221.5",
+    "side": "under",
+    "line": 221.5,
+    "price": -110.0,
+    "dec": 1.9091,
+    "p_final": 0.565,
+    "player_id": null,
+    "stat": null,
+    "matchup": "NY @ IND",
+    "tip": "2026-11-14T00:00Z"
+   }
+  ],
+  "result": null,
+  "key": "401909296-to-u",
+  "recorded_at": "2026-11-13T00:08:43+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-13",
+  "ref": "parlay-1",
+  "type": "parlay",
+  "label": "NY/IND Under 221.5 + MEM/NO Over 234.5",
+  "kind": "parlay",
+  "price": 264.4628,
+  "dec": 3.6446,
+  "p_final": 0.3118,
+  "ev": 0.1364,
+  "ev_shrunk": 0.0683,
+  "frac": 0.005,
+  "legs": [
+   {
+    "id": "401909296-to-u",
+    "game_id": "401909296",
+    "kind": "total",
+    "label": "NY/IND Under 221.5",
+    "side": "under",
+    "line": 221.5,
+    "price": -110.0,
+    "dec": 1.9091,
+    "p_final": 0.565,
+    "player_id": null,
+    "stat": null,
+    "matchup": "NY @ IND",
+    "tip": "2026-11-14T00:00Z"
+   },
+   {
+    "id": "401909300-to-o",
+    "game_id": "401909300",
+    "kind": "total",
+    "label": "MEM/NO Over 234.5",
+    "side": "over",
+    "line": 234.5,
+    "price": -110.0,
+    "dec": 1.9091,
+    "p_final": 0.5518,
+    "player_id": null,
+    "stat": null,
+    "matchup": "MEM @ NO",
+    "tip": "2026-11-14T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "parlay:401909296-to-u+401909300-to-o",
+  "recorded_at": "2026-11-13T00:08:43+00:00",
+  "run_label": "opener"
  }
 ]

@@ -3196,10 +3196,13 @@
     "tip": "2026-11-14T03:00Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909301-pk-4432811-reb-2.5-less+401909301-pk-4711272-fg3m-2.5-less+401909303-pk-4431736-ra-6.5-less+401909303-pk-4594327-fg3m-1.5-less+401909303-pk-4683021-reb-7.5-less",
   "recorded_at": "2026-11-13T05:08:28+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": 1.0,
+  "hits": 4,
+  "graded": "2026-11-14T06:40:08+00:00"
  },
  {
   "date": "2026-11-13",
@@ -3318,9 +3321,12 @@
     "tip": "2026-11-14T01:30Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909301-pk-2991230-reb-3.5-less+401909301-pk-4432811-reb-2.5-less+401909301-pk-4711272-fg3m-2.5-less+401909301-pk-5041955-ast-4.5-less+401909303-pk-4594327-fg3m-1.5-less",
   "recorded_at": "2026-11-13T05:08:28+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": 1.0,
+  "hits": 4,
+  "graded": "2026-11-14T06:40:08+00:00"
  }
 ]

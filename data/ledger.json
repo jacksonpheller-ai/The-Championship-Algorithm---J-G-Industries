@@ -2997,7 +2997,7 @@
   "ev": 0.0786,
   "ev_shrunk": 0.0393,
   "max_line": 221.0,
-  "units": null,
+  "units": 0.9091,
   "frac": 0.005,
   "legs": [
    {
@@ -3013,13 +3013,16 @@
     "player_id": null,
     "stat": null,
     "matchup": "NY @ IND",
-    "tip": "2026-11-14T00:00Z"
+    "tip": "2026-11-14T00:00Z",
+    "close_line": 218.5,
+    "clv": 3.0
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "401909296-to-u",
   "recorded_at": "2026-11-13T00:08:43+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "graded": "2026-11-14T03:08:40+00:00"
  },
  {
   "date": "2026-11-13",

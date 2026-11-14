@@ -3050,7 +3050,9 @@
     "player_id": null,
     "stat": null,
     "matchup": "NY @ IND",
-    "tip": "2026-11-14T00:00Z"
+    "tip": "2026-11-14T00:00Z",
+    "close_line": 218.5,
+    "clv": 3.0
    },
    {
     "id": "401909300-to-o",
@@ -3065,13 +3067,17 @@
     "player_id": null,
     "stat": null,
     "matchup": "MEM @ NO",
-    "tip": "2026-11-14T01:00Z"
+    "tip": "2026-11-14T01:00Z",
+    "close_line": 235.5,
+    "clv": 1.0
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "parlay:401909296-to-u+401909300-to-o",
   "recorded_at": "2026-11-13T00:08:43+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": 2.6446628100000003,
+  "graded": "2026-11-14T04:08:01+00:00"
  },
  {
   "date": "2026-11-13",

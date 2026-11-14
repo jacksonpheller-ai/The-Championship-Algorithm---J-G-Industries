@@ -3328,5 +3328,249 @@
   "units": 1.0,
   "hits": 4,
   "graded": "2026-11-14T06:40:08+00:00"
+ },
+ {
+  "date": "2026-11-14",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Herbert Jones Less 1.5 3PM + Jerami Grant Less 1.5 3PM + Josh Giddey Less 1.5 3PM + Saddiq Bey Less 2.5 Ast + Jaylen Wells Less 1.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0919,
+  "ev": 0.6189,
+  "ev_shrunk": 0.2808,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909980-pk-4277813-fg3m-1.5-less",
+    "game_id": "401909980",
+    "kind": "pickem",
+    "label": "Herbert Jones Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4277813",
+    "player": "Herbert Jones",
+    "p_final": 0.6254,
+    "matchup": "DEN @ NO",
+    "tip": "2026-11-15T00:00Z"
+   },
+   {
+    "id": "401909983-pk-2991070-fg3m-1.5-less",
+    "game_id": "401909983",
+    "kind": "pickem",
+    "label": "Jerami Grant Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "2991070",
+    "player": "Jerami Grant",
+    "p_final": 0.6203,
+    "matchup": "BKN @ MEM",
+    "tip": "2026-11-15T01:00Z"
+   },
+   {
+    "id": "401909984-pk-4871145-fg3m-1.5-less",
+    "game_id": "401909984",
+    "kind": "pickem",
+    "label": "Josh Giddey Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4871145",
+    "player": "Josh Giddey",
+    "p_final": 0.6203,
+    "matchup": "CHI @ MIN",
+    "tip": "2026-11-15T01:00Z"
+   },
+   {
+    "id": "401909980-pk-4397136-ast-2.5-less",
+    "game_id": "401909980",
+    "kind": "pickem",
+    "label": "Saddiq Bey Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "4397136",
+    "player": "Saddiq Bey",
+    "p_final": 0.6193,
+    "matchup": "DEN @ NO",
+    "tip": "2026-11-15T00:00Z"
+   },
+   {
+    "id": "401909983-pk-5112087-ast-1.5-less",
+    "game_id": "401909983",
+    "kind": "pickem",
+    "label": "Jaylen Wells Less 1.5 Ast",
+    "side": "less",
+    "line": 1.5,
+    "stat": "ast",
+    "player_id": "5112087",
+    "player": "Jaylen Wells",
+    "p_final": 0.6167,
+    "matchup": "BKN @ MEM",
+    "tip": "2026-11-15T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909980-pk-4277813-fg3m-1.5-less+401909980-pk-4397136-ast-2.5-less+401909983-pk-2991070-fg3m-1.5-less+401909983-pk-5112087-ast-1.5-less+401909984-pk-4871145-fg3m-1.5-less",
+  "recorded_at": "2026-11-14T15:10:55+00:00",
+  "run_label": "morning"
+ },
+ {
+  "date": "2026-11-14",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Herbert Jones Less 1.5 3PM + Jerami Grant Less 1.5 3PM + Josh Giddey Less 1.5 3PM + Kyrie Irving Less 3.5 3PM + Duncan Robinson Less 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0905,
+  "ev": 0.6008,
+  "ev_shrunk": 0.2733,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909980-pk-4277813-fg3m-1.5-less",
+    "game_id": "401909980",
+    "kind": "pickem",
+    "label": "Herbert Jones Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4277813",
+    "player": "Herbert Jones",
+    "p_final": 0.6254,
+    "matchup": "DEN @ NO",
+    "tip": "2026-11-15T00:00Z"
+   },
+   {
+    "id": "401909983-pk-2991070-fg3m-1.5-less",
+    "game_id": "401909983",
+    "kind": "pickem",
+    "label": "Jerami Grant Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "2991070",
+    "player": "Jerami Grant",
+    "p_final": 0.6203,
+    "matchup": "BKN @ MEM",
+    "tip": "2026-11-15T01:00Z"
+   },
+   {
+    "id": "401909984-pk-4871145-fg3m-1.5-less",
+    "game_id": "401909984",
+    "kind": "pickem",
+    "label": "Josh Giddey Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4871145",
+    "player": "Josh Giddey",
+    "p_final": 0.6203,
+    "matchup": "CHI @ MIN",
+    "tip": "2026-11-15T01:00Z"
+   },
+   {
+    "id": "401909981-pk-6442-fg3m-3.5-less",
+    "game_id": "401909981",
+    "kind": "pickem",
+    "label": "Kyrie Irving Less 3.5 3PM",
+    "side": "less",
+    "line": 3.5,
+    "stat": "fg3m",
+    "player_id": "6442",
+    "player": "Kyrie Irving",
+    "p_final": 0.6135,
+    "matchup": "DAL @ CLE",
+    "tip": "2026-11-15T00:30Z"
+   },
+   {
+    "id": "401909982-pk-3157465-ast-2.5-less",
+    "game_id": "401909982",
+    "kind": "pickem",
+    "label": "Duncan Robinson Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "3157465",
+    "player": "Duncan Robinson",
+    "p_final": 0.6129,
+    "matchup": "DET @ MIA",
+    "tip": "2026-11-15T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909980-pk-4277813-fg3m-1.5-less+401909981-pk-6442-fg3m-3.5-less+401909982-pk-3157465-ast-2.5-less+401909983-pk-2991070-fg3m-1.5-less+401909984-pk-4871145-fg3m-1.5-less",
+  "recorded_at": "2026-11-14T15:10:55+00:00",
+  "run_label": "morning"
  }
 ]

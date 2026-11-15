@@ -3446,10 +3446,13 @@
     "tip": "2026-11-15T01:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909980-pk-4277813-fg3m-1.5-less+401909980-pk-4397136-ast-2.5-less+401909983-pk-2991070-fg3m-1.5-less+401909983-pk-5112087-ast-1.5-less+401909984-pk-4871145-fg3m-1.5-less",
   "recorded_at": "2026-11-14T15:10:55+00:00",
-  "run_label": "morning"
+  "run_label": "morning",
+  "units": -1.0,
+  "hits": 0,
+  "graded": "2026-11-15T09:36:08+00:00"
  },
  {
   "date": "2026-11-14",
@@ -3568,9 +3571,256 @@
     "tip": "2026-11-15T01:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909980-pk-4277813-fg3m-1.5-less+401909981-pk-6442-fg3m-3.5-less+401909982-pk-3157465-ast-2.5-less+401909983-pk-2991070-fg3m-1.5-less+401909984-pk-4871145-fg3m-1.5-less",
   "recorded_at": "2026-11-14T15:10:55+00:00",
-  "run_label": "morning"
+  "run_label": "morning",
+  "units": -1.0,
+  "hits": 1,
+  "graded": "2026-11-15T09:36:08+00:00"
+ },
+ {
+  "date": "2026-11-15",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Kyle Kuzma Less 3.5 Ast + Cooper Flagg Less 1.5 3PM + Josh Hart Less 1.5 3PM + Trae Young Less 2.5 3PM + Payton Pritchard Less 3.5 Reb",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0929,
+  "ev": 0.6316,
+  "ev_shrunk": 0.2861,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909992-pk-3134907-ast-3.5-less",
+    "game_id": "401909992",
+    "kind": "pickem",
+    "label": "Kyle Kuzma Less 3.5 Ast",
+    "side": "less",
+    "line": 3.5,
+    "stat": "ast",
+    "player_id": "3134907",
+    "player": "Kyle Kuzma",
+    "p_final": 0.6254,
+    "matchup": "ATL @ MIL",
+    "tip": "2026-11-16T01:00Z"
+   },
+   {
+    "id": "401909989-pk-5041939-fg3m-1.5-less",
+    "game_id": "401909989",
+    "kind": "pickem",
+    "label": "Cooper Flagg Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "5041939",
+    "player": "Cooper Flagg",
+    "p_final": 0.6239,
+    "matchup": "DAL @ BOS",
+    "tip": "2026-11-15T23:00Z"
+   },
+   {
+    "id": "401909990-pk-3062679-fg3m-1.5-less",
+    "game_id": "401909990",
+    "kind": "pickem",
+    "label": "Josh Hart Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "3062679",
+    "player": "Josh Hart",
+    "p_final": 0.6239,
+    "matchup": "NY @ TOR",
+    "tip": "2026-11-15T23:00Z"
+   },
+   {
+    "id": "401909991-pk-4277905-fg3m-2.5-less",
+    "game_id": "401909991",
+    "kind": "pickem",
+    "label": "Trae Young Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4277905",
+    "player": "Trae Young",
+    "p_final": 0.6188,
+    "matchup": "HOU @ WSH",
+    "tip": "2026-11-16T00:00Z"
+   },
+   {
+    "id": "401909989-pk-4066354-reb-3.5-less",
+    "game_id": "401909989",
+    "kind": "pickem",
+    "label": "Payton Pritchard Less 3.5 Reb",
+    "side": "less",
+    "line": 3.5,
+    "stat": "reb",
+    "player_id": "4066354",
+    "player": "Payton Pritchard",
+    "p_final": 0.6167,
+    "matchup": "DAL @ BOS",
+    "tip": "2026-11-15T23:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909989-pk-4066354-reb-3.5-less+401909989-pk-5041939-fg3m-1.5-less+401909990-pk-3062679-fg3m-1.5-less+401909991-pk-4277905-fg3m-2.5-less+401909992-pk-3134907-ast-3.5-less",
+  "recorded_at": "2026-11-15T09:35:47+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-15",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Kyle Kuzma Less 3.5 Ast + Cooper Flagg Less 1.5 3PM + Josh Hart Less 1.5 3PM + Kelly Oubre Jr. Less 1.5 3PM + Anthony Davis Less 2.5 Ast",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0915,
+  "ev": 0.6144,
+  "ev_shrunk": 0.2789,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909992-pk-3134907-ast-3.5-less",
+    "game_id": "401909992",
+    "kind": "pickem",
+    "label": "Kyle Kuzma Less 3.5 Ast",
+    "side": "less",
+    "line": 3.5,
+    "stat": "ast",
+    "player_id": "3134907",
+    "player": "Kyle Kuzma",
+    "p_final": 0.6254,
+    "matchup": "ATL @ MIL",
+    "tip": "2026-11-16T01:00Z"
+   },
+   {
+    "id": "401909989-pk-5041939-fg3m-1.5-less",
+    "game_id": "401909989",
+    "kind": "pickem",
+    "label": "Cooper Flagg Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "5041939",
+    "player": "Cooper Flagg",
+    "p_final": 0.6239,
+    "matchup": "DAL @ BOS",
+    "tip": "2026-11-15T23:00Z"
+   },
+   {
+    "id": "401909990-pk-3062679-fg3m-1.5-less",
+    "game_id": "401909990",
+    "kind": "pickem",
+    "label": "Josh Hart Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "3062679",
+    "player": "Josh Hart",
+    "p_final": 0.6239,
+    "matchup": "NY @ TOR",
+    "tip": "2026-11-15T23:00Z"
+   },
+   {
+    "id": "401909985-pk-3133603-fg3m-1.5-less",
+    "game_id": "401909985",
+    "kind": "pickem",
+    "label": "Kelly Oubre Jr. Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "3133603",
+    "player": "Kelly Oubre Jr.",
+    "p_final": 0.6151,
+    "matchup": "IND @ PHI",
+    "tip": "2026-11-15T18:00Z"
+   },
+   {
+    "id": "401909991-pk-6583-ast-2.5-less",
+    "game_id": "401909991",
+    "kind": "pickem",
+    "label": "Anthony Davis Less 2.5 Ast",
+    "side": "less",
+    "line": 2.5,
+    "stat": "ast",
+    "player_id": "6583",
+    "player": "Anthony Davis",
+    "p_final": 0.6113,
+    "matchup": "HOU @ WSH",
+    "tip": "2026-11-16T00:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909985-pk-3133603-fg3m-1.5-less+401909989-pk-5041939-fg3m-1.5-less+401909990-pk-3062679-fg3m-1.5-less+401909991-pk-6583-ast-2.5-less+401909992-pk-3134907-ast-3.5-less",
+  "recorded_at": "2026-11-15T09:35:47+00:00",
+  "run_label": "opener"
  }
 ]

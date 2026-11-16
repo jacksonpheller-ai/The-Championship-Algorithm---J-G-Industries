@@ -419,85 +419,97 @@ async function openAt(browser, opts, slate, offsetHours) {
     data.push(mk(902, "Nobody Known", "Points", 12.5));
     const farRow = pool.find((r) => PPNAME[r.stat] && !picks.includes(r));
     data.push(mk(903, farRow.player, PPNAME[farRow.stat], farRow.line + 20));
-    const board = { data: data.map((d) => ({ type: d.type, id: d.id, attributes: d.attributes, relationships: d.relationships })), included: data.map((d) => ({ type: "new_player", id: d.relationships.new_player.data.id, attributes: { display_name: d._name } })), links: {} };
     const expectMatched = picks.length, expectDiffer = picks.filter((r, i) => i % 5 === 0 && lineOk(r, r.line + 1)).length;
+    // the demon and the goblin each carry their own type; a goblin with a multiplier field, to check it is kept
+    data.push(mk(904, picks[2].player, PPNAME[picks[2].stat], picks[2].line - 2, "goblin"));
+    const board = { data: data.map((d) => ({ type: d.type, id: d.id, attributes: Object.assign({ start_time: (real.games[0] || {}).tip }, d.attributes), relationships: d.relationships })),
+      included: data.map((d) => ({ type: "new_player", id: d.relationships.new_player.data.id, attributes: { display_name: d._name, team: "XXX" } })), links: {} };
+    const boardText = JSON.stringify(board);
     const file = "file://" + path.join(OUT, "real.html");
-    const bp = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
+    // the friend: open the page, paste, press "Save for both", submit on GitHub (3 taps after the paste, counted below)
+    const livePage = render(real, { live: true, update_base: "https://upd.example/" });
+    fs.writeFileSync(path.join(OUT, "board.html"), livePage);
+    const bfile = "file://" + path.join(OUT, "board.html");
+    const issues = []; let ghHits = 0;
+    const mockGh = async (pg) => {
+      await pg.route("https://api.github.com/**", (route) => { ghHits++; route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(issues) }); });
+      await pg.route("https://upd.example/**", (route) => route.fulfill({ status: 404, body: "" }));
+      await pg.route("https://site.api.espn.com/**", (route) => route.fulfill({ status: 404, body: "" }));
+    };
+    const bp = await openAt(browser, { viewport: { width: 390, height: 844 } }, real);
     const berr = []; bp.on("pageerror", (e) => berr.push(String(e)));
-    let served = 0;
-    await bp.route("https://api.prizepicks.com/**", (route) => { served++; route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify(board) }); });
-    await bp.goto(file + "#props"); await bp.waitForTimeout(300);
-    const before = await bp.evaluate(() => ({ legs: window.JG_DEBUG.legs().length, bar: document.getElementById("pkBanner").textContent, btn: !!document.querySelector("#pkBanner [data-pp='load']"), src: window.JG_DEBUG.legs()[0].line_source }));
-    assert(before.btn && /DraftKings' lines, standing in/.test(before.bar) && before.src === "dk", "before loading, the bar says the lines are DraftKings' stand-ins and offers to load PrizePicks' board");
-    await bp.click("#pkBanner [data-pp='load']"); await bp.waitForTimeout(500);
+    await mockGh(bp);
+    await bp.goto(bfile + "#props"); await bp.waitForTimeout(400);
+    const before = await bp.evaluate(() => ({ legs: window.JG_DEBUG.legs().length, bar: document.getElementById("pkBanner").textContent, ta: !!document.querySelector("#pkBanner textarea[data-pp='text']"), link: !!document.querySelector("#pkBanner a[href*='api.prizepicks.com']"), src: window.JG_DEBUG.legs()[0].line_source }));
+    assert(before.ta && before.link && /stand-ins/.test(before.bar) && before.src === "dk", "with no board, the bar says the picks use stand-in lines and offers the board's address and a paste box");
+    let taps = 0;
+    await bp.evaluate((t) => { const ta = document.querySelector("#pkBanner textarea[data-pp='text']"); ta.value = t; ta.dispatchEvent(new Event("paste")); }, boardText);
+    await bp.waitForTimeout(500);
     const got = await bp.evaluate(() => { const D = window.JG_DEBUG, b = D.board(), legs = D.legs(); return { b, n: legs.length, srcs: Array.from(new Set(legs.map((l) => l.line_source))), bar: document.getElementById("pkBanner").textContent,
-      slips: D.buildSlips().map((s) => ({ type: s.type, verdict: s.verdict, players: s.legs.map((id) => legs.find((l) => l.id === id).player_id), teams: s.legs.map((id) => legs.find((l) => l.id === id).team), ev: s.ev_shrunk })),
-      cards: document.querySelectorAll("#pkSlips .card").length, stored: !!localStorage.getItem("jg.ppboard." + D.date) }; });
-    assert(served >= 1 && got.b && got.b.matched === expectMatched && got.n === expectMatched && got.b.differ === expectDiffer && got.b.alt === 1 && got.b.far === 1 && got.b.unknown === 1 && got.srcs.join() === "prizepicks",
-      "the board is read and matched: " + got.b.matched + " picks at PrizePicks' line (" + got.b.differ + " differ from DraftKings'), the demon left out, the far line and the unknown player skipped");
-    assert(/PrizePicks' lines loaded/.test(got.bar) && got.stored, "the bar says PrizePicks' lines are loaded, and the board is kept on this device");
-    const shared = await bp.evaluate(() => window.JG_DEBUG.shareText());
-    assert(shared.startsWith("JGPP1 " + real.date + " ") && shared.split(",").length === expectMatched && shared.length < 40 * expectMatched && !!(await bp.$("#pkBanner [data-pp='share']")), "a loaded board can be copied for a partner as one short line of text (" + shared.length + " characters)");
-    // a pick at a line one point above DraftKings' is priced from its table at that line: Less gets easier
-    const moved = picks.find((r, i) => i % 5 === 0 && lineOk(r, r.line + 1));
-    const chk = await bp.evaluate((a) => { const l = window.JG_DEBUG.legs().find((x) => x.id === a.id); return { line: l.line, pm: l.p_more, dk: l.dk_line }; }, { id: moved.id });
-    const qAt = (r, L) => r.q.find((e) => Math.abs(e[0] - L) < 1e-9)[1];
-    assert(chk.line === moved.line + 1 && chk.dk === moved.line && Math.abs(chk.pm - qAt(moved, moved.line + 1)) < 1e-9 && chk.pm < qAt(moved, moved.line), "a PrizePicks line a point above DraftKings' is priced from the table at that line (More " + (chk.pm * 100).toFixed(1) + "% against " + (qAt(moved, moved.line) * 100).toFixed(1) + "%)");
-    // slips are rebuilt from these picks: one per player, at least two teams, never "check the lines"
-    assert(got.slips.length >= 3 && got.slips.every((s) => new Set(s.players).size === s.players.length && new Set(s.teams).size >= 2 && s.verdict !== "check_lines") && got.cards >= 1, "slips are rebuilt from PrizePicks' lines: one pick per player, two teams or more, " + got.slips.length + " sizes priced");
-    await bp.goto(file + "#tonight"); await bp.waitForTimeout(300);
-    const ton = await bp.evaluate(() => ({ head: document.getElementById("tHead").textContent, bar: document.getElementById("ppBarT").hidden ? "" : document.getElementById("ppBarT").textContent, plan: window.JG_DEBUG.plan(40).pp ? window.JG_DEBUG.plan(40).pp.slip.verdict : null }));
-    assert(!/check the lines/.test(ton.head) && /PrizePicks' lines loaded/.test(ton.bar) && ton.plan !== "check_lines", "Tonight uses the loaded lines too: no 'check the lines' (" + ton.head + ")");
-    // the board survives a reload, and can be dropped
-    await bp.reload(); await bp.waitForTimeout(400);
-    assert(await bp.evaluate((n) => { const D = window.JG_DEBUG; return !!D.board() && D.legs().length === n && D.legs()[0].line_source === "prizepicks"; }, expectMatched), "after a reload the loaded board is still applied");
-    await bp.click("#ppBarT [data-pp='forget']"); await bp.waitForTimeout(300);
-    assert(await bp.evaluate((n) => { const D = window.JG_DEBUG; return !D.board() && D.legs().length === n && D.legs()[0].line_source === "dk" && !localStorage.getItem("jg.ppboard." + D.date); }, before.legs), "'Back to DraftKings' lines' restores the model run's picks");
-    assert(berr.length === 0, "no page errors loading the board: " + JSON.stringify(berr));
+      save: (document.querySelector("#pkBanner a[data-pp='save']") || {}).href || null, cards: document.querySelectorAll("#pkSlips .card").length, stored: !!localStorage.getItem("jg.ppboard." + D.date), pend: D.pend() }; });
+    assert(got.b && got.b.matched === expectMatched && got.b.differ === expectDiffer && got.b.alt === 2 && got.b.unknown === 1 && got.b.far === 1 && got.n === expectMatched && got.srcs.join() === "prizepicks",
+      "a pasted board is read at once (no button) and matched: " + (got.b && got.b.matched) + " picks at PrizePicks' line, demon and goblin kept apart, the far line and the unknown player skipped");
+    assert(got.b && got.b.types.standard === 62 && got.b.types.demon === 1 && got.b.types.goblin === 1 && /1 demon, 1 goblin/.test(got.bar), "the bar counts standard, demon and goblin lines (" + JSON.stringify(got.b && got.b.types) + ")");
+    assert(got.b && got.b.unmatched.join() === "Nobody Known" && /1 players not priced/.test(got.bar), "players with no priced line are listed by name");
+    // speed: a 1,500-line board (the test board repeated under new ids), CPU slowed 4x to stand in for a phone
+    const big = { data: [], included: board.included, links: {} };
+    for (let k = 0; big.data.length < 1500; k++) board.data.forEach((d) => { if (big.data.length < 1500) big.data.push(Object.assign({}, d, { id: d.id + "-" + k })); });
+    const cdp = await bp.context().newCDPSession(bp); await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+    const ms = await bp.evaluate((t) => { const t0 = performance.now(); window.JG_DEBUG.readPasted(t); return performance.now() - t0; }, JSON.stringify(big));
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 }); await bp.waitForTimeout(300);
+    assert(ms < 2000, "a 1,500-line board is read and priced in under 2 seconds with the CPU slowed 4x (" + Math.round(ms) + " ms)");
+    await bp.evaluate((t) => window.JG_DEBUG.readPasted(t), boardText); await bp.waitForTimeout(400);   // back to the test board (a fresh paste replaces after 20 minutes; here it merges by id)
+    assert(got.save && got.save.startsWith("https://github.com/example/repo/issues/new?title=Board%20" + real.date) && got.save.length <= 7000, "“Save for both” is a link to a pre-filled GitHub issue (" + (got.save || "").length + " characters)");
+    // the issue body holds the packed board; Python decodes what the page wrote
+    const body = decodeURIComponent(new URL(got.save).searchParams.get("body"));
+    const packed = /JGB[01]\.[A-Za-z0-9_\-]+/.exec(body)[0];
+    const py = require("child_process").spawnSync("python3", ["-c", "import sys,json; sys.path.insert(0,'.'); from jghedge import boards; p=boards.decode(sys.stdin.read()); r=boards.expand(p); print(json.dumps({'date':p['date'],'n':len(r),'types':boards.summary(r)['by_type']}))"], { cwd: ROOT, input: body, encoding: "utf8" });
+    const pyr = JSON.parse(py.stdout || "{}");
+    assert(pyr.date === real.date && pyr.n === 64 && pyr.types.demon === 1 && pyr.types.goblin === 1, "the server decodes the page's packed board: " + JSON.stringify(pyr) + (py.stderr ? " " + py.stderr.slice(-300) : ""));
+    await bp.click("#pkBanner a[data-pp='save']").catch(() => {}); taps++;   // opens GitHub in a new tab
+    await bp.waitForTimeout(200);
+    for (const pg of bp.context().pages()) if (pg !== bp) await pg.close();
+    taps++;   // "Submit new issue" on GitHub
+    const saving = await bp.evaluate(() => ({ s: window.JG_DEBUG.save(), bar: document.getElementById("pkBanner").textContent }));
+    assert(saving.s && saving.s.state === "saving" && /Saving\./.test(saving.bar) && /Undo/.test(saving.bar), "after “Save for both”, the bar says it is saving, says what to press on GitHub, and offers Undo");
+    issues.push({ number: 41, title: "Board " + real.date + " · 64 lines", body: body, user: { login: "friend" }, state: "open" });
+    await bp.evaluate(() => window.JG_DEBUG.syncBoard()); await bp.waitForTimeout(300);
+    const saved = await bp.evaluate(() => ({ s: window.JG_DEBUG.save(), bar: document.getElementById("pkBanner").textContent }));
+    assert(saved.s && saved.s.state === "saved" && /Saved for both at/.test(saved.bar), "once the issue exists the bar says “Saved for both”");
+    assert(taps <= 3, "friend: paste, then " + taps + " taps to save for both");
+    assert(berr.length === 0, "no page errors pasting and saving the board: " + JSON.stringify(berr));
     await bp.close();
-    // PrizePicks refuses the browser: the page asks for a paste instead, and the pasted board works the same
+    // the partner: opens the page and does nothing; the saved board is found on GitHub and applied
+    const pp = await openAt(browser, { viewport: { width: 390, height: 844 } }, real, 0.5);
+    const perr = []; pp.on("pageerror", (e) => perr.push(String(e)));
+    await mockGh(pp);
+    await pp.goto(bfile + "#tonight"); await pp.waitForTimeout(1500);
+    const part = await pp.evaluate(() => { const D = window.JG_DEBUG, b = D.board(); return { matched: b && b.matched, by: b && b.from && b.from.by, src: D.legs()[0].line_source, bar: document.getElementById("ppBarT").textContent }; });
+    assert(part.matched === expectMatched && part.by === "friend" && part.src === "prizepicks" && /from friend/.test(part.bar), "partner, zero taps: the saved board is picked up from GitHub and priced (" + part.matched + " picks, by " + part.by + ")");
+    assert(perr.length === 0, "no page errors on the partner's page: " + JSON.stringify(perr));
+    await pp.close();
+    // four hours later the same board is stale: not used, and the page asks for a fresh one
+    const sp = await openAt(browser, { viewport: { width: 390, height: 844 } }, real, 4);
+    await mockGh(sp);
+    await sp.goto(bfile + "#props"); await sp.waitForTimeout(1500);
+    const stale = await sp.evaluate(() => ({ b: window.JG_DEBUG.board(), bar: document.getElementById("pkBanner").textContent, src: window.JG_DEBUG.legs()[0].line_source }));
+    assert(!stale.b && stale.src === "dk" && /The last board is .* old/.test(stale.bar), "a board over 3 hours old is not used, and the bar asks for a fresh one");
+    await sp.close();
+    // text that is not a board is refused; the old JGPP1 hand-off still reads
     const bq = await openAt(browser, { viewport: { width: 390, height: 844 } }, real);
-    const qerr = []; bq.on("pageerror", (e) => qerr.push(String(e)));
-    await bq.route("https://api.prizepicks.com/**", (route) => route.abort());
     await bq.goto(file + "#props"); await bq.waitForTimeout(300);
-    await bq.click("#pkBanner [data-pp='load']"); await bq.waitForTimeout(500);
-    const blocked = await bq.evaluate(() => ({ state: window.JG_DEBUG.ppui().state, ta: !!document.querySelector("#pkBanner textarea[data-pp='text']"), txt: document.getElementById("pkBanner").textContent, wide: document.documentElement.scrollWidth <= document.documentElement.clientWidth }));
-    assert(blocked.state === "blocked" && blocked.ta && /not allowed to read/.test(blocked.txt) && blocked.wide, "when the browser is refused, the page explains the copy-and-paste route (and it fits a phone)");
-    await bq.fill("#pkBanner textarea[data-pp='text']", "this is not a board"); await bq.click("#pkBanner [data-pp='paste']"); await bq.waitForTimeout(200);
-    assert(/did not read as PrizePicks' board/.test(await bq.evaluate(() => document.getElementById("pkBanner").textContent)), "text that is not a board is refused with a clear message");
-    await bq.fill("#pkBanner textarea[data-pp='text']", JSON.stringify(board)); await bq.click("#pkBanner [data-pp='paste']"); await bq.waitForTimeout(400);
-    assert(await bq.evaluate((n) => { const b = window.JG_DEBUG.board(); return !!b && b.matched === n && window.JG_DEBUG.ppui().state === "loaded"; }, expectMatched), "a pasted board is matched and applied like a fetched one");
-    assert(qerr.length === 0, "no page errors on the paste route: " + JSON.stringify(qerr));
+    await bq.evaluate(() => window.JG_DEBUG.readPasted("this is not a board")); await bq.waitForTimeout(200);
+    assert(/did not read as PrizePicks' board/.test(await bq.evaluate(() => document.getElementById("pkBanner").textContent)) && !(await bq.evaluate(() => window.JG_DEBUG.board())), "text that is not a board is refused with a clear message");
+    await bq.evaluate((t) => window.JG_DEBUG.readPasted(t), JSON.stringify({ error: "PrizePicks is currently unavailable in your location" })); await bq.waitForTimeout(200);
+    assert(/unavailable in your location/.test(await bq.evaluate(() => document.getElementById("pkBanner").textContent)), "PrizePicks' own refusal is shown as it is");
+    const shared = "JGPP1 " + real.date + " " + Date.parse(real.generated) + " 0 " + picks.slice(0, 5).map((r) => r.player_id + ":" + r.stat + ":" + r.line).join(",");
+    await bq.evaluate((t) => window.JG_DEBUG.readPasted(t), shared); await bq.waitForTimeout(300);
+    assert(await bq.evaluate(() => { const b = window.JG_DEBUG.board(); return !!b && b.matched === 5; }), "a JGPP1 hand-off from an older page still reads");
+    await bq.reload(); await bq.waitForTimeout(300);
+    assert(await bq.evaluate(() => !!window.JG_DEBUG.board()), "after a reload the board is still applied");
+    await bq.click("#pkBanner [data-pp='forget']"); await bq.waitForTimeout(200);
+    assert(await bq.evaluate(() => !window.JG_DEBUG.board() && window.JG_DEBUG.legs()[0].line_source === "dk"), "“Use stand-in lines” restores the model run's picks");
     await bq.close();
-    // PrizePicks' own refusal is shown as it is, with no paste box that could not work
-    const geo = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
-    await geo.route("https://api.prizepicks.com/**", (route) => route.fulfill({ status: 403, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ error: "PrizePicks is currently unavailable in your location." }) }));
-    await geo.goto(file + "#props"); await geo.waitForTimeout(300);
-    await geo.click("#pkBanner [data-pp='load']"); await geo.waitForTimeout(500);
-    const gs = await geo.evaluate(() => ({ txt: document.getElementById("pkBanner").textContent, ta: !!document.querySelector("#pkBanner textarea"), legs: window.JG_DEBUG.legs()[0].line_source, board: window.JG_DEBUG.board() }));
-    assert(/unavailable in your location/.test(gs.txt) && /cannot be loaded here/.test(gs.txt) && /paste the lines they copied/.test(gs.txt) && gs.ta && gs.legs === "dk" && !gs.board, "PrizePicks' own refusal is shown as it is, with a box for lines a partner loaded; the stand-in lines stay");
-    // lines for another day are refused with the reason
-    await geo.fill("#pkBanner textarea[data-pp='text']", shared.replace("JGPP1 " + real.date, "JGPP1 2020-01-01")); await geo.click("#pkBanner [data-pp='paste']"); await geo.waitForTimeout(250);
-    const wrongDay = await geo.evaluate(() => ({ txt: document.getElementById("pkBanner").textContent, board: window.JG_DEBUG.board() }));
-    assert(!wrongDay.board && /Those lines are for/.test(wrongDay.txt), "lines copied for another day are refused, and the page says why");
-    // the partner's lines give this device the same picks, at the same lines
-    await geo.fill("#pkBanner textarea[data-pp='text']", shared); await geo.click("#pkBanner [data-pp='paste']"); await geo.waitForTimeout(400);
-    const handed = await geo.evaluate((a) => { const D = window.JG_DEBUG, b = D.board(), l = D.legs().find((x) => x.id === a.id); return { matched: b && b.matched, partner: !!(b && b.from && b.from.partner), alt: b && b.alt, line: l && l.line, src: l && l.line_source, txt: document.getElementById("pkBanner").textContent,
-      slip: (D.plan(40).pp || {}).slip ? D.plan(40).pp.slip.verdict : null, again: D.shareText() }; }, { id: moved.id });
-    assert(handed.matched === expectMatched && handed.partner && handed.alt === 1 && handed.line === moved.line + 1 && handed.src === "prizepicks" && /from your partner/.test(handed.txt) && handed.slip !== "check_lines",
-      "pasting the partner's lines gives this device the same " + expectMatched + " picks at PrizePicks' lines");
-    assert(handed.again.split(" ")[4] === shared.split(" ")[4], "the lines can be passed on again unchanged");
-    await geo.reload(); await geo.waitForTimeout(400);
-    assert(await geo.evaluate((n) => { const b = window.JG_DEBUG.board(); return !!b && b.matched === n && b.from && b.from.partner === true; }, expectMatched), "the partner's lines are still applied after a reload");
-    await geo.close();
-    // without any refusal, the paste box is one press away
-    const idle = await openAt(browser, { viewport: { width: 390, height: 844 } }, real);
-    await idle.goto(file + "#props"); await idle.waitForTimeout(300);
-    await idle.click("#pkBanner [data-pp='askpaste']"); await idle.waitForTimeout(150);
-    assert(await idle.evaluate(() => !!document.querySelector("#pkBanner textarea[data-pp='text']") && /Paste the lines your partner copied/.test(document.getElementById("pkBanner").textContent) && document.documentElement.scrollWidth <= document.documentElement.clientWidth), "“Paste lines from a partner” opens the paste box (and it fits a phone)");
-    await idle.fill("#pkBanner textarea[data-pp='text']", "hello"); await idle.click("#pkBanner [data-pp='paste']"); await idle.waitForTimeout(200);
-    assert(await idle.evaluate(() => !window.JG_DEBUG.board()), "text that is neither a hand-off nor a board changes nothing");
-    await idle.close();
     // names join across sites
     const nm = await openAt(browser, { viewport: { width: 1280, height: 900 } }, real);
     await nm.goto(file + "#method"); await nm.waitForTimeout(300);

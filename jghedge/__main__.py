@@ -6,6 +6,7 @@
     python -m jghedge update         # pull newly completed games into data/history
     python -m jghedge grade          # grade the ledger from final box scores
     python -m jghedge site           # build standalone dashboard HTML (dist/)
+    python -m jghedge boards --event $GITHUB_EVENT_PATH   # archive a PrizePicks board saved from the page
     python -m jghedge replay --seasons 2024,2025,2026,2027   # both seeds under the growth policy
 """
 from __future__ import annotations
@@ -140,8 +141,31 @@ def cmd_props(args):
 
 
 def cmd_ingest(args):
-    from . import shared
+    from . import boards, shared
     print("shared ledger:", shared.ingest(args.season))
+    print("boards:", boards.ingest())
+    boards.publish_latest()
+
+
+def cmd_boards(args):
+    """The board workflow: --event archives the board in the issue GitHub sent (and writes what happened
+    to --out); --comment posts that result on the issue and closes it, after the commit is pushed."""
+    from . import boards
+    if args.event:
+        res = boards.from_event(args.event)
+        print(json.dumps(res))
+        if args.out:
+            with open(args.out, "w") as fh:
+                json.dump(res, fh)
+        if not res.get("ok"):
+            print("::warning::" + str(res.get("why")))
+    elif args.comment:
+        with open(args.comment) as fh:
+            res = json.load(fh)
+        if res.get("issue"):
+            boards.close_issue(int(res["issue"]), boards.comment_text(res))
+    else:
+        print(boards.publish_latest())
 
 
 def cmd_site(args):
@@ -168,6 +192,11 @@ def main():
             q.add_argument("--seasons", default=f"{CURRENT_SEASON - 3},{CURRENT_SEASON - 2},{CURRENT_SEASON - 1},{CURRENT_SEASON}")
         q.set_defaults(fn=fn)
     sub.add_parser("site").set_defaults(fn=cmd_site)
+    q = sub.add_parser("boards")
+    q.add_argument("--event", help="GitHub event file of an opened 'Board <date>' issue")
+    q.add_argument("--out", help="write the result here (for --comment)")
+    q.add_argument("--comment", help="result file from --event: comment on the issue and close it")
+    q.set_defaults(fn=cmd_boards)
     q = sub.add_parser("replay")
     q.add_argument("--seasons", default=f"{CURRENT_SEASON - 1},{CURRENT_SEASON}")
     q.add_argument("--lines", default="open", choices=["open", "close"])

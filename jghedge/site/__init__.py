@@ -61,7 +61,7 @@ def render() -> str:
     slate, nxt, build = _slates()
     data = {"slate": slate, "next": nxt, "build": build, "ledger": _load("ledger.json"), "backtest": _load("backtest.json"),
             "replay": _load("replay_open.json"), "results": _recent_results(), "shared": _load("shared_ledger.json") or None,
-            "lines": _lines_for(slate), "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL,
+            "lines": _lines_for(slate), "board": _load("board.json") or None, "repo": REPO_URL, "pages_url": PAGES_URL, "raw_url": RAW_URL,
             "update_base": UPDATE_BASE}
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     return TEMPLATE.read_text(encoding="utf-8").replace('"__JG_DATA__"', blob)

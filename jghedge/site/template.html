@@ -60,6 +60,7 @@ section.view > * { min-width: 0; }
 .ppbar { display: grid; gap: 8px; } .ppbar .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .ppbar textarea { width: 100%; min-height: 70px; font: 12px var(--f-mono); padding: 8px; border-radius: var(--r); border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
 .ppbar ol { margin: 0; padding-left: 20px; display: grid; gap: 2px; }
+.ppbar textarea[data-pp="text"] { min-height: 56px; font-size: 14px; } .ppmiss summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; } .ppsteps { font-size: 14px; }
 .paygrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 8px 18px; margin-top: 8px; }
 .paygrid .prow2 { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; } .paygrid .prow2 b { min-width: 104px; font-weight: 500; }
 .paygrid input { width: 62px; font: 14px var(--f-mono); padding: 5px 6px; text-align: right; border-radius: var(--r); border: 1px solid var(--rule); background: var(--panel); color: var(--ink); }
@@ -73,7 +74,7 @@ button.rm { font: inherit; font-size: 12px; color: var(--bad); background: none;
 .banner { background: var(--warn-bg); border: 1px solid var(--warn); color: var(--ink); border-radius: var(--r); padding: 10px 14px; font-size: 14px; }
 .sechead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin-bottom: 10px; }
 .sechead .small { color: var(--ink-3); }
-.btn { font: 500 14px var(--f-body); padding: 9px 16px; border-radius: var(--r); border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; text-decoration: none; display: inline-block; }
+.btn { font: 500 14px var(--f-body); padding: 9px 16px; border-radius: var(--r); border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
 .btn.ghost { background: transparent; color: var(--accent); }
 .btn.sm { font-size: 13px; padding: 5px 11px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
@@ -286,7 +287,6 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <div class="quick" id="quick"></div>
       <p class="hint">The desk only puts money where it finds an edge, so it may use less than this, or none of it. <a href="#method/split">How it splits the amount</a></p>
     </div>
-    <div class="banner ppbar" id="ppBarT" hidden></div>
     <div class="answer" id="answer">
       <p class="kicker" id="tDate"></p>
       <h1 id="tHead"></h1>
@@ -298,6 +298,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       <button class="btn ghost" type="button" id="copyPlan">Copy</button>
       <a class="btn ghost" id="logPlan" href="#" target="_blank" rel="noopener" title="Opens a pre-filled GitHub issue (needs a GitHub login); the nightly job grades it for both of us">Log to shared record</a>
     </div>
+    <div class="banner ppbar" id="ppBarT" hidden></div>
     <div class="panel">
       <div class="sechead"><h2>Where the edge is tonight</h2></div>
       <p class="lede">A bet has an edge when it wins more often than its price needs. The bar is our chance that the bet wins (after the safety cut); the black tick is the chance its price needs. Past the tick is profit. Tap any bar to see what its percentage means in dollars.</p>
@@ -698,17 +699,25 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   var PP_URL = "https://api.prizepicks.com/projections?league_id=7&per_page=250&single_stat=true";
   var PP_STATS = { "points": "pts", "rebounds": "reb", "assists": "ast", "3-pt made": "fg3m", "3-pointers made": "fg3m", "3pt made": "fg3m", "pts+rebs+asts": "pra", "pts+reb+ast": "pra", "points + rebounds + assists": "pra",
     "pts+rebs": "pr", "points + rebounds": "pr", "pts+asts": "pa", "points + assists": "pa", "rebs+asts": "ra", "rebounds + assists": "ra", "steals": "stl", "blocked shots": "blk", "blocks": "blk", "turnovers": "tov" };
-  var POOL = (PK && PK.pool) || [], SRVLEGS = PKLEGS, SRVSLIPS = (PK && PK.slips) || [], SRVMODE = PK ? PK.mode : null, BOARD = null, PPUI = { state: "idle" }, BKEY = "jg.ppboard." + (S.date || "none");
+  var BOARD_TTL = 3 * 3600 * 1000, POOL = (PK && PK.pool) || [], SRVLEGS = PKLEGS, SRVSLIPS = (PK && PK.slips) || [], SRVMODE = PK ? PK.mode : null, BOARD = null, PPUI = { state: "idle" }, BKEY = "jg.ppboard." + (S.date || "none");
   function normName(s) { return String(s || "").normalize("NFKD").replace(/[^\x00-\x7f]/g, "").toLowerCase().replace(/[.'`\-]/g, "").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "").replace(/\s+/g, " ").trim(); }
-  function parseBoard(j) {   // PrizePicks' JSON -> [{name, stat, line, odds_type}] (mirrors jghedge/data/prizepicks.parse_projections); null when it is not a board
+  var PP_TYPES = { standard: 0, demon: 1, goblin: 2 }, PP_TNAME = ["standard", "demon", "goblin", "other"];
+  function etDate(iso) { try { var d = new Date(iso); if (isNaN(d.getTime())) return null; return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(d); } catch (e) { return null; } }
+  function ppMult(a) {   // a payout multiplier, if the board carries one (field names are a guess: no real board is in the repository yet)
+    var keys = ["payout_multiplier", "multiplier", "odds_multiplier"];
+    for (var i = 0; i < keys.length; i++) { var v = Number(a[keys[i]]); if (a[keys[i]] != null && isFinite(v) && v > 0) return v; }
+    return null;
+  }
+  function parseBoard(j) {   // PrizePicks' JSON -> [{id, name, team, stat, line, odds_type, mult, start}] (mirrors jghedge/data/prizepicks.parse_projections); null when it is not a board
     if (!j || typeof j !== "object" || !Array.isArray(j.data)) return null;
     var who = {}, rows = [];
-    (j.included || []).forEach(function (inc) { if (inc && inc.type === "new_player") { var a = inc.attributes || {}; who[String(inc.id)] = a.display_name || a.name || ""; } });
+    (j.included || []).forEach(function (inc) { if (inc && inc.type === "new_player") { var a = inc.attributes || {}; who[String(inc.id)] = { name: a.display_name || a.name || "", team: a.team || a.team_name || "" }; } });
     j.data.forEach(function (d) {
       if (!d || (d.type && d.type !== "projection")) return;
-      var a = d.attributes || {}, rel = (((d.relationships || {}).new_player || {}).data) || {}, line = Number(a.line_score);
+      var a = d.attributes || {}, rel = (((d.relationships || {}).new_player || {}).data) || {}, line = Number(a.line_score), w = who[String(rel.id)] || {};
       if (a.line_score == null || a.line_score === "" || isNaN(line)) return;
-      rows.push({ name: who[String(rel.id)] || "", stat: PP_STATS[String(a.stat_type || "").replace(/\s+/g, " ").trim().toLowerCase()] || null, line: line, odds_type: String(a.odds_type || "standard").toLowerCase() });
+      rows.push({ id: d.id != null ? String(d.id) : null, name: w.name || "", team: w.team || "", stat: PP_STATS[String(a.stat_type || "").replace(/\s+/g, " ").trim().toLowerCase()] || null, stat_type: String(a.stat_type || ""),
+        line: line, odds_type: String(a.odds_type || "standard").toLowerCase(), mult: ppMult(a), start: a.start_time || null });
     });
     return rows;
   }
@@ -739,17 +748,19 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   }
   function refreshSlips() { if (PK) PK.slips = BOARD || CUSTOMPAY ? buildSlips() : SRVSLIPS; }   // the model run's slips stand until the lines or the payouts are the reader's own
   function applyBoard(rows, at) {   // lay PrizePicks' standard lines over the pool; returns what was found
-    var by = {}, byId = {}, legs = [], seen = {}, st = { at: at, lines: 0, alt: 0, matched: 0, differ: 0, far: 0, unknown: 0 };
+    var by = {}, byId = {}, legs = [], seen = {}, st = { at: at, lines: 0, alt: 0, matched: 0, differ: 0, far: 0, unknown: 0, unmatched: [], types: {} }, miss = {};
     POOL.forEach(function (r) { var k = normName(r.player) + "|" + r.stat; (by[k] = by[k] || []).push(r); byId[r.player_id + "|" + r.stat] = [r]; });
     (rows || []).forEach(function (x) {
       if (!x || !x.stat || (!x.name && !x.pid)) return;
+      st.types[x.odds_type] = (st.types[x.odds_type] || 0) + 1;
       if (x.odds_type !== "standard") { st.alt++; return; }
       st.lines++;
-      var c = x.pid ? byId[x.pid + "|" + x.stat] : by[normName(x.name) + "|" + x.stat]; if (!c || c.length !== 1) { st.unknown++; return; }
+      var c = x.pid ? byId[x.pid + "|" + x.stat] : by[normName(x.name) + "|" + x.stat]; if (!c || c.length !== 1) { st.unknown++; if (x.name) miss[x.name] = 1; return; }
       var r = c[0]; if (seen[r.id] || started(r.tip)) return;
       var leg = liveLeg(r, x.line); if (!leg) { st.far++; return; }
       seen[r.id] = 1; st.matched++; if (x.line !== r.line) st.differ++; legs.push(leg);
     });
+    st.unmatched = Object.keys(miss).sort();
     if (!legs.length || !PK) return st;
     PKLEGS = legs; PKBY = {}; legs.forEach(function (l) { PKBY[l.id] = l; });
     pk.ticked = []; pk.edited = {}; BOARD = st; PK.mode = "live_lines";
@@ -762,8 +773,9 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   }
   function useBoard(rows, at, quiet, from) {   // rows from PrizePicks, from a partner, or from the copy kept on this device -> the page
     var st = applyBoard(rows, at || Date.now());
+    if (st.matched) BOARDROWS = rows.filter(function (x) { return x && x.stat; });
     if (st.matched) { st.from = from || null; if (from && from.alt) st.alt = from.alt; PPUI = { state: "loaded" };
-      if (!quiet) { savePk(); store.set(BKEY, JSON.stringify({ at: st.at, from: st.from, rows: rows.filter(function (x) { return x && x.stat && (x.name || x.pid); }).map(function (x) { return [x.name || "", x.stat, x.line, x.odds_type === "standard" ? 0 : 1, x.pid || ""]; }) })); } }
+      if (!quiet) { savePk(); store.set(BKEY, JSON.stringify({ at: st.at, from: st.from, rows: rows.filter(function (x) { return x && x.stat && (x.name || x.pid); }).map(function (x) { return [x.name || "", x.stat, x.line, PP_TYPES[x.odds_type] != null ? PP_TYPES[x.odds_type] : 3, x.pid || "", x.team || "", x.mult || null]; }) })); } }
     else PPUI = { state: "nomatch", st: st };
     return st;
   }
@@ -778,44 +790,148 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
     var rows = []; m[4].split(",").forEach(function (tok) { var p = tok.split(":"), line = Number(p[2]); if (p.length === 3 && p[0] && p[1] && p[2] !== "" && !isNaN(line)) rows.push({ pid: p[0], stat: p[1], line: line, odds_type: "standard" }); });
     return { date: m[1], at: Number(m[2]), alt: Number(m[3]), rows: rows };
   }
-  function loadBoard() {   // this browser asks PrizePicks for its board; if PrizePicks does not let another page read it, the reader pastes it instead
-    if (typeof fetch !== "function") { PPUI = { state: "blocked" }; redrawPicks(); return; }
-    PPUI = { state: "loading" }; redrawPicks();
-    var rows = [], pages = 0;
-    var step = function (url) { return fetch(url, { headers: { Accept: "application/json" }, credentials: "omit", cache: "no-store" }).then(function (r) { return r.json().catch(function () { return null; }).then(function (j) { if (j && typeof j.error === "string") throw { said: j.error }; if (!r.ok) throw new Error("HTTP " + r.status); return j; }); }).then(function (j) {
-      var got = parseBoard(j); if (!got) throw new Error("not a board"); rows = rows.concat(got); pages++;
-      var next = j.links && j.links.next; if (next && pages < 8 && /^https:\/\/api\.prizepicks\.com\//.test(String(next))) return step(String(next)); }); };
-    step(PP_URL).then(function () { useBoard(rows); redrawPicks(); }).catch(function (e) { PPUI = { state: "blocked", said: e && e.said ? String(e.said) : null }; redrawPicks(); });
+  // ---- getting PrizePicks' board, and sharing it. No server can read PrizePicks, so whoever can opens the board's address on a phone,
+  // copies the text and pastes (or drops) it here. The page reads it at once; "Save for both" opens a pre-filled GitHub issue holding the
+  // board packed into one line ("JGB1." + deflated JSON, see jghedge/boards.py). A workflow archives it in the repository and the other
+  // person's page finds it by polling GitHub, so they press nothing.
+  var GH = (/github\.com\/([^\/\s]+)\/([^\/\s#?]+)/.exec(REPO) || []).slice(1).join("/"), BOARDROWS = [], STALE = null;
+  var SAVE = null, SKEY = "jg.ppsave." + (S.date || "none"), SYNC = { on: JG.live !== false && typeof fetch === "function" && !!GH, last: null, timer: null };
+  try { SAVE = JSON.parse(store.get(SKEY) || "null"); } catch (e) { SAVE = null; }
+  function b64url(bytes) { var s = "", i; for (i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+  function unb64url(t) { t = t.replace(/-/g, "+").replace(/_/g, "/"); while (t.length % 4) t += "="; var s = atob(t), out = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; }
+  function streamThrough(bytes, T) { return new Response(new Blob([bytes]).stream().pipeThrough(T)).arrayBuffer().then(function (b) { return new Uint8Array(b); }); }
+  function boardDay(rows) {   // the slate date (Eastern) most of the board's games fall on
+    var c = {}, best = null; rows.forEach(function (x) { var d = x.start ? etDate(x.start) : null; if (d) c[d] = (c[d] || 0) + 1; });
+    Object.keys(c).forEach(function (d) { if (best == null || c[d] > c[best]) best = d; }); return best || S.date;
   }
-  function pasteBoard(text) {
+  function packBoard(rows, at, meta) {   // -> Promise of "JGB1.<base64url deflate-raw JSON>" (or "JGB0." uncompressed)
+    var players = [], pix = {}, games = [], gix = {}, out = [];
+    rows.forEach(function (x) {
+      if (!x || !x.stat) return;
+      var pk_ = x.name + "|" + (x.team || ""); if (pix[pk_] == null) { pix[pk_] = players.length; players.push([x.name, x.team || null]); }
+      var gk = x.start || ""; if (gix[gk] == null) { gix[gk] = games.length; games.push(x.start || null); }
+      out.push([pix[pk_], x.stat, x.line, PP_TYPES[x.odds_type] != null ? PP_TYPES[x.odds_type] : 3, gix[gk], x.mult || null]);
+    });
+    var payload = { v: 1, read_at: new Date(at).toISOString().replace(/\.\d{3}Z$/, "Z"), date: boardDay(rows), n: (meta && meta.n) || rows.length, skipped: { unsupported: (meta && meta.unsupported) || 0 }, games: games, players: players, rows: out };
+    var raw = new TextEncoder().encode(JSON.stringify(payload));
+    if (typeof CompressionStream !== "function") return Promise.resolve({ text: "JGB0." + b64url(raw), payload: payload });
+    return streamThrough(raw, new CompressionStream("deflate-raw")).then(function (z) { return { text: "JGB1." + b64url(z), payload: payload }; })
+      .catch(function () { return { text: "JGB0." + b64url(raw), payload: payload }; });
+  }
+  function unpackBoard(text) {   // -> Promise of { payload, rows } or null
+    var m = /JGB([01])\.([A-Za-z0-9_\-]+)/.exec(String(text || "")); if (!m) return Promise.resolve(null);
+    var bytes; try { bytes = unb64url(m[2]); } catch (e) { return Promise.resolve(null); }
+    var raw = m[1] === "0" ? Promise.resolve(bytes) : typeof DecompressionStream === "function" ? streamThrough(bytes, new DecompressionStream("deflate-raw")) : Promise.reject(new Error("no inflate"));
+    return raw.then(function (b) {
+      var p = JSON.parse(new TextDecoder().decode(b)); if (!p || p.v !== 1 || !Array.isArray(p.rows) || !Array.isArray(p.players)) return null;
+      var rows = p.rows.map(function (r) { var pl = p.players[r[0]] || []; return { name: pl[0] || "", team: pl[1] || "", stat: r[1], line: Number(r[2]), odds_type: PP_TNAME[r[3]] || "other", start: (p.games || [])[r[4]] || null, mult: r[5] || null }; })
+        .filter(function (x) { return x.name && x.stat && !isNaN(x.line); });
+      return { payload: p, rows: rows, packed: m[0] };
+    }).catch(function () { return null; });
+  }
+  function issueUrl(packed, payload) {   // a pre-filled "Board <date>" issue; null when it would be too long for GitHub's address limit (assumed 7,000 characters)
+    var title = "Board " + payload.date + " · " + payload.rows.length + " lines · read " + payload.read_at;
+    var body = "Saved from the J&G desk. The desk reads the line below; please leave it as it is.\n\n```\n" + packed + "\n```\n";
+    var url = REPO + "/issues/new?title=" + encodeURIComponent(title) + "&body=" + encodeURIComponent(body);
+    return url.length <= 7000 ? url : null;
+  }
+  var PEND = null;   // the board just pasted on this device: { rows, n, unsupported, next, at, packed, url }
+  function readPasted(text) {   // pasted text -> the page (a board, or a JGPP1 hand-off from an older page)
+    var t = String(text || "").trim(); if (!t) return;
+    if (readShared(t)) { pasteBoard(t); return; }
+    if (/JGB[01]\./.test(t)) { unpackBoard(t).then(function (u) { if (!u) { PPUI = { state: "bad" }; redrawPicks(); return; } takeShared(u, { by: "pasted" }, true); }); return; }
+    var j = null; try { j = JSON.parse(t); } catch (e) { j = null; }
+    if (j && typeof j.error === "string") { PPUI = { state: "bad", said: j.error }; redrawPicks(); return; }
+    var rows = j ? parseBoard(j) : null;
+    if (!rows || !rows.length) { PPUI = { state: "bad" }; redrawPicks(); return; }
+    var now = Date.now(), keep = PEND && now - PEND.at < 20 * 60000 ? PEND.rows : [], ids = {};
+    keep.concat(rows).forEach(function (x) { ids[x.id || (x.name + "|" + x.stat + "|" + x.odds_type)] = x; });   // a second page of the board adds to the first
+    var all = Object.keys(ids).map(function (k) { return ids[k]; });
+    var nxt = j.links && j.links.next && /^https:\/\/api\.prizepicks\.com\//.test(String(j.links.next)) ? String(j.links.next) : null;
+    PEND = { rows: all, n: all.length, unsupported: all.filter(function (x) { return !x.stat; }).length, next: nxt, at: now, packed: null, url: null };
+    useBoard(all, now); if (PPUI.state !== "loaded") PPUI = { state: "nomatch", st: PPUI.st };
+    PPUI.fresh = true; SAVE = null; store.set(SKEY, "");
+    var mine = PEND; redrawPicks();
+    packBoard(all, now, { n: all.length, unsupported: PEND.unsupported }).then(function (pkd) { if (PEND !== mine) return; PEND.packed = pkd.text; PEND.payload = pkd.payload; PEND.url = issueUrl(pkd.text, pkd.payload); renderBoardBar(); });
+  }
+  function takeShared(u, from, local) {   // a board saved by either of us (from GitHub, or a JGB line pasted by hand)
+    var at = Date.parse(u.payload.read_at); if (isNaN(at)) return false;
+    if (u.payload.date !== S.date) return false;
+    if (Date.now() - at >= BOARD_TTL) { if (!BOARD || BOARD.at < at) STALE = { at: at, by: from && from.by }; return false; }
+    if (BOARD && BOARD.at >= at) return false;
+    useBoard(u.rows, at, false, { shared: !local, by: from && from.by, issue: from && from.issue }); STALE = null; return PPUI.state === "loaded";
+  }
+  function syncBoard() {   // the newest board saved for this slate, from GitHub's issues (fresh) and docs/data/board.json (once archived)
+    if (!SYNC.on) return Promise.resolve(null);
+    var api = "https://api.github.com/repos/" + GH + "/issues?state=all&sort=created&direction=desc&per_page=15", re = new RegExp("^\\s*Board\\s+" + S.date + "\\b", "i");
+    var fromIssues = fetch(api, { cache: "no-cache", headers: { Accept: "application/vnd.github+json" } }).then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
+      var hits = (Array.isArray(list) ? list : []).filter(function (i) { return i && !i.pull_request && re.test(i.title || ""); });
+      return Promise.all(hits.map(function (i) { return unpackBoard(i.body).then(function (u) { return u ? { u: u, from: { by: (i.user || {}).login || null, issue: i.number } } : null; }); }));
+    }).catch(function () { return []; });
+    var fromRepo = UPD.base ? fetch(UPD.base + "data/board.json", { cache: "no-cache" }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      return j && j.packed ? unpackBoard(j.packed).then(function (u) { return u ? [{ u: u, from: { by: (j.source || {}).by || null, issue: (j.source || {}).issue || null } }] : []; }) : []; }).catch(function () { return []; }) : Promise.resolve([]);
+    return Promise.all([fromIssues, fromRepo]).then(function (rs) {
+      var got = rs[0].concat(rs[1]).filter(function (x) { return x && x.u.payload.date === S.date; }).sort(function (a, b) { return Date.parse(b.u.payload.read_at) - Date.parse(a.u.payload.read_at); });
+      SYNC.last = Date.now();
+      if (SAVE && SAVE.state === "saving" && got.some(function (x) { return x.u.payload.read_at === SAVE.read_at; })) { var mine = got.filter(function (x) { return x.u.payload.read_at === SAVE.read_at; })[0]; SAVE = { state: "saved", read_at: SAVE.read_at, by: mine.from.by, issue: mine.from.issue }; store.set(SKEY, JSON.stringify(SAVE)); }
+      if (SAVE && SAVE.state === "saving" && Date.now() - SAVE.since > 15 * 60000) { SAVE.state = "failed"; store.set(SKEY, JSON.stringify(SAVE)); }
+      var changed = got.length ? takeShared(got[0].u, got[0].from, false) : false;
+      if (changed) { PEND = null; PPUI.fresh = false; }
+      redrawPicks();
+      return got[0] || null;
+    });
+  }
+  function startSaving() {   // the "Save for both" link was pressed: GitHub opens in a new tab; this page watches for the issue
+    if (!PEND || !PEND.payload) return;
+    SAVE = { state: "saving", read_at: PEND.payload.read_at, since: Date.now(), url: PEND.url }; store.set(SKEY, JSON.stringify(SAVE));
+    clearInterval(SYNC.fast); SYNC.fast = setInterval(function () { if (!SAVE || SAVE.state !== "saving") { clearInterval(SYNC.fast); return; } syncBoard(); }, 20000);
+    renderBoardBar();
+  }
+  function pasteBoard(text) {   // a JGPP1 hand-off (older pages), or PrizePicks' JSON
     var sh = readShared(text);
-    if (sh) {   // lines a partner loaded and sent over
-      if (sh.date !== S.date) { PPUI = { state: "paste", note: "Those lines are for " + dayName(sh.date) + ", and this page is showing " + dayName(S.date) + ". Switch the day at the top, or ask for that day's lines." }; redrawPicks(); return; }
+    if (sh) {
+      if (sh.date !== S.date) { PPUI = { state: "bad", note: "Those lines are for " + dayName(sh.date) + ", and this page is showing " + dayName(S.date) + "." }; redrawPicks(); return; }
       useBoard(sh.rows, sh.at, false, { partner: true, alt: sh.alt });
-      if (PPUI.state !== "loaded") PPUI = { state: "paste", note: "None of those lines matched a player priced on this slate. Reload both pages so they are on the same model run, then copy and paste again." };
+      if (PPUI.state !== "loaded") PPUI = { state: "bad", note: "None of those lines matched a player priced on this slate." };
       redrawPicks(); return;
     }
-    var j = null; try { j = JSON.parse(String(text || "").trim()); } catch (e) { j = null; }
-    var rows = j ? parseBoard(j) : null;
-    if (j && typeof j.error === "string") { PPUI = { state: "blocked", said: j.error }; redrawPicks(); return; }   // PrizePicks' own refusal, pasted
-    if (!rows) { PPUI = { state: "blocked", bad: true }; redrawPicks(); return; }
-    useBoard(rows); redrawPicks();
+    readPasted(text);
   }
   function redrawPicks() { renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); }
-  function boardBar() {   // one bar, shown on Tonight and on Player props
+  function boardCounts(st) {   // "412 lines: 380 standard, 20 demon, 12 goblin"
+    var t = st.types || {}, parts = ["standard", "demon", "goblin", "other"].filter(function (k) { return t[k]; }).map(function (k) { return t[k] + " " + k; });
+    var n = Object.keys(t).reduce(function (a, k) { return a + t[k]; }, 0);
+    return n + " lines" + (parts.length ? " (" + parts.join(", ") + ")" : "");
+  }
+  function boardBar() {   // one bar, shown on Tonight and on Player props: where the lines come from, and the one thing to do next
     if (!PK || (!POOL.length && !BOARD)) return "";
-    var s = PPUI.state, st = BOARD;
-    var pasteBox = "<textarea data-pp='text' placeholder='Paste the lines your partner copied' aria-label='Lines copied by a partner'></textarea><div class='row'><button type='button' class='btn sm' data-pp='paste'>Use the pasted lines</button></div>";
-    if (s === "paste") return "<div><b>Paste the lines your partner copied.</b> On their device they press “Load PrizePicks' board”, then “Copy lines for my partner”, and send you the text." + (PPUI.note ? " <b>" + esc(PPUI.note) + "</b>" : "") + "</div>" + pasteBox + "<div class='row'><button type='button' class='btn ghost sm' data-pp='idle'>Cancel</button></div>";
-    if (s === "loaded" && st) return "<div class='row'><span><b>PrizePicks' lines " + (st.from && st.from.partner ? "from your partner, read " : "loaded ") + esc(new Date(st.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })) + ".</b> " + st.matched + " picks priced at PrizePicks' own line" +
-      (st.differ ? ", " + st.differ + " of them at a different line from DraftKings'" : "") + "." + (st.alt ? " " + st.alt + " demon and goblin lines were left out: they pay differently." : "") + (st.unknown ? " " + st.unknown + " lines are for players or stats we have no sportsbook price for." : "") +
-      "</span><button type='button' class='btn sm' data-pp='share'>Copy lines for my partner</button>" + (st.from && st.from.partner ? "<button type='button' class='btn ghost sm' data-pp='askpaste'>Paste newer lines</button>" : "<button type='button' class='btn ghost sm' data-pp='load'>Load again</button>") + "<button type='button' class='btn ghost sm' data-pp='forget'>Back to DraftKings' lines</button></div>";
-    if (s === "loading") return "<div class='row'><span>Asking PrizePicks for its board…</span></div>";
-    if (s === "nomatch") return "<div class='row'><span>PrizePicks' board was read, but none of its " + ((PPUI.st || {}).lines || 0) + " standard lines matched a player priced on this slate" + (((PPUI.st || {}).far || 0) ? " (" + PPUI.st.far + " were too far from DraftKings' line to price)" : "") + ". The lines below are still DraftKings'.</span><button type='button' class='btn ghost sm' data-pp='load'>Try again</button></div>";
-    if (s === "blocked" && PPUI.said) return "<div><b>PrizePicks answered: “" + esc(PPUI.said) + "”</b> Its board can only be read from a connection PrizePicks serves, so it cannot be loaded here. Whoever enters the slips where PrizePicks operates can press this button on their own device. If your partner has loaded it, paste the lines they copied:</div>" + pasteBox + "<div class='row'><button type='button' class='btn ghost sm' data-pp='load'>Try loading again</button></div>";
-    if (s === "blocked") return "<div><b>" + (PPUI.bad ? "That did not read as PrizePicks' board." : "This browser was not allowed to read PrizePicks' board directly.") + "</b> Do it by hand, about ten seconds:</div><ol><li>Open <a href='" + PP_URL + "' target='_blank' rel='noopener'>PrizePicks' board address</a> in a new tab. It shows a page of text.</li><li>Select all of it and copy.</li><li>Paste it here and press the button.</li></ol>" +
-      "<textarea data-pp='text' placeholder='Paste the copied text here' aria-label='PrizePicks board text'></textarea><div class='row'><button type='button' class='btn sm' data-pp='paste'>Use the pasted board</button><button type='button' class='btn ghost sm' data-pp='load'>Try loading again</button></div>";
-    return "<div class='row'><span><b>These are DraftKings' lines, standing in for PrizePicks'.</b> Load PrizePicks' own lines and every pick and slip is re-priced at them. Your browser asks PrizePicks directly.</span><button type='button' class='btn sm' data-pp='load'>Load PrizePicks' board</button><button type='button' class='btn ghost sm' data-pp='askpaste'>Paste lines from a partner</button></div>";
+    var st = BOARD, s = PPUI.state, rd = function (t) { return esc(new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })); };
+    var openLink = "<a class='btn ghost sm' href='" + PP_URL + "' target='_blank' rel='noopener'>Open PrizePicks' board ↗</a>";
+    var box = "<textarea data-pp='text' rows='2' placeholder='Paste or drop the board text here' aria-label='PrizePicks board text'></textarea>";
+    var steps = "<ol class='ppsteps'><li>Open the board and copy all of its text.</li><li>Paste it below. It is read at once.</li></ol>";
+    var priced = function (x) { var m = x.matched || 0, tot = m + (x.unknown || 0) + (x.far || 0); return m + " of " + tot + " standard lines priced" + (tot ? " (" + (Math.floor(1000 * m / tot) / 10) + "%)" : "") + "."; };
+    var miss = function (x) { var u = x.unmatched || []; return u.length ? "<details class='ppmiss'><summary>" + u.length + " players not priced</summary><p class='small'>No sportsbook line to anchor them: " + esc(u.join(", ")) + ".</p></details>" : ""; };
+    var alt = function (x) { return x.alt ? " Demon and goblin lines are saved but not priced yet." : ""; };
+    if (s === "bad") return "<div><b>" + (PPUI.said ? "PrizePicks answered: “" + esc(PPUI.said) + "”" : PPUI.note ? esc(PPUI.note) : "That did not read as PrizePicks' board.") + "</b> Copy the whole page of text and paste it again.</div>" + box + "<div class='row'>" + openLink + "</div>";
+    if (s === "nomatch") return "<div><b>Board read, but no line matched a priced player.</b> " + esc(boardCounts(PPUI.st || {})) + ". Picks still use DraftKings' lines.</div>" + miss(PPUI.st || {}) + box;
+    if (st && PEND && PPUI.fresh) {   // pasted here, not saved yet / saving / saved / failed
+      var head = "<b>Board read: " + esc(boardCounts(st)) + ".</b> " + priced(st) + alt(st);
+      var more = PEND.next ? " <a href='" + esc(PEND.next) + "' target='_blank' rel='noopener'>PrizePicks has another page ↗</a>: paste it too." : "";
+      if (SAVE && SAVE.state === "saving") return "<div><b>Saving.</b> Press “Submit new issue” on the GitHub page. This page checks every 20 seconds.</div><div class='row'>" + (SAVE.url ? "<a class='btn sm' href='" + esc(SAVE.url) + "' target='_blank' rel='noopener' data-pp='save'>Open GitHub again</a>" : "") + "<button type='button' class='btn ghost sm' data-pp='unsave'>Undo</button></div>";
+      if (SAVE && SAVE.state === "failed") return "<div><b>Not saved.</b> No board reached GitHub in 15 minutes. Only this device has it.</div><div class='row'>" + (PEND.url ? "<a class='btn sm' href='" + esc(PEND.url) + "' target='_blank' rel='noopener' data-pp='save'>Try saving again</a>" : "") + "</div>";
+      if (SAVE && SAVE.state === "saved") return "<div><b>Saved for both at " + rd(Date.parse(SAVE.read_at)) + ".</b> " + priced(st) + alt(st) + "</div>" + miss(st) + "<div class='row'><button type='button' class='btn ghost sm' data-pp='askpaste'>Paste a newer board</button></div>";
+      var save = PEND.url ? "<a class='btn' href='" + esc(PEND.url) + "' target='_blank' rel='noopener' data-pp='save'>Save for both</a>"
+        : PEND.packed ? "<a class='btn' href='" + esc(REPO + "/issues/new?title=" + encodeURIComponent("Board " + PEND.payload.date + " · read " + PEND.payload.read_at) + "&body=" + encodeURIComponent("Paste here (the desk copied it): ")) + "' target='_blank' rel='noopener' data-pp='savecopy'>Copy and save for both</a>"
+        : "<span class='small'>Packing the board…</span>";
+      return "<div>" + head + more + "</div>" + miss(st) + "<div class='row'>" + save + "<button type='button' class='btn ghost sm' data-pp='forget'>Undo</button></div>" + (PEND.url || !PEND.packed ? "" : "<p class='small'>The board is too long for a link: the button copies it, then paste it into the issue and submit.</p>");
+    }
+    if (st && s === "loaded") {
+      var who = st.from && (st.from.shared || st.from.partner) ? "from " + esc(st.from.by && st.from.by !== "pasted" ? st.from.by : "your partner") + ", " : "";
+      return "<div><b>PrizePicks' board " + who + "read " + rd(st.at) + ".</b> " + priced(st) + alt(st) + "</div>" + miss(st) + "<div class='row'><button type='button' class='btn ghost sm' data-pp='askpaste'>Paste a newer board</button><button type='button' class='btn ghost sm' data-pp='forget'>Use stand-in lines</button></div>";
+    }
+    if (s === "paste") return "<div><b>Paste the new board.</b></div>" + steps + box + "<div class='row'>" + openLink + "<button type='button' class='btn ghost sm' data-pp='idle'>Cancel</button></div>";
+    if (STALE) return "<div><b>The last board is " + esc(agoText(new Date(STALE.at))) + " old.</b> Paste a fresh one before entering a slip.</div>" + box + "<div class='row'>" + openLink + "</div>";
+    return "<div><b>Picks use DraftKings' lines as stand-ins.</b> Paste PrizePicks' board to price its real lines.</div>" + steps + box + "<div class='row'>" + openLink + "</div>";
   }
   function renderBoardBar() {
     var html = boardBar();
@@ -823,16 +939,27 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
       var el = $(id); if (!el) return;
       var keep = el.querySelector("textarea[data-pp='text']"), typed = keep ? keep.value : "";
       el.hidden = !html || (id === "ppBarT" && !PKLEGS.length && !BOARD); el.innerHTML = html;
-      var ta = el.querySelector("textarea[data-pp='text']"); if (ta && typed) ta.value = typed;
-      el.querySelectorAll("[data-pp]").forEach(function (b) { if (b.tagName !== "BUTTON") return; b.addEventListener("click", function () {
-        var what = b.dataset.pp; if (what === "load") loadBoard(); else if (what === "forget") { forgetBoard(); redrawPicks(); } else if (what === "paste") pasteBoard((el.querySelector("textarea[data-pp='text']") || {}).value);
+      var ta = el.querySelector("textarea[data-pp='text']");
+      if (ta) {
+        if (typed) ta.value = typed;
+        ta.addEventListener("paste", function () { setTimeout(function () { readPasted(ta.value); }, 0); });   // a paste is read at once: no button
+        ta.addEventListener("change", function () { readPasted(ta.value); });
+        ta.addEventListener("dragover", function (e) { e.preventDefault(); });
+        ta.addEventListener("drop", function (e) { var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return; e.preventDefault(); f.text().then(readPasted); });
+      }
+      el.querySelectorAll("[data-pp]").forEach(function (b) { if (b.tagName !== "BUTTON" && b.tagName !== "A") return; b.addEventListener("click", function () {
+        var what = b.dataset.pp;
+        if (what === "save") startSaving();
+        else if (what === "savecopy") { copyText(PEND.packed, null, ""); startSaving(); }
+        else if (what === "unsave") { SAVE = null; store.set(SKEY, ""); renderBoardBar(); }
+        else if (what === "forget") { PEND = null; SAVE = null; store.set(SKEY, ""); forgetBoard(); redrawPicks(); }
         else if (what === "askpaste") { PPUI = { state: "paste" }; renderBoardBar(); } else if (what === "idle") { PPUI = { state: BOARD ? "loaded" : "idle" }; renderBoardBar(); }
-        else if (what === "share") copyText(shareText(), b, "Copy lines for my partner"); }); });
+      }); });
     });
   }
   // a payout table typed earlier on this device, and a board loaded in the last three hours for this slate, apply from the start
   try { var spay = JSON.parse(store.get("jg.pay") || "null"); if (spay && spay.power && spay.flex) setPayouts(spay, true); } catch (e) {}
-  try { var sb = JSON.parse(store.get(BKEY) || "null"); if (sb && sb.rows && Date.now() - sb.at < 3 * 3600 * 1000) useBoard(sb.rows.map(function (x) { return { name: x[0], stat: x[1], line: x[2], odds_type: x[3] ? "alt" : "standard", pid: x[4] || null }; }), sb.at, true, sb.from || null); } catch (e) {}
+  try { var sb = JSON.parse(store.get(BKEY) || "null"); if (sb && sb.rows) { if (Date.now() - sb.at < BOARD_TTL) useBoard(sb.rows.map(function (x) { return { name: x[0], stat: x[1], line: x[2], odds_type: PP_TNAME[x[3]] || "other", pid: x[4] || null, team: x[5] || "", mult: x[6] || null }; }), sb.at, true, sb.from || null); else STALE = { at: sb.at }; } } catch (e) {}
   restorePk();
   refreshSlips();
   function pAt(l) {   // chance at the (possibly typed) line, from the pick's price table
@@ -1286,7 +1413,7 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   $("quick").innerHTML = [5, 10, 20, 50].map(function (v) { return "<button type='button' data-amt='" + v + "'>$" + v + "</button>"; }).join("");
   $("quick").querySelectorAll("[data-amt]").forEach(function (b) { b.addEventListener("click", function () { var v = Number(b.dataset.amt); $("amount").value = v; $("amount").removeAttribute("aria-invalid"); setAmount(v); }); });
   function copyText(txt, btn, label) {
-    var done = function () { btn.textContent = "Copied"; setTimeout(function () { btn.textContent = label; }, 1500); };
+    var done = function () { if (!btn) return; btn.textContent = "Copied"; setTimeout(function () { btn.textContent = label; }, 1500); };
     var fb = function () { var ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) {} ta.remove(); done(); };
     if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, fb); else fb();
   }
@@ -1686,10 +1813,15 @@ footer.foot { border-top: 1px solid var(--rule); padding-block: 18px 30px; font-
   if (NEXTDAY) $("amountLabel").textContent = "How much do you want to bet on " + (DAYWORD === "Tomorrow" ? "tomorrow's" : DAYWORD + "'s") + " games?";
   renderMethod(); renderSlips(); renderPickRows(); renderBuilder(); renderTonight(); renderGames(); renderRecord(); renderOur(); gradeAll().then(renderOur);
   window.addEventListener("hashchange", route); route();
-  document.addEventListener("visibilitychange", function () { if (!document.hidden) { refreshViews(); fetchLive(); checkForUpdate(); } });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) { refreshViews(); fetchLive(); checkForUpdate(); syncBoard(); } });
   // live lines every 90 seconds and a build check every 5 minutes, only while the page is visible
   if (LIVE.on) { fetchLive(); TIMERS.live = setInterval(fetchLive, 90000); }
   if (JG.live !== false) { setTimeout(checkForUpdate, 4000); TIMERS.upd = setInterval(checkForUpdate, 300000); }
-  window.JG_DEBUG = { shareText: shareText, readShared: readShared, board: function () { return BOARD; }, legs: function () { return PKLEGS; }, pay: function () { return PAY; }, be: function () { return BE; }, parseBoard: parseBoard, useBoard: useBoard, buildSlips: buildSlips, breakEven: breakEven, normName: normName, ppui: function () { return PPUI; }, settleBet: settleBet, loadPlaced: loadPlaced, VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, preLine: preLine, savePk: savePk, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
+  if (JG.board && JG.board.packed && JG.board.date === S.date) unpackBoard(JG.board.packed).then(function (u) { if (u && takeShared(u, { by: (JG.board.source || {}).by || null, issue: (JG.board.source || {}).issue || null }, false)) redrawPicks(); else if (STALE) renderBoardBar(); });   // the newest saved board, as of this build
+  if (SYNC.on) {   // the shared board: on open, every two minutes, and every 20 seconds while a save is waiting for GitHub
+    setTimeout(syncBoard, 800); TIMERS.board = setInterval(function () { if (!document.hidden) syncBoard(); }, 120000);
+    if (SAVE && SAVE.state === "saving") SYNC.fast = setInterval(function () { if (!SAVE || SAVE.state !== "saving") { clearInterval(SYNC.fast); return; } syncBoard(); }, 20000);
+  }
+  window.JG_DEBUG = { shareText: shareText, readShared: readShared, board: function () { return BOARD; }, legs: function () { return PKLEGS; }, pay: function () { return PAY; }, be: function () { return BE; }, parseBoard: parseBoard, useBoard: useBoard, packBoard: packBoard, unpackBoard: unpackBoard, readPasted: readPasted, syncBoard: syncBoard, save: function () { return SAVE; }, pend: function () { return PEND; }, boardDay: boardDay, buildSlips: buildSlips, breakEven: breakEven, normName: normName, ppui: function () { return PPUI; }, settleBet: settleBet, loadPlaced: loadPlaced, VIEWDAY: VIEWDAY, date: S.date, BUILD: BUILD, preLine: preLine, savePk: savePk, LIVE: LIVE, SRV: SRV, BETS: BETS, GAMES: GAMES, liveProbs: liveProbs, liveReprice: liveReprice, applyLive: applyLive, espnMarket: espnMarket, refreshViews: refreshViews, normPpf: normPpf, checkForUpdate: checkForUpdate, UPD: UPD, state: state, plan: plan, slipNow: slipNow, slipValue: slipValue, legVoid: legVoid, legP: legP, beFor: beFor, slipKind: slipKind, PKBY: PKBY, settlePickem: settlePickem, pk: pk, item: item, IDS: IDS, gameWeights: gameWeights, bestSlip: bestSlip, pickStatus: pickStatus, gameStatus: gameStatus, BE_HI: BE_HI, BE_LO: BE_LO };
 })();
 </script>

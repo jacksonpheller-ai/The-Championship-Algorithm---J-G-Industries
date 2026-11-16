@@ -1,0 +1,53 @@
+name: J&G save a PrizePicks board
+
+# The page saves a pasted PrizePicks board by opening a pre-filled issue titled "Board <date> ...".
+# This archives it (data/boards/<slate date>/<UTC time>Z.json), publishes it as docs/data/board.json, which the
+# other person's page polls, and closes the issue. It prices nothing and does not start a model run.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: jg-board
+  cancel-in-progress: false
+
+jobs:
+  save:
+    if: startsWith(github.event.issue.title, 'Board ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Archive the board
+        run: python -m jghedge boards --event "$GITHUB_EVENT_PATH" --out "$RUNNER_TEMP/board.json"
+      - name: Commit and push
+        env:
+          BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git config user.name "jg-desk-bot"
+          git config user.email "jg-desk-bot@users.noreply.github.com"
+          git add data/boards docs/data/board.json 2>/dev/null || true
+          git diff --cached --quiet && exit 0
+          git commit -m "Board saved: issue #${{ github.event.issue.number }}"
+          # the hourly desk run may push while this runs: rebase onto it (board files never overlap its outputs)
+          for i in 1 2 3 4; do
+            git pull --rebase origin "$BRANCH" && git push origin "HEAD:$BRANCH" && break
+            sleep $((i * 5))
+          done
+          for b in main claude/wonderful-bell-w1m2r1; do
+            [ "$b" = "$BRANCH" ] && continue
+            git push origin "HEAD:refs/heads/$b" || echo "::warning::$b has diverged and was not updated"
+          done
+      - name: Tell the issue
+        if: always()
+        run: python -m jghedge boards --comment "$RUNNER_TEMP/board.json" || true

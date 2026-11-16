@@ -3696,10 +3696,13 @@
     "tip": "2026-11-15T23:00Z"
    }
   ],
-  "result": null,
+  "result": "win",
   "key": "flex5:401909989-pk-4066354-reb-3.5-less+401909989-pk-5041939-fg3m-1.5-less+401909990-pk-3062679-fg3m-1.5-less+401909991-pk-4277905-fg3m-2.5-less+401909992-pk-3134907-ast-3.5-less",
   "recorded_at": "2026-11-15T09:35:47+00:00",
-  "run_label": "opener"
+  "run_label": "opener",
+  "units": 1.0,
+  "hits": 4,
+  "graded": "2026-11-16T06:44:50+00:00"
  },
  {
   "date": "2026-11-15",
@@ -3818,9 +3821,256 @@
     "tip": "2026-11-16T00:00Z"
    }
   ],
-  "result": null,
+  "result": "loss",
   "key": "flex5:401909985-pk-3133603-fg3m-1.5-less+401909989-pk-5041939-fg3m-1.5-less+401909990-pk-3062679-fg3m-1.5-less+401909991-pk-6583-ast-2.5-less+401909992-pk-3134907-ast-3.5-less",
   "recorded_at": "2026-11-15T09:35:47+00:00",
+  "run_label": "opener",
+  "units": -1.0,
+  "hits": 2,
+  "graded": "2026-11-16T06:44:50+00:00"
+ },
+ {
+  "date": "2026-11-16",
+  "ref": "pk-1-flex5",
+  "type": "pickem",
+  "label": "Kyshawn George Less 2.5 3PM + Trae Young Less 2.5 3PM + Reed Sheppard Less 2.5 3PM + Derrick White Less 2.5 3PM + Jaden McDaniels Less 1.5 3PM",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0926,
+  "ev": 0.6283,
+  "ev_shrunk": 0.2847,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909996-pk-5174563-fg3m-2.5-less",
+    "game_id": "401909996",
+    "kind": "pickem",
+    "label": "Kyshawn George Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "5174563",
+    "player": "Kyshawn George",
+    "p_final": 0.6242,
+    "matchup": "MEM @ WSH",
+    "tip": "2026-11-17T00:00Z"
+   },
+   {
+    "id": "401909996-pk-4277905-fg3m-2.5-less",
+    "game_id": "401909996",
+    "kind": "pickem",
+    "label": "Trae Young Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4277905",
+    "player": "Trae Young",
+    "p_final": 0.6238,
+    "matchup": "MEM @ WSH",
+    "tip": "2026-11-17T00:00Z"
+   },
+   {
+    "id": "401909998-pk-4711272-fg3m-2.5-less",
+    "game_id": "401909998",
+    "kind": "pickem",
+    "label": "Reed Sheppard Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4711272",
+    "player": "Reed Sheppard",
+    "p_final": 0.6207,
+    "matchup": "HOU @ MIA",
+    "tip": "2026-11-17T00:30Z"
+   },
+   {
+    "id": "401909994-pk-3078576-fg3m-2.5-less",
+    "game_id": "401909994",
+    "kind": "pickem",
+    "label": "Derrick White Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "3078576",
+    "player": "Derrick White",
+    "p_final": 0.6191,
+    "matchup": "ORL @ BOS",
+    "tip": "2026-11-17T00:00Z"
+   },
+   {
+    "id": "401909999-pk-4431671-fg3m-1.5-less",
+    "game_id": "401909999",
+    "kind": "pickem",
+    "label": "Jaden McDaniels Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4431671",
+    "player": "Jaden McDaniels",
+    "p_final": 0.6191,
+    "matchup": "POR @ MIN",
+    "tip": "2026-11-17T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909994-pk-3078576-fg3m-2.5-less+401909996-pk-4277905-fg3m-2.5-less+401909996-pk-5174563-fg3m-2.5-less+401909998-pk-4711272-fg3m-2.5-less+401909999-pk-4431671-fg3m-1.5-less",
+  "recorded_at": "2026-11-16T06:44:34+00:00",
+  "run_label": "opener"
+ },
+ {
+  "date": "2026-11-16",
+  "ref": "pk-2-flex5",
+  "type": "pickem",
+  "label": "Kyshawn George Less 2.5 3PM + Trae Young Less 2.5 3PM + Reed Sheppard Less 2.5 3PM + Toumani Camara Less 2.5 3PM + Terrence Shannon Jr. Less 1.5 3PM",
+  "kind": "pickem",
+  "slip_type": "flex5",
+  "platform": "PrizePicks",
+  "line_source": "dk_proxy",
+  "payouts": {
+   "power": {
+    "2": 3.0,
+    "3": 6.0,
+    "4": 10.0,
+    "5": 20.0,
+    "6": 37.5
+   },
+   "flex": {
+    "3": [
+     3.0,
+     1.0
+    ],
+    "4": [
+     6.0,
+     1.5
+    ],
+    "5": [
+     10.0,
+     2.0,
+     0.4
+    ],
+    "6": [
+     25.0,
+     2.0,
+     0.4
+    ]
+   }
+  },
+  "price": null,
+  "dec": null,
+  "p_final": 0.0923,
+  "ev": 0.6236,
+  "ev_shrunk": 0.2828,
+  "frac": 0.0,
+  "paper": true,
+  "legs": [
+   {
+    "id": "401909996-pk-5174563-fg3m-2.5-less",
+    "game_id": "401909996",
+    "kind": "pickem",
+    "label": "Kyshawn George Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "5174563",
+    "player": "Kyshawn George",
+    "p_final": 0.6242,
+    "matchup": "MEM @ WSH",
+    "tip": "2026-11-17T00:00Z"
+   },
+   {
+    "id": "401909996-pk-4277905-fg3m-2.5-less",
+    "game_id": "401909996",
+    "kind": "pickem",
+    "label": "Trae Young Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4277905",
+    "player": "Trae Young",
+    "p_final": 0.6238,
+    "matchup": "MEM @ WSH",
+    "tip": "2026-11-17T00:00Z"
+   },
+   {
+    "id": "401909998-pk-4711272-fg3m-2.5-less",
+    "game_id": "401909998",
+    "kind": "pickem",
+    "label": "Reed Sheppard Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4711272",
+    "player": "Reed Sheppard",
+    "p_final": 0.6207,
+    "matchup": "HOU @ MIA",
+    "tip": "2026-11-17T00:30Z"
+   },
+   {
+    "id": "401909999-pk-4431736-fg3m-2.5-less",
+    "game_id": "401909999",
+    "kind": "pickem",
+    "label": "Toumani Camara Less 2.5 3PM",
+    "side": "less",
+    "line": 2.5,
+    "stat": "fg3m",
+    "player_id": "4431736",
+    "player": "Toumani Camara",
+    "p_final": 0.6187,
+    "matchup": "POR @ MIN",
+    "tip": "2026-11-17T01:00Z"
+   },
+   {
+    "id": "401909999-pk-4432847-fg3m-1.5-less",
+    "game_id": "401909999",
+    "kind": "pickem",
+    "label": "Terrence Shannon Jr. Less 1.5 3PM",
+    "side": "less",
+    "line": 1.5,
+    "stat": "fg3m",
+    "player_id": "4432847",
+    "player": "Terrence Shannon Jr.",
+    "p_final": 0.6171,
+    "matchup": "POR @ MIN",
+    "tip": "2026-11-17T01:00Z"
+   }
+  ],
+  "result": null,
+  "key": "flex5:401909996-pk-4277905-fg3m-2.5-less+401909996-pk-5174563-fg3m-2.5-less+401909998-pk-4711272-fg3m-2.5-less+401909999-pk-4431736-fg3m-2.5-less+401909999-pk-4432847-fg3m-1.5-less",
+  "recorded_at": "2026-11-16T06:44:34+00:00",
   "run_label": "opener"
  }
 ]
